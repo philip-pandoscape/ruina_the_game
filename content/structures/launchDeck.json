@@ -1,0 +1,12 @@
+{
+  "id": "launchDeck",
+  "name": "Glider Launch",
+  "w": 6,
+  "d": 8,
+  "h": 4,
+  "collider": "none",
+  "deck": 0.6,
+  "look": {
+    "body": "launchDeck"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "furniture",
+  "type": "object",
+  "properties": {
+    "w": {
+      "type": "number"
+    },
+    "d": {
+      "type": "number"
+    },
+    "h": {
+      "type": "number"
+    },
+    "collider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "r": {
+      "type": "number"
+    },
+    "parts": {
+      "type": "array"
+    },
+    "light": {
+      "type": "object"
+    },
+    "make": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "w",
+    "d",
+    "h",
+    "collider"
+  ],
+  "additionalProperties": false
+}

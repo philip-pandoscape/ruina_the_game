@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 // The page the tests play is served by Vite on this port. PW_PORT moves it, so two checkouts can
 // run their suites at once without one testing the other's code (TEST_PORT_OFFSET moves the
-// battle servers some tests start, tests/testServer.ts).
+// game servers some specs start of their own, tests/support/ownServer.ts).
 const port = Number(process.env.PW_PORT) || 5199;
 
 // Here the spec files play side by side, PW_WORKERS of them at once (each file that needs a battle
@@ -27,8 +27,12 @@ const wholeSuite = process.env.RUINA_WHOLE_SUITE === '1';
 
 // On Windows the tests run in the Edge browser that ships with Windows (no extra download).
 // Elsewhere they use Playwright's own Chromium: run `npx playwright install chromium` once.
+//
+// This is the integration tier: the game in a browser, with its servers (tests/integration), run
+// before a push to beta. The unit tier needs no browser (Vitest, vitest.config.ts); the stress tier
+// has a config of its own (playwright.stress.config.ts), run before a release.
 export default defineConfig({
-  testDir: 'tests',
+  testDir: 'tests/integration',
   // CI runners are slower than a desk machine and draw WebGL in software. There the suite is split
   // across runners test by test (.github/workflows/ci-cd.yml), a test gets twice as long, and one
   // that lost a race against the clock gets two more tries; a real failure fails all three.
@@ -39,7 +43,11 @@ export default defineConfig({
   fullyParallel: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   grepInvert: process.env.CI ? /@gpu/ : undefined,
-  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
+  // Every run also keeps each test's time in test-results/timings.json; `node tools/tests/timings.mjs`
+  // prints the slowest tests and files from it.
+  reporter: process.env.CI
+    ? [['list'], ['github'], ['json', { outputFile: 'test-results/timings.json' }]]
+    : [['list'], ['json', { outputFile: 'test-results/timings.json' }]],
   use: {
     baseURL: `http://localhost:${port}`,
     channel: process.platform === 'win32' ? 'msedge' : undefined,
@@ -54,7 +62,8 @@ export default defineConfig({
         { name: 'one at a time', grep: ALONE, workers: 1 },
       ],
   webServer: {
-    command: `npx vite --port ${port} --strictPort`,
+    // The engine's WebAssembly first (src/engine/load.ts): a moment when it's up to date.
+    command: `npm run engine && npx vite --port ${port} --strictPort`,
     url: `http://localhost:${port}`,
     reuseExistingServer: true,
     // Its first page can take most of a minute when other checkouts' suites are busy on the machine.

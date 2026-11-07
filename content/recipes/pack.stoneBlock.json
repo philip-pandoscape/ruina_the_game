@@ -1,0 +1,7 @@
+{
+  "id": "pack.stoneBlock",
+  "bench": "stonecutter",
+  "makes": {
+    "pack": "stoneBlock"
+  }
+}

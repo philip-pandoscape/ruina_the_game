@@ -1,0 +1,429 @@
+//! The browser's game (ruina_engine::session) through the plain interface: a page (or a test) makes
+//! a session, steps it once per fixed frame with what was pressed, and reads back you, the
+//! creatures, your life and what happened, as JSON in the shapes src/engine/ reads. Everything else the
+//! Engine does from outside the rules is one named call (`session_call`), so the interface stays
+//! small while what crosses it each frame stays cheap.
+
+use std::cell::RefCell;
+
+use std::collections::BTreeMap;
+
+use ruina_engine::life::land::{House, Land, Scarecrow};
+use ruina_engine::life::market::Market;
+use ruina_engine::life::state::LifeState;
+use ruina_engine::life::{Command, OtherPlayer, OthersVehicle, Placement};
+use ruina_engine::open::Mover;
+use ruina_engine::open::map::{Edges, Grown, world_map};
+use ruina_engine::open::zone::{BoxCollider, Heightfield, Obstacle, Zone};
+use ruina_engine::player::{Actions, Build};
+use ruina_engine::session::Session;
+use ruina_engine::skills::SKILL_WORDS;
+use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
+use ruina_engine::world::Spawn;
+use serde::Deserialize;
+use serde_json::{Map, Value, json};
+
+use crate::{give, text};
+
+thread_local! {
+    /// The sessions made, by handle less one; a freed one leaves a gap.
+    static SESSIONS: RefCell<Vec<Option<Session>>> = const { RefCell::new(Vec::new()) };
+}
+
+fn with<T>(h: u32, f: impl FnOnce(&mut Session) -> T) -> Option<T> {
+    SESSIONS.with(|s| s.borrow_mut().get_mut((h as usize).wrapping_sub(1)).and_then(Option::as_mut).map(f))
+}
+
+/// A build as the browser keeps one (src/content/build.ts Build), taken as it is: the page checks
+/// builds itself, and the server checks them again online.
+pub fn build_of(v: &Value) -> Option<Build> {
+    let mut b = Build { weapon: u8::try_from(v.get("weapon")?.as_u64()?).ok()?, ..Build::default() };
+    let mut skills = [0u32; SKILL_WORDS];
+    for (k, w) in v.get("skills")?.as_array()?.iter().take(SKILL_WORDS).enumerate() {
+        skills[k] = u32::try_from(w.as_u64()?).ok()?;
+    }
+    b.skills = skills;
+    let slots = |key: &str, out: &mut [u8], empty: u8| {
+        out.fill(empty);
+        for (k, a) in v.get(key).and_then(Value::as_array).into_iter().flatten().take(out.len()).enumerate() {
+            out[k] = a.as_u64().and_then(|n| u8::try_from(n).ok()).unwrap_or(empty);
+        }
+    };
+    let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];
+    let mut movement = [NO_MOVEMENT; MOVEMENT_SLOTS];
+    slots("abilities", &mut abilities, NO_ABILITY);
+    slots("movement", &mut movement, NO_MOVEMENT);
+    b.abilities = abilities;
+    b.movement = movement;
+    Some(b)
+}
+
+/// A new session from its options (JSON: `online`, `build`): its handle, or 0 if they can't be read.
+///
+/// # Safety
+/// `p..p + n` lies in room `alloc` gave.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn session_new(p: *const u8, n: usize) -> u32 {
+    let Ok(o) = serde_json::from_str::<Value>(unsafe { text(p, n) }) else { return 0 };
+    let Some(build) = o.get("build").and_then(build_of) else { return 0 };
+    let online = o.get("online").and_then(Value::as_bool).unwrap_or(false);
+    let s = Session::new(online, build);
+    SESSIONS.with(|list| {
+        let mut list = list.borrow_mut();
+        list.push(Some(s));
+        list.len() as u32
+    })
+}
+
+/// Lets a session go.
+#[unsafe(no_mangle)]
+pub extern "C" fn session_free(h: u32) {
+    SESSIONS.with(|s| {
+        if let Some(slot) = s.borrow_mut().get_mut((h as usize).wrapping_sub(1)) {
+            *slot = None;
+        }
+    });
+}
+
+/// One fixed step with what was pressed (src/engine/shapes.ts Actions). `flags`: jump pressed 1, jump
+/// held 2, attack pressed 4, slide pressed 8, sprint held 16, crouch held 32. Returns how many
+/// events are waiting.
+#[unsafe(no_mangle)]
+#[allow(clippy::too_many_arguments)]
+pub extern "C" fn session_step(
+    h: u32,
+    move_x: f64,
+    move_z: f64,
+    flags: u32,
+    ability_slot: u32,
+    movement_slot: u32,
+    movement_held: u32,
+    aim_x: f64,
+    aim_z: f64,
+    face_x: f64,
+    face_z: f64,
+    stick_x: f64,
+    stick_y: f64,
+) -> usize {
+    let a = Actions {
+        move_x,
+        move_z,
+        jump_pressed: flags & 1 != 0,
+        jump_held: flags & 2 != 0,
+        attack_pressed: flags & 4 != 0,
+        slide_pressed: flags & 8 != 0,
+        sprint_held: flags & 16 != 0,
+        crouch_held: flags & 32 != 0,
+        ability_slot: ability_slot as u8,
+        movement_slot: movement_slot as u8,
+        movement_held: movement_held as u8,
+        aim_x,
+        aim_z,
+        face_x,
+        face_z,
+        stick_x,
+        stick_y,
+    };
+    with(h, |s| {
+        s.step(&a);
+        s.events.len()
+    })
+    .unwrap_or(0)
+}
+
+/// Online, the world's clock (the server's, in seconds since 1970) the rain and the wind run on,
+/// for the next step; NaN for none (offline, the life's own clock).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_world_clock(h: u32, t: f64) {
+    with(h, |s| s.set_world_clock(if t.is_nan() { None } else { Some(t) }));
+}
+
+/// Your life as a tick has it (src/net/worldLink.ts WorldTick.life: JSON `{state, land, market,
+/// placing, resting}`), read straight from the text: it comes up to 20 times a second. True if it
+/// could be read.
+///
+/// # Safety
+/// `p..p + n` lies in room `alloc` gave.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn session_take_life(h: u32, p: *const u8, n: usize) -> u32 {
+    #[derive(Deserialize)]
+    struct Sent {
+        state: LifeState,
+        #[serde(default)]
+        land: Land,
+        #[serde(default)]
+        market: Market,
+        #[serde(default)]
+        placing: Option<Placement>,
+        #[serde(default)]
+        resting: bool,
+    }
+    let Ok(sent) = serde_json::from_str::<Sent>(unsafe { text(p, n) }) else { return 0 };
+    with(h, |s| s.take_life(sent.state, sent.land, sent.market, sent.placing, sent.resting)).is_some() as u32
+}
+
+/// Everything the page reads after a step (`events` 1: with what happened, taken) or a call (0),
+/// as JSON (Session::view_text).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_view(h: u32, events: u32) -> usize {
+    give(with(h, |s| s.view_text(events != 0)).unwrap_or_default())
+}
+
+/// A number that changes whenever what's solid in the world changes (Session::solid_key).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_solid_key(h: u32) -> u32 {
+    with(h, |s| s.solid_key()).unwrap_or(0)
+}
+
+/// Everything solid in the world as it stands (JSON `{obstacles, boxes, decks}`).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_colliders(h: u32) -> usize {
+    give(with(h, |s| s.colliders_json().to_string()).unwrap_or_default())
+}
+
+/// The region's cells kept clear of trees and scarecrows, where they lie (`session_clear_len` of them).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_clear_ptr(h: u32) -> *const u8 {
+    with(h, |s| s.clear().as_ptr()).unwrap_or(std::ptr::null())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn session_clear_len(h: u32) -> usize {
+    with(h, |s| s.clear().len()).unwrap_or(0)
+}
+
+/// What you press in a step, in the shape of src/engine/shapes.ts Actions.
+fn actions_of(v: &Value) -> Actions {
+    let f = |k: &str| v.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+    let b = |k: &str| v.get(k).and_then(Value::as_bool).unwrap_or(false);
+    let u = |k: &str| v.get(k).and_then(Value::as_u64).unwrap_or(0) as u8;
+    Actions {
+        move_x: f("moveX"),
+        move_z: f("moveZ"),
+        jump_pressed: b("jumpPressed"),
+        jump_held: b("jumpHeld"),
+        attack_pressed: b("attackPressed"),
+        slide_pressed: b("slidePressed"),
+        sprint_held: b("sprintHeld"),
+        crouch_held: b("crouchHeld"),
+        ability_slot: u("abilitySlot"),
+        movement_slot: u("movementSlot"),
+        movement_held: u("movementHeld"),
+        aim_x: f("aimX"),
+        aim_z: f("aimZ"),
+        face_x: f("faceX"),
+        face_z: f("faceZ"),
+        stick_x: f("stickX"),
+        stick_y: f("stickY"),
+    }
+}
+
+/// A value of the call's, read as `T` (None if it's missing or isn't one).
+fn field<T: for<'de> Deserialize<'de>>(v: &Value, k: &str) -> Option<T> {
+    v.get(k).filter(|x| !x.is_null()).and_then(|x| T::deserialize(x).ok())
+}
+
+/// Takes what happened since the last time: JSON, each event as src/engine/shapes.ts GameEvent has it.
+#[unsafe(no_mangle)]
+pub extern "C" fn session_events(h: u32) -> usize {
+    let list = with(h, |s| {
+        s.take_events()
+            .into_iter()
+            .map(|(frame, e)| {
+                let mut v = serde_json::to_value(e).unwrap_or(Value::Null);
+                if let Value::Object(m) = &mut v {
+                    m.insert("frame".into(), json!(frame));
+                }
+                v
+            })
+            .collect::<Vec<_>>()
+    });
+    give(serde_json::to_string(&list.unwrap_or_default()).unwrap_or_default())
+}
+
+/// You, as src/engine/shapes.ts PlayerState has you (JSON).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_player(h: u32) -> usize {
+    give(with(h, |s| s.player_json().to_string()).unwrap_or_default())
+}
+
+/// The creatures and what they've thrown (JSON `{list, missiles}`).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_actors(h: u32) -> usize {
+    give(with(h, |s| s.actors_json().to_string()).unwrap_or_default())
+}
+
+/// The life as the page shows it (JSON `{state, land, market, weather, now, focus, placing, resting,
+/// revision}`).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_life(h: u32) -> usize {
+    give(with(h, |s| s.life_json().to_string()).unwrap_or_default())
+}
+
+/// Hands the session's world a region its page's worker grew (src/engine/world/grower.ts,
+/// `region_grow` in its own engine): the region at `place` in the world's map, its heights (`hn`
+/// f32s from `hp`, row by row), its surfaces (`sn` bytes at `sp`), its cells kept clear (`cn` at
+/// `cp`), its edges as its recipe grew them (`en` f32s from `ep`), and what's solid on it (`jn`
+/// bytes of JSON at `jp`: `{obstacles, boxes, decks}`). Its ground is the rules' and what's on it solid
+/// from then on. 1 if taken; 0 if the arrays aren't that region's as the world places it.
+///
+/// # Safety
+/// Each pointer and its length lie in room `alloc` gave.
+#[unsafe(no_mangle)]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn session_adopt_region(
+    h: u32,
+    place: u32,
+    hp: *const u8,
+    hn: usize,
+    sp: *const u8,
+    sn: usize,
+    cp: *const u8,
+    cn: usize,
+    ep: *const u8,
+    en: usize,
+    jp: *const u8,
+    jn: usize,
+) -> u32 {
+    #[derive(Deserialize)]
+    struct Solids {
+        obstacles: Vec<Obstacle>,
+        boxes: Vec<BoxCollider>,
+        decks: Vec<BoxCollider>,
+    }
+    let read = |p: *const u8, n: usize| unsafe { std::slice::from_raw_parts(p, n) }.to_vec();
+    // The floats as the page wrote them, byte by byte (the room `alloc` gives is bytes, not floats).
+    let floats = |p: *const u8, n: usize| read(p, n * 4).as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect::<Vec<f32>>();
+    let Some(r) = world_map().regions().get(place as usize) else { return 0 };
+    let Ok(solids) = serde_json::from_str::<Solids>(unsafe { text(jp, jn) }) else { return 0 };
+    let t = &r.recipe().terrain;
+    // Where the generator puts the grid: centred on its origin (Heightfield::new).
+    let half = t.cells as f64 * t.cell / 2.0;
+    let (min_x, min_z) = (t.origin[0] - half, t.origin[1] - half);
+    let Some(terrain) = Heightfield::from_parts(t.cells, t.cell, t.water, min_x, min_z, floats(hp, hn), read(sp, sn)) else { return 0 };
+    let Some(edges) = Edges::from_parts(t.cells, t.cell, min_x, min_z, floats(ep, en)) else { return 0 };
+    let clear = read(cp, cn);
+    if clear.len() != t.cells * t.cells {
+        return 0;
+    }
+    let radius = terrain.size() / 2.0 - 8.0;
+    let zone = Zone { recipe: r.recipe().clone(), terrain, clear, obstacles: solids.obstacles, boxes: solids.boxes, decks: solids.decks, radius };
+    u32::from(with(h, |s| s.adopt_region(place as usize, Grown::of(zone, edges)).is_ok()).unwrap_or(false))
+}
+
+/// One of the Engine's other calls, named in `call` with its arguments beside it (JSON); the
+/// answer is JSON too (null for none).
+///
+/// # Safety
+/// `p..p + n` lies in room `alloc` gave.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn session_call(h: u32, p: *const u8, n: usize) -> usize {
+    let v = serde_json::from_str::<Value>(unsafe { text(p, n) }).unwrap_or(Value::Null);
+    let answer = with(h, |s| call(s, &v)).unwrap_or(Value::Null);
+    give(answer.to_string())
+}
+
+fn call(s: &mut Session, v: &Value) -> Value {
+    let num = |k: &str| v.get(k).and_then(Value::as_f64);
+    let n = |k: &str| num(k).unwrap_or(0.0);
+    let str_of = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or("");
+    match v.get("call").and_then(Value::as_str).unwrap_or("") {
+        "place" => s.place(n("x"), n("z"), n("facing"), num("fromY")),
+        "setBuild" => {
+            if let Some(b) = v.get("build").and_then(build_of) {
+                s.set_build(b);
+            }
+        }
+        "setLevels" => {
+            let levels: Vec<u32> = v.get("levels").and_then(Value::as_array).into_iter().flatten().map(|l| l.as_u64().unwrap_or(1) as u32).collect();
+            s.set_levels(&levels);
+        }
+        "command" => match v.get("command").cloned().map(serde_json::from_value::<Command>) {
+            Some(Ok(c)) => s.command(c),
+            Some(Err(e)) => return json!({ "error": e.to_string() }),
+            None => {}
+        },
+        "enterDungeon" => return json!(s.enter_dungeon(str_of("id"))),
+        "leaveDungeon" => s.leave_dungeon(),
+        "inside" => return json!(s.inside()),
+        "floorAt" => return json!(s.floor_at(n("x"), n("z"))),
+        "floorHere" => return json!(s.floor_here()),
+        "solidity" => return json!(s.solidity()),
+        "spaceGround" => return s.space_ground(),
+        "regionsHeld" => {
+            let (held, unheld) = s.regions_held();
+            return json!({ "held": held, "unheld": unheld });
+        }
+        "releaseRegion" => s.release_region(n("place") as usize),
+        "regionSolids" => return s.region_solids(n("place") as usize),
+        "groundY" => return json!(s.ground_y(n("x"), n("z"))),
+        "standingAt" => return json!(s.standing_at(n("x"), n("z"), n("near"), n("pad"))),
+        "loadLife" => return json!(v.get("data").is_some_and(|d| s.load_life(d, n("now")))),
+        "reset" => {
+            let at = &v["at"];
+            let f = |k: &str| at.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+            if let Some(b) = v.get("build").and_then(build_of) {
+                s.reset(Spawn { x: f("x"), z: f("z"), facing: f("facing") }, b);
+            }
+        }
+        "setVitals" => s.set_vitals(num("stamina"), num("mp")),
+        "calm" => s.calm(v.get("on").and_then(Value::as_bool).unwrap_or(false)),
+        "placeActor" => s.place_actor(str_of("kind"), n("i") as usize, n("x"), n("z")),
+        "setActor" => {
+            let empty = Map::new();
+            let fields = v.get("fields").and_then(Value::as_object).unwrap_or(&empty);
+            return json!(s.set_actor(n("id") as u32, fields));
+        }
+        "spawnActor" => return json!(s.spawn_actor(str_of("kind"), n("x"), n("z"))),
+        "spawnBand" => return json!(s.spawn_band(str_of("kind"), n("count") as usize, n("x"), n("z"))),
+        "hurtActor" => s.hurt_actor(n("id") as u32, n("amount")),
+        "takeHit" => s.take_hit(n("damage"), n("dirX"), n("dirZ"), n("knock")),
+        "frame" => return json!(s.frame),
+        "placed" => return json!(s.placed),
+        "lifeEvents" => return json!(s.life.as_mut().map(|l| l.drain_events()).unwrap_or_default()),
+        "takePlayer" => s.take_player(&v["player"]),
+        "replay" => {
+            let inputs: Vec<Actions> = v.get("inputs").and_then(Value::as_array).into_iter().flatten().map(actions_of).collect();
+            s.replay(&inputs, num("worldClock"));
+        }
+        "runAhead" => match field::<Command>(v, "command") {
+            Some(c) => s.run_ahead(&c),
+            None => return json!({ "error": "runAhead: no command" }),
+        },
+        "replayLife" => {
+            let you = &v["you"];
+            let f = |k: &str| you.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+            let ahead: Vec<Command> = field(v, "ahead").unwrap_or_default();
+            s.replay_life(
+                f("clock"),
+                f("labor"),
+                field(you, "weather").unwrap_or_default(),
+                field(you, "vehicles").unwrap_or_default(),
+                you.get("resting").and_then(Value::as_bool).unwrap_or(false),
+                field(you, "placing"),
+                &ahead,
+            );
+        }
+        "addSolidHouse" => match field::<House>(v, "house") {
+            Some(h) => s.add_solid_house(&h),
+            None => return json!({ "error": "addSolidHouse: no house" }),
+        },
+        "addSolidScarecrow" => match field::<Scarecrow>(v, "post") {
+            Some(sc) => s.add_solid_scarecrow(&sc),
+            None => return json!({ "error": "addSolidScarecrow: no post" }),
+        },
+        "movers" => {
+            // Others' vehicles: never yours (the session's player is owner 0).
+            let movers = v.get("movers").and_then(Value::as_array).into_iter().flatten().map(|m| {
+                let g = |k: &str| m.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+                Mover { owner: -1, x: g("x"), z: g("z"), r: g("r"), y: g("y"), height: g("height") }
+            });
+            s.set_movers(movers.collect());
+        }
+        "others" => {
+            s.set_others(field::<Vec<OthersVehicle>>(v, "vehicles"), field::<Vec<OtherPlayer>>(v, "around"), field::<BTreeMap<String, String>>(v, "plots"))
+        }
+        other => return json!({ "error": format!("no call {other}") }),
+    }
+    Value::Null
+}

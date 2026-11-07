@@ -1,0 +1,10 @@
+{
+  "id": "deed.hauler",
+  "name": "Hauler Deed",
+  "icon": "🚚",
+  "cat": "deed",
+  "stack": 1,
+  "value": 0,
+  "vehicle": "hauler",
+  "desc": "Summon your hauler. 8 pack slots."
+}

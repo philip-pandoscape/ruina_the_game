@@ -1,5 +1,5 @@
-import type { LifeEvent } from '../../sim/life/life';
-import type { Actions, GameEvent } from '../../sim/types';
+import type { LifeEvent } from '../../engine/life';
+import type { Actions, GameEvent } from '../../engine/rules';
 import { FrameGrabber, hudText, screenshot, type Screenshot } from './capture';
 import { errors, logs, recordError } from './logs';
 import { BugOverlay, type Keys } from './overlay';
@@ -21,7 +21,7 @@ export interface BugDeps {
   canvas: HTMLCanvasElement;
   /** Everything worth knowing about the game right now: player, world, camera, panels, perf. */
   snapshot(): Record<string, unknown>;
-  /** The island save in the same shape the browser keeps it (localStorage), or null. */
+  /** The life's save in the same shape the browser keeps it (localStorage), or null. */
   save(): unknown;
   /** A few numbers about the player for the timeline (ten times a second). */
   sample(): Record<string, unknown>;
@@ -104,8 +104,54 @@ function encodeActions(a: Actions): string {
 
 /** A few words from what was said, for the report's folder name ("cart-rolled-off-the-pier"). */
 export function slugFrom(text: string): string {
-  const filler = new Set(['so', 'um', 'umm', 'uh', 'uhh', 'er', 'okay', 'ok', 'hey', 'alright', 'right', 'well', 'yeah', 'hi', 'hello', 'oh', 'and', 'now', 'the', 'a', 'an', 'like', 'basically']);
-  const dangling = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'on', 'in', 'at', 'with', 'is', 'it', 'was', 'when', 'that', 'this', 'my', 'i', 'so']);
+  const filler = new Set([
+    'so',
+    'um',
+    'umm',
+    'uh',
+    'uhh',
+    'er',
+    'okay',
+    'ok',
+    'hey',
+    'alright',
+    'right',
+    'well',
+    'yeah',
+    'hi',
+    'hello',
+    'oh',
+    'and',
+    'now',
+    'the',
+    'a',
+    'an',
+    'like',
+    'basically',
+  ]);
+  const dangling = new Set([
+    'the',
+    'a',
+    'an',
+    'and',
+    'or',
+    'but',
+    'of',
+    'to',
+    'on',
+    'in',
+    'at',
+    'with',
+    'is',
+    'it',
+    'was',
+    'when',
+    'that',
+    'this',
+    'my',
+    'i',
+    'so',
+  ]);
   const words = text
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
@@ -152,7 +198,7 @@ export class BugReporter {
   private pressWall = 0;
   private endAt = 0;
   private atPress: Record<string, unknown> | null = null;
-  /** The island save at the press, already serialized: the live state keeps changing. */
+  /** The life's save at the press, already serialized: the live state keeps changing. */
   private saveAtPress: string | null = null;
   private hudAtPress = '';
   private shotAtPress: Promise<Screenshot | null> | null = null;
@@ -427,6 +473,11 @@ export class BugReporter {
   }
 
   private async checkServer(): Promise<void> {
+    // A built game (beta, production) has no dev server to keep reports: say so rather than fail.
+    if (!import.meta.env.DEV) {
+      this.serverProblem = 'Bug reports are kept by the development server (npm run dev): this build of the game can’t save them.';
+      return;
+    }
     try {
       const r = await fetch(`${ENDPOINT}/ping`, { cache: 'no-store' });
       const json = (r.headers.get('content-type') ?? '').includes('application/json');
@@ -514,7 +565,13 @@ export class BugReporter {
     const videoFile = video ? `video.${video.type.includes('mp4') ? 'mp4' : 'webm'}` : '';
     if (video) files.push({ name: videoFile, data: video });
 
-    const transcript = voice.segments.map((s) => ({ t0: rel(s.t0), t1: rel(s.t1), text: s.text, ...(s.confidence ? { confidence: round2(s.confidence) } : {}), ...(s.partial ? { partial: true } : {}) }));
+    const transcript = voice.segments.map((s) => ({
+      t0: rel(s.t0),
+      t1: rel(s.t1),
+      text: s.text,
+      ...(s.confidence ? { confidence: round2(s.confidence) } : {}),
+      ...(s.partial ? { partial: true } : {}),
+    }));
     const said = transcript.map((s) => s.text).join(' ');
     const save = this.saveAtPress;
     const perf = (this.atPress?.perf ?? {}) as Record<string, unknown>;
@@ -537,9 +594,18 @@ export class BugReporter {
         speechStatus: voice.speechStatus,
       },
       voice: wav
-        ? { file: 'voice.wav', startsAt: rel(voice.startedAt), seconds: round2(wav.seconds), peak: round3(wav.peak), rms: round3(wav.rms), silent: wav.peak < 0.02 }
+        ? {
+            file: 'voice.wav',
+            startsAt: rel(voice.startedAt),
+            seconds: round2(wav.seconds),
+            peak: round3(wav.peak),
+            rms: round3(wav.rms),
+            silent: wav.peak < 0.02,
+          }
         : { file: null, why: voice.micError || (audio ? 'the recording could not be decoded' : 'nothing was recorded') },
-      video: video ? { file: videoFile, type: video.type, startsAt: rel(this.videoStartedAt), bytes: video.size } : { file: null, why: this.videoError || 'nothing was recorded' },
+      video: video
+        ? { file: videoFile, type: video.type, startsAt: rel(this.videoStartedAt), bytes: video.size }
+        : { file: null, why: this.videoError || 'nothing was recorded' },
       screenshots: {
         press: press ? { file: 'screenshot.jpg', hud: press.hud } : null,
         end: endShot ? { file: 'screenshot-end.jpg', hud: endShot.hud } : null,
@@ -592,7 +658,9 @@ export class BugReporter {
       'Times are seconds from the moment the report key was pressed.',
       '',
       ...transcript.map((s) => `[${s.t0 >= 0 ? '+' : ''}${s.t0.toFixed(1)}s] ${s.text}${s.partial ? ' (cut off)' : ''}`),
-      ...(transcript.length ? [] : [wav ? '(Nothing was transcribed. voice.wav has the recording: node tools/bugs.mjs transcribe <id>.)' : '(No voice was recorded.)']),
+      ...(transcript.length
+        ? []
+        : [wav ? '(Nothing was transcribed. voice.wav has the recording: node tools/bugs.mjs transcribe <id>.)' : '(No voice was recorded.)']),
       ...(note ? ['', `Typed note: ${note}`] : []),
       '',
     ];
@@ -650,7 +718,11 @@ export class BugReporter {
       return JSON.parse(text) as Record<string, unknown>;
     };
     if (!job.id) {
-      const begin = await call(`${ENDPOINT}/begin`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ slug: job.slug, test: this.d.test }) });
+      const begin = await call(`${ENDPOINT}/begin`, {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ slug: job.slug, test: this.d.test }),
+      });
       job.id = String(begin.id);
     }
     const id = job.id;

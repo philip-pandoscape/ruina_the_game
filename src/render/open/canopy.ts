@@ -1,16 +1,15 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../../rng';
+import { makeRng, range } from '../../util/rng';
 import { toon } from '../toon';
 import { foliageTime } from './leaves';
+import { TAU } from '../../util/math';
 
-// The new look's crowns: soft, painterly masses of foliage, as in the island's reference picture.
+// The crowns: soft, painterly masses of foliage, as in Emberholm's reference picture.
 // Each crown is a few hundred small clumps of leaves (or tufts of needles, for the pines) scattered
 // over the surface of a rough shape, every clump turned to face the camera, so the crown never shows
 // a flat card edge on. Each clump is lit with the normal of the shape at that point, so the whole
 // crown shades as one rounded mass: sunlit on top, dark underneath and inside, glowing a little
 // where the sun shines through. Far off, fewer and bigger clumps make the same shape.
-
-const TAU = Math.PI * 2;
 
 function canvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
@@ -65,7 +64,14 @@ export function clumpTexture(): THREE.CanvasTexture {
     const a = rng() * TAU;
     const rr = rim ? R * (0.55 + 0.45 * Math.sqrt(rng())) : R * 0.6 * Math.sqrt(rng());
     const len = range(rng, 34, 56);
-    leaves.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr, len, w: len * range(rng, 0.42, 0.56), ang: a + range(rng, -0.8, 0.8), l: range(rng, 0.7, 0.96) });
+    leaves.push({
+      x: cx + Math.cos(a) * rr,
+      y: cy + Math.sin(a) * rr,
+      len,
+      w: len * range(rng, 0.42, 0.56),
+      ang: a + range(rng, -0.8, 0.8),
+      l: range(rng, 0.7, 0.96),
+    });
   }
   leaves.sort((p, q) => p.l - q.l);
   for (const f of leaves) {
@@ -369,7 +375,9 @@ export function clumpMaterial(map: THREE.Texture, aspect: [number, number] = [1,
   mat = toon(0xffffff, { map, vertexColors: true, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = foliageTime;
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${HEAD}`).replace('#include <project_vertex>', billboard(true, aspect));
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\n${HEAD}`)
+      .replace('#include <project_vertex>', billboard(true, aspect));
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n${DISSOLVE}`)
       .replace('#include <alphatest_fragment>', `${KEEP_EDGES}\n#include <alphatest_fragment>`)
@@ -391,7 +399,9 @@ export function clumpDepthMaterial(map: THREE.Texture, aspect: [number, number] 
   mat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.5 });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = foliageTime;
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${HEAD}`).replace('#include <project_vertex>', billboard(false, aspect));
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\n${HEAD}`)
+      .replace('#include <project_vertex>', billboard(false, aspect));
   };
   mat.customProgramCacheKey = () => `crown-clumps-depth:${key}`;
   depthMaterials.set(key, mat);

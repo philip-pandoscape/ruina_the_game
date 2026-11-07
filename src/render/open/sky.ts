@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRng, range } from '../../rng';
-import { NEW_LOOK, PALETTE, POST } from '../look';
-import { toon } from '../toon';
+import { makeRng, range } from '../../util/rng';
+import { GRAPHICS, PALETTE, POST } from '../look';
 
 // Sky dome, sun, drifting clouds and the world tree standing over the horizon.
 
@@ -52,15 +51,16 @@ export class SkyView {
   private clouds: THREE.InstancedMesh;
   private cloudBase: Array<{ x: number; y: number; z: number; s: number; r: number }> = [];
   private dummy = new THREE.Object3D();
-  /** The new look's world tree: partly lit from within by day, dark against the night. */
-  private selfLit: SelfLit[] = [];
-  /** The new look's clouds: painted light, bright tops and blue-grey bellies, never brighter than white. */
+  /** The clouds: painted light, bright tops and blue-grey bellies, never brighter than white. */
   private cloudLight = cloudShading();
-  /** The new look's world tree, shaded the same way in the haze's colours (depth not written: the
-   *  screen haze treats it as sky, so its haze is painted in here). */
+  /** The world tree, shaded the same way in the haze's colours (depth not written: the screen
+   *  haze treats it as sky, so its haze is painted in here). */
   private treeLight = (() => {
     const t = cloudShading(10, 55);
     t.material.depthWrite = false;
+    // Past the end of the view (a short one, at low quality) it is drawn on the far plane, as the
+    // sky is, rather than cut off.
+    t.material.defines = { HOLD_AT_FAR: '' };
     return t;
   })();
 
@@ -72,9 +72,9 @@ export class SkyView {
       uSun: { value: new THREE.Color(0xfff3d6) },
       uMoonDir: { value: new THREE.Vector3(-0.4, 0.55, -0.7).normalize() },
       uNight: { value: 0 },
-      // The new look's sun is brighter than white, so its bloom catches it.
-      uDisc: { value: NEW_LOOK ? POST.sunDisc : 0.9 },
-      // The classic look keeps the horizon colour all the way down.
+      // The sun is brighter than white, so the bloom catches it.
+      uDisc: { value: POST.sunDisc },
+      // The far sea under the horizon (seaFar).
       uSeaFar: { value: new THREE.Color(SKY_HORIZON) },
     };
     const mat = new THREE.ShaderMaterial({
@@ -90,27 +90,18 @@ export class SkyView {
     this.dome.frustumCulled = false;
     this.group.add(this.dome);
 
-    // Clouds: a few lumpy puffs each, flat-bottomed, scattered high over the isle.
-    const puff = (x: number, y: number, z: number, r: number) => {
-      const g = new THREE.IcosahedronGeometry(r, 1);
-      g.translate(x, y, z);
-      return g;
-    };
-    const cloudGeo = NEW_LOOK
-      ? cumulus()
-      : mergeGeometries([puff(0, 0, 0, 9), puff(9, -1.5, 2, 7), puff(-9, -2, -1, 6.5), puff(4, 3.5, -3, 6), puff(-4, 2.5, 3, 5.5), puff(15, -3, -2, 4.5)]);
-    if (!NEW_LOOK) {
-      const p = cloudGeo.attributes.position;
-      for (let i = 0; i < p.count; i++) if (p.getY(i) < -2.5) p.setY(i, -2.5 + (p.getY(i) + 2.5) * 0.25);
-      cloudGeo.computeVertexNormals();
-    }
+    // Clouds: lumpy and flat-bottomed, scattered high over the isle; how many is the quality's.
     const rng = makeRng(4242);
-    const count = NEW_LOOK ? 58 : 46;
-    const cl = PALETTE.clouds;
-    const cloudMat = NEW_LOOK ? this.cloudLight.material : toon(cl.color, { emissive: cl.emissive, emissiveIntensity: cl.emissiveIntensity });
-    this.clouds = new THREE.InstancedMesh(cloudGeo, cloudMat, count);
+    const { count, detail } = GRAPHICS.clouds;
+    this.clouds = new THREE.InstancedMesh(cumulus(detail), this.cloudLight.material, count);
     for (let i = 0; i < count; i++) {
-      this.cloudBase.push({ x: range(rng, -1300, 1300), y: range(rng, 170, 290), z: range(rng, -1300, 1300), s: range(rng, 0.8, 2.1) * (NEW_LOOK ? 1.25 : 1), r: rng() * Math.PI * 2 });
+      this.cloudBase.push({
+        x: range(rng, -1300, 1300),
+        y: range(rng, 170, 290),
+        z: range(rng, -1300, 1300),
+        s: range(rng, 0.8, 2.1) * 1.25,
+        r: rng() * Math.PI * 2,
+      });
     }
     this.clouds.frustumCulled = false;
     this.clouds.castShadow = false;
@@ -125,11 +116,14 @@ export class SkyView {
     }
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    this.stars = new THREE.Points(
+      sg,
+      new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }),
+    );
     this.stars.frustumCulled = false;
     this.stars.renderOrder = -9;
     this.group.add(this.stars);
-    this.group.add(worldTree(this.selfLit, this.treeLight));
+    this.group.add(worldTree(this.treeLight.material));
     this.update(0, 0, 0);
   }
 
@@ -137,7 +131,7 @@ export class SkyView {
   setLight(top: THREE.Color, horizon: THREE.Color, sunDir: THREE.Vector3, sun: THREE.Color, night: number, moonDir: THREE.Vector3): void {
     (this.uniforms.uTop.value as THREE.Color).copy(top);
     (this.uniforms.uHorizon.value as THREE.Color).copy(horizon);
-    (this.uniforms.uSeaFar.value as THREE.Color).copy(NEW_LOOK ? seaFar(horizon, night) : horizon);
+    (this.uniforms.uSeaFar.value as THREE.Color).copy(seaFar(horizon, night));
     (this.uniforms.uSunDir.value as THREE.Vector3).copy(sunDir);
     (this.uniforms.uSun.value as THREE.Color).copy(sun);
     (this.uniforms.uMoonDir.value as THREE.Vector3).copy(moonDir);
@@ -146,17 +140,29 @@ export class SkyView {
     this.stars.visible = night > 0.15;
     const cu = this.cloudLight.uniforms;
     (cu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
-    (cu.uLit.value as THREE.Color).setRGB(1.12, 1.1, 1.06).lerp(sun, 0.25).multiplyScalar(1 - night * 0.82);
-    (cu.uShade.value as THREE.Color).copy(top).lerp(horizon, 0.55).lerp(new THREE.Color(0x9aa6b8), 0.5).multiplyScalar(1 - night * 0.78);
+    (cu.uLit.value as THREE.Color)
+      .setRGB(1.12, 1.1, 1.06)
+      .lerp(sun, 0.25)
+      .multiplyScalar(1 - night * 0.82);
+    (cu.uShade.value as THREE.Color)
+      .copy(top)
+      .lerp(horizon, 0.55)
+      .lerp(new THREE.Color(0x9aa6b8), 0.5)
+      .multiplyScalar(1 - night * 0.78);
     const tu = this.treeLight.uniforms;
     const leaves = new THREE.Color(PALETTE.worldTree.leaves);
     (tu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
-    (tu.uLit.value as THREE.Color).copy(leaves).lerp(horizon, 0.5).lerp(sun, 0.1).multiplyScalar(1.05 * (1 - night * 0.8));
-    (tu.uShade.value as THREE.Color).copy(leaves).multiplyScalar(0.55).lerp(horizon, 0.62).lerp(top, 0.1).multiplyScalar(1 - night * 0.8);
-    for (const s of this.selfLit) {
-      s.mat.emissiveIntensity = s.glow * (1 - night * 0.85);
-      s.mat.color.copy(s.color).multiplyScalar(1 - night * 0.7);
-    }
+    (tu.uLit.value as THREE.Color)
+      .copy(leaves)
+      .lerp(horizon, 0.5)
+      .lerp(sun, 0.1)
+      .multiplyScalar(1.05 * (1 - night * 0.8));
+    (tu.uShade.value as THREE.Color)
+      .copy(leaves)
+      .multiplyScalar(0.55)
+      .lerp(horizon, 0.62)
+      .lerp(top, 0.1)
+      .multiplyScalar(1 - night * 0.8);
   }
 
   /** Keeps the dome around the camera and drifts the clouds with the wind. */
@@ -180,10 +186,10 @@ export class SkyView {
   }
 }
 
-// The new look's clouds: a cauliflower of lumps with a flat belly, its normals leaning out from the
-// middle, lit by a shader that keeps them below the bloom: white where the sun falls, the sky's
-// blue-grey underneath.
-function cumulus(): THREE.BufferGeometry {
+// A cloud: a cauliflower of lumps with a flat belly, its normals leaning out from the middle, lit
+// by a shader that keeps it below the bloom: white where the sun falls, the sky's blue-grey
+// underneath. `detail` is how finely each lump is cut (an icosahedron's).
+function cumulus(detail: number): THREE.BufferGeometry {
   const rng = makeRng(77);
   const lumps: THREE.BufferGeometry[] = [];
   const centre = new THREE.Vector3(0, 2, 0);
@@ -191,7 +197,7 @@ function cumulus(): THREE.BufferGeometry {
     const a = rng() * Math.PI * 2;
     const d = k === 0 ? 0 : range(rng, 3, 15);
     const r = k === 0 ? 10 : range(rng, 4.5, 8.5) * (1 - d / 30);
-    const g = new THREE.IcosahedronGeometry(r, 2);
+    const g = new THREE.IcosahedronGeometry(r, detail);
     g.translate(Math.cos(a) * d * 1.3, range(rng, -1, 4) + (1 - d / 15) * 3, Math.sin(a) * d * 0.8);
     lumps.push(g);
   }
@@ -201,7 +207,10 @@ function cumulus(): THREE.BufferGeometry {
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
     if (p.getY(i) < -2.5) p.setY(i, -2.5 + (p.getY(i) + 2.5) * 0.2);
-    v.fromBufferAttribute(p, i).sub(centre).multiply(new THREE.Vector3(0.6, 1, 0.8)).normalize();
+    v.fromBufferAttribute(p, i)
+      .sub(centre)
+      .multiply(new THREE.Vector3(0.6, 1, 0.8))
+      .normalize();
     v.lerp(new THREE.Vector3(n.getX(i), n.getY(i), n.getZ(i)), 0.5).normalize();
     n.setXYZ(i, v.x, v.y, v.z);
   }
@@ -235,6 +244,9 @@ function cloudShading(upFrom = -2.5, upSpan = 16): { material: THREE.ShaderMater
         #else
           gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
         #endif
+        #ifdef HOLD_AT_FAR
+          gl_Position.z = min(gl_Position.z, gl_Position.w);
+        #endif
       }
     `,
     fragmentShader: /* glsl */ `
@@ -254,23 +266,16 @@ function cloudShading(upFrom = -2.5, upSpan = 16): { material: THREE.ShaderMater
   return { material, uniforms };
 }
 
-// The tree the world is named for: a hazy giant far to the north, past the sea. No fog on it -
-// the haze is painted in - so it stays a silhouette however far the fog is set. The new look lays
-// its haze on from the depth buffer, so there the tree stays out of it (it is far behind everything).
-interface SelfLit {
-  mat: THREE.MeshToonMaterial;
-  glow: number;
-  color: THREE.Color;
-}
-
 /** The far sea as seen from the air: the deep sea's blue under the horizon's haze. */
 export function seaFar(horizon: THREE.Color, night: number): THREE.Color {
   return new THREE.Color(PALETTE.sea.deep).multiplyScalar(1 - night * 0.6).lerp(horizon, 0.45);
 }
 
-const selfLit = (mat: THREE.MeshToonMaterial): SelfLit => ({ mat, glow: mat.emissiveIntensity, color: mat.color.clone() });
+// The tree the world is named for: a hazy giant far to the north, past the sea. The screen haze
+// (post.ts) is laid on from the depth buffer, which the tree doesn't write (it is far behind
+// everything), so it paints its own haze in.
 
-/** The new look's world tree: lumps of crown and a flared trunk, in one geometry, in its local metres. */
+/** The world tree: lumps of crown and a flared trunk, in one geometry, in its local metres. */
 function giantTree(): THREE.BufferGeometry {
   const rng = makeRng(911);
   const parts: THREE.BufferGeometry[] = [];
@@ -308,53 +313,11 @@ function giantTree(): THREE.BufferGeometry {
   return g;
 }
 
-function worldTree(lit: SelfLit[], shading?: { material: THREE.ShaderMaterial }): THREE.Group {
+function worldTree(material: THREE.Material): THREE.Group {
   const tree = new THREE.Group();
-  if (NEW_LOOK && shading) {
-    const giant = new THREE.Mesh(giantTree(), shading.material);
-    giant.frustumCulled = false;
-    tree.add(giant);
-    tree.position.set(-520, -40, 1900);
-    tree.scale.setScalar(8.5);
-    return tree;
-  }
-  // Flat facets in the classic look; in the new one normals out from each crown's middle, so it
-  // reads as a soft mass of leaves.
-  const facet = (g: THREE.BufferGeometry) => {
-    const n = g.toNonIndexed();
-    n.computeVertexNormals();
-    if (NEW_LOOK && g.type === 'IcosahedronGeometry') {
-      const p = n.attributes.position;
-      const v = new THREE.Vector3();
-      for (let i = 0; i < p.count; i++) {
-        v.fromBufferAttribute(p, i).normalize();
-        n.attributes.normal.setXYZ(i, v.x, v.y, v.z);
-      }
-    }
-    return n;
-  };
-  const wt = PALETTE.worldTree;
-  // In the new look it is mostly lit from within, as something seen through miles of air is.
-  const haze = (hex: number) => (NEW_LOOK ? { emissive: hex, emissiveIntensity: 0.55 } : {});
-  const trunkMat = toon(wt.trunk, { fog: false, depthWrite: !NEW_LOOK, ...haze(wt.trunk) });
-  const trunk = new THREE.Mesh(facet(new THREE.CylinderGeometry(5, 10, 44, 9)), trunkMat);
-  trunk.position.y = 22;
-  tree.add(trunk);
-  const leaf = toon(wt.leaves, { fog: false, depthWrite: !NEW_LOOK, ...haze(wt.leaves) });
-  if (NEW_LOOK) lit.push(selfLit(trunkMat), selfLit(leaf));
-  const blobs: Array<[number, number, number, number]> = [
-    [0, 44, 0, 18],
-    [-19, 39, 6, 12],
-    [18, 40, -4, 13],
-    [6, 53, 4, 11],
-    [-9, 50, -10, 11],
-    [12, 30, 10, 8],
-  ];
-  for (const [x, y, z, r] of blobs) {
-    const m = new THREE.Mesh(facet(new THREE.IcosahedronGeometry(r, 0)), leaf);
-    m.position.set(x, y, z);
-    tree.add(m);
-  }
+  const giant = new THREE.Mesh(giantTree(), material);
+  giant.frustumCulled = false;
+  tree.add(giant);
   tree.position.set(-520, -40, 1900);
   tree.scale.setScalar(8.5);
   return tree;

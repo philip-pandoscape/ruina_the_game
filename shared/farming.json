@@ -1,5 +1,5 @@
 {
-  "comment": "Crops, trees and the weather that grows them. Read by src/content/farming.ts. Times are real seconds of world time (the world clock keeps running while you are away, at the offline rate in trade.json's clock section). A plant passes through `stages` looks; the last is ripe. Growth runs faster in its own climate and slower elsewhere, faster still when watered or rained on. `gathering` is what each resource node in a zone gives, for how much labor, and how long it takes to come back. `animals` are raised in plot cells like crops: fed instead of watered (they only grow and produce while fed), and collected again and again once grown.",
+  "comment": "Built from content/farming.json by tools/content/contentc.mjs (npm run content): edit there, not here. Crops, trees and the weather that grows them. Read by src/content/farming.ts. Times are real seconds of world time (the world clock keeps running while you are away, at the offline rate in trade.json's clock section). A plant passes through `stages` looks; the last is ripe. Growth runs faster in its own climate and slower elsewhere, faster still when watered or rained on. `gathering` is what each resource node in a zone gives, for how much labor, and how long it takes to come back. `animals` are raised in plot cells like crops: fed instead of watered (they only grow and produce while fed), and collected again and again once grown. A tree's `chop` is what felling it gives, what that counts as for a quest (`kind`, as a gathering spot's) and the chance of something rare in it; a rare find (a tree's or a gathering spot's `rare`) is an item, its chance, the toast that tells you, and its `effect` (thunder: a lightning strike where it was found).",
   "cell": 2,
   "scarecrowCells": 4,
   "maxScarecrows": 3,
@@ -21,7 +21,7 @@
       "icon": "❄️"
     }
   },
-  "climateMatch": 1.0,
+  "climateMatch": 1,
   "climateMismatch": 0.7,
   "water": {
     "boost": 1.25,
@@ -58,7 +58,9 @@
       "seedChance": 0.35,
       "harvestLabor": 2,
       "plantLabor": 0,
-      "look": "Potato-like plant. Seed: small dirt mound with a marker twig. Sprout: two round leaves. Young: bushy dark-green leaves. Ripe: fuller bush with small yellow star flowers and two golden tubers showing at the soil."
+      "look": {
+        "body": "sunroot"
+      }
     },
     {
       "id": "barley",
@@ -77,7 +79,9 @@
       "seedChance": 0.35,
       "harvestLabor": 2,
       "plantLabor": 0,
-      "look": "Grain clump. Sprout: a few thin green blades. Young: knee-high green stalks. Ripe: waist-high golden stalks with drooping bearded ears."
+      "look": {
+        "body": "barley"
+      }
     },
     {
       "id": "flax",
@@ -96,7 +100,9 @@
       "seedChance": 0.3,
       "harvestLabor": 2,
       "plantLabor": 0,
-      "look": "Slender upright stems. Ripe: many pale-blue five-petal flowers on top."
+      "look": {
+        "body": "flax"
+      }
     },
     {
       "id": "emberberry",
@@ -115,7 +121,9 @@
       "seedChance": 0.25,
       "harvestLabor": 3,
       "plantLabor": 0,
-      "look": "Low round bush with glossy leaves. Ripe: clusters of glowing orange-red berries (slightly emissive)."
+      "look": {
+        "body": "emberberry"
+      }
     },
     {
       "id": "apple",
@@ -132,7 +140,7 @@
         4,
         6
       ],
-      "seedChance": 0.0,
+      "seedChance": 0,
       "harvestLabor": 3,
       "plantLabor": 0,
       "chop": {
@@ -141,9 +149,18 @@
           4,
           6
         ],
-        "labor": 8
+        "labor": 8,
+        "kind": "timber",
+        "rare": {
+          "item": "thunderLog",
+          "chance": 0.06,
+          "toast": "⚡ A thunderstruck log! Lightning split this tree long ago.",
+          "effect": "thunder"
+        }
       },
-      "look": "Tree. Sapling: thin stick with a few leaves. Young: small tree 2 m. Grown: full round-canopy tree 4.5 m. Ripe: same tree with bright red apples dotted through the canopy."
+      "look": {
+        "body": "apple"
+      }
     },
     {
       "id": "pine",
@@ -160,7 +177,7 @@
         0,
         0
       ],
-      "seedChance": 0.0,
+      "seedChance": 0,
       "harvestLabor": 0,
       "plantLabor": 0,
       "chop": {
@@ -169,9 +186,18 @@
           7,
           10
         ],
-        "labor": 8
+        "labor": 8,
+        "kind": "timber",
+        "rare": {
+          "item": "thunderLog",
+          "chance": 0.06,
+          "toast": "⚡ A thunderstruck log! Lightning split this tree long ago.",
+          "effect": "thunder"
+        }
       },
-      "look": "Conifer. Sapling: tiny cone of needles. Young: 2 m pine. Grown: 5 m pine. Ripe: same 6 m pine with cones (the 'ready to fell' look)."
+      "look": {
+        "body": "pine"
+      }
     }
   ],
   "gathering": {
@@ -187,7 +213,9 @@
       "kind": "timber",
       "rare": {
         "item": "thunderLog",
-        "chance": 0.04
+        "chance": 0.04,
+        "toast": "⚡ A thunderstruck log!",
+        "effect": "thunder"
       }
     },
     "stoneNode": {
@@ -242,7 +270,10 @@
       ],
       "produceSeconds": 120,
       "collectLabor": 1,
-      "verb": "Collect eggs"
+      "verb": "Collect eggs",
+      "look": {
+        "body": "chicken"
+      }
     },
     {
       "id": "sheep",
@@ -261,7 +292,10 @@
       ],
       "produceSeconds": 200,
       "collectLabor": 2,
-      "verb": "Shear wool"
+      "verb": "Shear wool",
+      "look": {
+        "body": "sheep"
+      }
     },
     {
       "id": "cow",
@@ -280,7 +314,10 @@
       ],
       "produceSeconds": 220,
       "collectLabor": 2,
-      "verb": "Milk the cow"
+      "verb": "Milk the cow",
+      "look": {
+        "body": "cow"
+      }
     }
   ]
 }

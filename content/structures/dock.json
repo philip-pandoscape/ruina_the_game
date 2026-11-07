@@ -1,0 +1,13 @@
+{
+  "id": "dock",
+  "name": "Pier",
+  "w": 4,
+  "d": 16,
+  "h": 1.6,
+  "collider": "none",
+  "deck": 1.4,
+  "seaLevel": true,
+  "look": {
+    "body": "dock"
+  }
+}

@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../../rng';
-import { valueNoise } from '../../sim/terrain';
+import { makeRng, range } from '../../util/rng';
+import { valueNoise } from '../../engine/zone';
 import { PALETTE } from '../look';
 import { toon } from '../toon';
 
-// The new look's horizon: other isles far out at sea, well past the edge of the world anyone can
-// reach, wooded below and bare rock up high, softened by the haze (src/render/open/post.ts) into
-// the blue of distance, as in the island's reference picture. Drawing only.
+// The horizon: other isles far out at sea, well past the edge of the world anyone can reach,
+// wooded below and bare rock up high, softened by the haze (src/render/open/post.ts) into the blue
+// of distance, as in Emberholm's reference picture. Drawing only, and not at low quality.
 
 interface Isle {
-  /** Bearing from the island's middle (radians) and distance (m). */
+  /** Bearing from Emberholm's middle (radians) and distance (m). */
   bearing: number;
   distance: number;
   /** Radius at the waterline and the highest peak (m). */
@@ -80,13 +80,17 @@ function isleGeometry(isle: Isle, seed: number): THREE.BufferGeometry {
   return g;
 }
 
-export function horizonIsles(centreX: number, centreZ: number, water: number): THREE.Group {
+/** The isles round (centreX, centreZ), but those `clear` says would stand where something real does (another region of the world). */
+export function horizonIsles(centreX: number, centreZ: number, water: number, clear: (x: number, z: number, r: number) => boolean = () => true): THREE.Group {
   const group = new THREE.Group();
   group.name = 'horizon';
   const mat = toon(0xffffff, { vertexColors: true });
   ISLES.forEach((isle, i) => {
+    const x = centreX + Math.cos(isle.bearing) * isle.distance;
+    const z = centreZ + Math.sin(isle.bearing) * isle.distance;
+    if (!clear(x, z, isle.radius)) return;
     const mesh = new THREE.Mesh(isleGeometry(isle, 7 + i * 13), mat);
-    mesh.position.set(centreX + Math.cos(isle.bearing) * isle.distance, water, centreZ + Math.sin(isle.bearing) * isle.distance);
+    mesh.position.set(x, water, z);
     mesh.rotation.y = i * 1.7;
     mesh.castShadow = false;
     mesh.receiveShadow = false;

@@ -1,0 +1,9 @@
+{
+  "id": "egg",
+  "name": "Egg",
+  "icon": "🥚",
+  "cat": "produce",
+  "stack": 200,
+  "value": 4,
+  "desc": "Fresh from the coop."
+}

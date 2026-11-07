@@ -21,9 +21,13 @@ const mr = Buffer.alloc(n * 3);
 const em = Buffer.alloc(n * 3);
 const counts = {};
 for (let i = 0; i < n; i++) {
-  const r = data[i * 3] / 255, g = data[i * 3 + 1] / 255, b = data[i * 3 + 2] / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const v = max, s = max > 0 ? (max - min) / max : 0;
+  const r = data[i * 3] / 255,
+    g = data[i * 3 + 1] / 255,
+    b = data[i * 3 + 2] / 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  const v = max,
+    s = max > 0 ? (max - min) / max : 0;
   let h = 0;
   if (max > min) {
     if (max === r) h = 60 * (((g - b) / (max - min)) % 6);
@@ -31,7 +35,10 @@ for (let i = 0; i < n; i++) {
     else h = 60 * ((r - g) / (max - min) + 4);
     if (h < 0) h += 360;
   }
-  let cls = 'other', metal = 0, rough = 0.8, glow = false;
+  let cls = 'other',
+    metal = 0,
+    rough = 0.8,
+    glow = false;
   const grey = s < 0.2;
   if (kind === 'sword') {
     if (grey) [cls, metal, rough] = ['steel', 1, 0.3];
@@ -64,7 +71,10 @@ if (debug) {
 const mrTex = doc.createTexture('metalRough').setImage(mrPng).setMimeType('image/png');
 mat.setMetallicRoughnessTexture(mrTex).setMetallicFactor(1).setRoughnessFactor(1);
 if (kind === 'staff') {
-  const emTex = doc.createTexture('glow').setImage(await sharp(em, raw).png().toBuffer()).setMimeType('image/png');
+  const emTex = doc
+    .createTexture('glow')
+    .setImage(await sharp(em, raw).png().toBuffer())
+    .setMimeType('image/png');
   mat.setEmissiveTexture(emTex).setEmissiveFactor([1, 1, 1]);
 }
 mat.setDoubleSided(false);
@@ -80,7 +90,9 @@ if (kind === 'bow') {
       const keep = [];
       let cut = 0;
       for (let t = 0; t < idx.getCount(); t += 3) {
-        const a = P(idx.getScalar(t)), b = P(idx.getScalar(t + 1)), c = P(idx.getScalar(t + 2));
+        const a = P(idx.getScalar(t)),
+          b = P(idx.getScalar(t + 1)),
+          c = P(idx.getScalar(t + 2));
         const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
         const longest = Math.max(d(a, b), d(b, c), d(c, a));
         // Off the limb on the string's side, away from the tips: the nocking point and serving.

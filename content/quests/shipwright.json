@@ -1,0 +1,53 @@
+{
+  "id": "shipwright",
+  "name": "A Ship of Your Own",
+  "giver": "ilsa",
+  "after": [
+    "saltSail"
+  ],
+  "intro": "A rowboat's a fine thing for a bay. For the open sea you want a cog: sixteen packs in her hold and a square sail. I'll sell you the design - ten silver and six Charter Seals - and you build her on the slipway beside my shed. Lumber bundles from Hob, iron crates from Brenna, sailcloth from flax at the Lanternwick bench.",
+  "steps": [
+    {
+      "text": "Lay a Merchant Cog Design on the Lanternwick slipway",
+      "objectives": [
+        {
+          "type": "layKeel",
+          "n": 1,
+          "marker": {
+            "shipyard": "lanternwick-slip"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Build all four stages of the cog",
+      "objectives": [
+        {
+          "type": "shipStage",
+          "n": 4,
+          "marker": {
+            "shipyard": "lanternwick-slip"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Launch her",
+      "objectives": [
+        {
+          "type": "launch",
+          "n": 1,
+          "marker": {
+            "shipyard": "lanternwick-slip"
+          }
+        }
+      ]
+    }
+  ],
+  "outro": "Look at her sit in the water! Fill that hold, mind the wind, and Gullrock will make you rich.",
+  "rewards": {
+    "skillPoints": 3,
+    "coins": 500,
+    "seals": 3
+  }
+}

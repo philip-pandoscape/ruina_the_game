@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "npcs",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "place": {
+      "type": "string"
+    },
+    "x": {
+      "type": "number"
+    },
+    "z": {
+      "type": "number"
+    },
+    "facing": {
+      "type": "number"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "outfit": {
+          "type": "string"
+        },
+        "skin": {
+          "type": "string"
+        },
+        "w": {
+          "type": "number"
+        },
+        "d": {
+          "type": "number"
+        },
+        "arm": {
+          "type": "number"
+        },
+        "shirt": {
+          "type": "string"
+        },
+        "rolled": {
+          "type": "boolean"
+        },
+        "pants": {
+          "type": "string"
+        },
+        "boots": {
+          "type": "string"
+        },
+        "hair": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string"
+        },
+        "beard": {
+          "type": "string"
+        },
+        "rest": {
+          "type": "object"
+        },
+        "free": {
+          "type": "array"
+        },
+        "sleeve": {
+          "type": "string"
+        },
+        "hunch": {
+          "type": "number"
+        },
+        "skirt": {
+          "type": "string"
+        },
+        "trim": {
+          "type": "string"
+        },
+        "belt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "tallBoots": {
+          "type": "boolean"
+        },
+        "tails": {
+          "type": "string"
+        },
+        "blush": {
+          "type": "boolean"
+        },
+        "h": {
+          "type": "number"
+        },
+        "leg": {
+          "type": "number"
+        },
+        "gloves": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "portrait": {
+      "type": "string"
+    },
+    "greeting": {
+      "type": "string"
+    },
+    "bench": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "title",
+    "place",
+    "x",
+    "z",
+    "facing",
+    "kind",
+    "portrait",
+    "greeting"
+  ],
+  "additionalProperties": false
+}

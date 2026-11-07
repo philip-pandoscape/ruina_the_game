@@ -1,0 +1,27 @@
+{
+  "id": "slimeHunter",
+  "name": "Slime Hunter",
+  "giver": "",
+  "after": [
+    "landfall"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "The meadow slimes leave you be until you start something. Start something.",
+  "steps": [
+    {
+      "text": "Defeat 15 slimes",
+      "objectives": [
+        {
+          "type": "defeat",
+          "kind": "slime",
+          "n": 15
+        }
+      ]
+    }
+  ],
+  "outro": "The meadow is a little quieter.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

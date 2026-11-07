@@ -132,7 +132,10 @@ export class Studio {
     this.cam.updateProjectionMatrix();
 
     const r = this.renderer;
-    const linear = new THREE.WebGLRenderTarget(w, h, { samples: 4, type: r.extensions.has('EXT_color_buffer_float') ? THREE.HalfFloatType : THREE.UnsignedByteType });
+    const linear = new THREE.WebGLRenderTarget(w, h, {
+      samples: 4,
+      type: r.extensions.has('EXT_color_buffer_float') ? THREE.HalfFloatType : THREE.UnsignedByteType,
+    });
     const out = new THREE.WebGLRenderTarget(w, h, { depthBuffer: false });
     const was = { target: r.getRenderTarget(), autoClear: r.autoClear, infoReset: r.info.autoReset };
     // The frame's own draw counts are left alone.

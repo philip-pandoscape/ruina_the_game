@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "vendors",
+  "type": "object",
+  "properties": {
+    "npc": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "sells": {
+      "type": "array"
+    },
+    "buys": {
+      "type": "array"
+    },
+    "buyRate": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "npc",
+    "name",
+    "sells",
+    "buys",
+    "buyRate"
+  ],
+  "additionalProperties": false
+}

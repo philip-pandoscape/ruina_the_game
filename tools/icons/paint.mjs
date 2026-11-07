@@ -24,7 +24,9 @@ function prompt(sheet, withRef) {
   const lines = sheet.icons.map((ic, i) => `${i + 1}. ${ic.paint}`);
   return [
     `Paint a sprite sheet of ${words[n]} fantasy MMORPG icons arranged in a precise grid of equal square cells: ${words[rows]} rows of ${words[cols]}.`,
-    withRef ? 'Match the attached reference sheet exactly in art style: the same brushwork, lighting, inked contour, colour palette, level of detail and size of each object in its cell. Paint only the new subjects listed below.' : '',
+    withRef
+      ? 'Match the attached reference sheet exactly in art style: the same brushwork, lighting, inked contour, colour palette, level of detail and size of each object in its cell. Paint only the new subjects listed below.'
+      : '',
     STYLE.replace('{BG}', BACKGROUNDS[sheet.bg].css),
     `The cells, left to right and top to bottom:\n${lines.join('\n')}`,
   ]
@@ -53,16 +55,19 @@ for (const sheet of sheets) {
   const args = ['tools/images/gemini.mjs', '--out', png, '--prompt-file', promptFile, '--aspect', '1:1', '--size', '2K', ...(withRef ? ['--ref', ref] : [])];
   console.log(`painting ${sheet.id}${withRef ? ` (style from ${STYLE_SHEET})` : ''}`);
   execFileSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
-  const webp = await page.evaluate(async (url) => {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth;
-    c.height = img.naturalHeight;
-    c.getContext('2d').drawImage(img, 0, 0);
-    return c.toDataURL('image/webp', 0.95);
-  }, `data:image/png;base64,${fs.readFileSync(png).toString('base64')}`);
+  const webp = await page.evaluate(
+    async (url) => {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      return c.toDataURL('image/webp', 0.95);
+    },
+    `data:image/png;base64,${fs.readFileSync(png).toString('base64')}`,
+  );
   fs.writeFileSync(sheetFile(sheet.id), Buffer.from(webp.split(',')[1], 'base64'));
   console.log(`  -> ${path.relative(ROOT, sheetFile(sheet.id))} (the PNG stays in ${path.relative(ROOT, png)})`);
 }

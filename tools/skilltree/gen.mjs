@@ -4,23 +4,31 @@
 // is data, and can be edited by hand after that.
 //
 // The skills themselves (what they're called, grant and change) are read back from the file, so
-// laying it out again never loses an edit to them. The order of `nodes` is what a saved build's
-// bits mean: the fifteen skills keep the places they had before the tree grew, and everything else
-// follows them. Lay the tree out again only before anyone has spent points in the new places.
+// laying it out again never loses an edit to them. A kept build names the nodes it has learned by
+// id (crates/engine/src/skills.rs saved_build), and the nodes other than the skills are named for
+// their places: laying the tree out again renames them, so do it only before anyone has spent points
+// on them. The order of `nodes` is the wire's (a learned set's bits), which both sides read from the
+// file; it is in the content's hash (shared/hash.json), written again here. A weapon, an ability or
+// a movement skill is named by its id (a weapon's is its name), never its place in its list, so
+// content/weapons/_order.json and the others can change: the engine and the page find the places
+// when they read the tree.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build, write } from '../content/contentc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'shared/skilltree.json');
 const tuning = JSON.parse(fs.readFileSync(path.join(ROOT, 'shared/tuning.json'), 'utf8'));
 const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
 
-// The fifteen skills, in the order saved builds know them by.
+// The fifteen skills, in the order the tree has them.
 const SKILL_FIELDS = ['id', 'kind', 'tree', 'name', 'desc', 'icon', 'tags', 'grants', 'mods'];
 const pick = (n) => Object.fromEntries(SKILL_FIELDS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]]));
-const SKILLS = (previous ? previous.nodes.filter((n) => n.kind === 'skill') : tuning.skills.nodes.map((n) => ({ ...n, kind: 'skill' }))).map(pick);
+// The skills come from the tree this run replaces: shared/skilltree.json is where they live.
+if (!previous) throw new Error('shared/skilltree.json is missing: the fifteen skills are read from it');
+const SKILLS = previous.nodes.filter((n) => n.kind === 'skill').map(pick);
 
 // ---------- Layout ----------
 
@@ -29,17 +37,35 @@ const MIDS = [-45, 45, 135, -135]; // where each discipline points, degrees cloc
 const BRIDGES = new Set([3, 6]); // the orbits that cross from one discipline into the next
 // Each skill's place: discipline, orbit, steps along the orbit from the spine.
 const PLAN = [
-  [0, 0, 0, 'sword'], [0, 1, 0, 'cleave'], [0, 2, 0, 'whirlwind'], [0, 1, 2, 'dodgeRoll'],
-  [1, 0, 0, 'club'], [1, 1, 0, 'heal'], [1, 2, 0, 'swiftMending'], [1, 1, 2, 'block'],
-  [2, 0, 0, 'staff'], [2, 1, 0, 'meteor'], [2, 2, 0, 'quickIncantation'],
-  [3, 0, 0, 'bow'], [3, 1, 0, 'rapidFire'], [3, 2, 0, 'piercing'], [3, 1, -2, 'backstep'],
+  [0, 0, 0, 'sword'],
+  [0, 1, 0, 'cleave'],
+  [0, 2, 0, 'whirlwind'],
+  [0, 1, 2, 'dodgeRoll'],
+  [1, 0, 0, 'club'],
+  [1, 1, 0, 'heal'],
+  [1, 2, 0, 'swiftMending'],
+  [1, 1, 2, 'block'],
+  [2, 0, 0, 'staff'],
+  [2, 1, 0, 'meteor'],
+  [2, 2, 0, 'quickIncantation'],
+  [3, 0, 0, 'bow'],
+  [3, 1, 0, 'rapidFire'],
+  [3, 2, 0, 'piercing'],
+  [3, 1, -2, 'backstep'],
 ];
 // Each skill touches the one it needed before the tree grew, so those builds cost what they did.
 const PARENT = {
-  cleave: 'sword', whirlwind: 'cleave', dodgeRoll: 'sword',
-  heal: 'club', swiftMending: 'heal', block: 'club',
-  meteor: 'staff', quickIncantation: 'meteor',
-  rapidFire: 'bow', piercing: 'rapidFire', backstep: 'bow',
+  cleave: 'sword',
+  whirlwind: 'cleave',
+  dodgeRoll: 'sword',
+  heal: 'club',
+  swiftMending: 'heal',
+  block: 'club',
+  meteor: 'staff',
+  quickIncantation: 'meteor',
+  rapidFire: 'bow',
+  piercing: 'rapidFire',
+  backstep: 'bow',
 };
 const ROOTS = new Set(['sword', 'club', 'staff', 'bow']); // learnable with nothing else learned
 
@@ -71,11 +97,11 @@ const recover = (value, skill) => ({ stat: 'movement.cooldown', op: 'more', valu
 // The dodges have no cooldown: they cost stamina, and these make them cost less.
 const lighter = (value, skill) => ({ stat: 'movement.stamina', op: 'more', value: -value, skill });
 const targets = (value, weapon) => ({ stat: 'melee.maxTargets', op: 'flat', value, weapon });
-const pierce = (value) => ({ stat: 'projectile.pierce', op: 'flat', value, weapon: 3 });
-const SWORD = { weapon: 0 };
-const CLUB = { weapon: 1 };
-const STAFF = { weapon: 2 };
-const BOW = { weapon: 3 };
+const pierce = (value) => ({ stat: 'projectile.pierce', op: 'flat', value, weapon: 'bow' });
+const SWORD = { weapon: 'sword' };
+const CLUB = { weapon: 'club' };
+const STAFF = { weapon: 'staff' };
+const BOW = { weapon: 'bow' };
 const MELEE = { tags: ['melee'] };
 const RANGED = { tags: ['ranged'] };
 const FIRE = { tags: ['fire'] };
@@ -95,7 +121,7 @@ const DISCIPLINES = [
     notable: [
       { name: 'Keen Edge', icon: '⚔️', mods: [dmg(0.12, SWORD)] },
       { name: 'Riposte', icon: '🤺', mods: [speed(0.08, SWORD), dmg(0.04, SWORD)] },
-      { name: 'Wide Arc', icon: '🌪️', mods: [targets(1, 0), dmg(0.04, SWORD)] },
+      { name: 'Wide Arc', icon: '🌪️', mods: [targets(1, 'sword'), dmg(0.04, SWORD)] },
       { name: 'Iron Wrists', icon: '💪', mods: [speed(0.06, MELEE)] },
       { name: "Duelist's Step", icon: '👣', mods: [lighter(0.2, 'dodgeRoll')] },
       { name: 'Blade Dancer', icon: '🍃', mods: [dmg(0.08, SWORD), lighter(0.1, 'dodgeRoll')] },
@@ -104,7 +130,7 @@ const DISCIPLINES = [
     ],
     keystone: [
       { name: 'Bladestorm', icon: '🌟', mods: [dmg(0.35, SWORD), slower(0.2, SWORD)] },
-      { name: 'Whirling Steel', icon: '🎖️', mods: [targets(2, 0), dmg(-0.15, SWORD)] },
+      { name: 'Whirling Steel', icon: '🎖️', mods: [targets(2, 'sword'), dmg(-0.15, SWORD)] },
     ],
   },
   {
@@ -238,7 +264,11 @@ const nearestOn = (node, k) => {
   for (const x of nodes) if (x.k === k && (!best || angleGap(x, node) < angleGap(best, node))) best = x;
   return best;
 };
-for (const [child, parent] of Object.entries(PARENT)) link(nodes.find((x) => x.skill === child), nodes.find((x) => x.skill === parent));
+for (const [child, parent] of Object.entries(PARENT))
+  link(
+    nodes.find((x) => x.skill === child),
+    nodes.find((x) => x.skill === parent),
+  );
 // Spokes inward: always along the spine, sometimes elsewhere.
 for (const node of nodes) {
   if (node.k === 0) continue;
@@ -258,7 +288,7 @@ for (let k = 1; k < RADII.length; k++) {
     while (stack.length) {
       const x = stack.pop();
       run.push(x);
-      for (const y of x.adj) if (y.k === k && !seen.has(y)) (seen.add(y), stack.push(y));
+      for (const y of x.adj) if (y.k === k && !seen.has(y)) seen.add(y), stack.push(y);
     }
     if (!run.some((x) => [...x.adj].some((y) => y.k === k - 1))) {
       let best = null;
@@ -289,7 +319,7 @@ for (let reg = 0; reg < 4; reg++) {
 const reachable = () => {
   const seen = new Set(nodes.filter((x) => ROOTS.has(x.skill)));
   const queue = [...seen];
-  while (queue.length) for (const y of queue.shift().adj) if (!seen.has(y)) (seen.add(y), queue.push(y));
+  while (queue.length) for (const y of queue.shift().adj) if (!seen.has(y)) seen.add(y), queue.push(y);
   return seen;
 };
 for (let pass = 0; pass < 50; pass++) {
@@ -322,7 +352,12 @@ for (const x of nodes) {
     x.out = { id: '', kind: 'small', tree: -1, ...BRIDGE[counts.bridge++ % BRIDGE.length] };
   } else {
     const d = DISCIPLINES[x.region];
-    const def = x.kind === 'keystone' ? d.keystone[x.keystone] : x.kind === 'notable' ? d.notable[counts.notable[x.region]++] : d.small[counts.small[x.region]++ % d.small.length];
+    const def =
+      x.kind === 'keystone'
+        ? d.keystone[x.keystone]
+        : x.kind === 'notable'
+          ? d.notable[counts.notable[x.region]++]
+          : d.small[counts.small[x.region]++ % d.small.length];
     x.out = { id: '', kind: x.kind, tree: x.region, ...def };
   }
   // A node is named for its place: orbit and slot, which never change unless the tree is laid out again.
@@ -330,7 +365,7 @@ for (const x of nodes) {
   ids.set(x, x.out.id);
 }
 
-// The skills first, in their old order, then everything else by orbit and angle.
+// The skills first, in the order they had, then everything else by orbit and angle.
 const ordered = [
   ...SKILLS.map((s) => nodes.find((x) => x.skill === s.id)),
   ...nodes.filter((x) => x.kind !== 'skill').sort((p, q) => p.k - q.k || p.deg - q.deg),
@@ -338,7 +373,7 @@ const ordered = [
 const round = (v) => Math.round(v * 100) / 100;
 const out = {
   comment:
-    'The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. The order of nodes is what a saved build means: append, never reorder. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. mods use the stats in tuning.json.',
+    "The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. A kept build names its nodes by id, so an id is a node's for good; their order here is a learned set's bits on the wire. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. grants and mods name a weapon, an ability or a movement skill by its id (a weapon's is its name), never its place in its list, so those lists can be in any order; mods use the stats in tuning.json.",
   radii: RADII,
   nodes: ordered.map((x) => ({ ...x.out, ...(ROOTS.has(x.skill) ? { root: true } : {}), o: x.k, a: round(x.deg) })),
   links: [...edges.values()].map((e) => (e.arc ? [ids.get(e.a), ids.get(e.b), 1] : [ids.get(e.a), ids.get(e.b)])),
@@ -360,6 +395,13 @@ const lines = [
   '',
 ];
 fs.writeFileSync(OUT, lines.join('\n'));
+// The tree is in the content's hash: write it again.
+process.chdir(ROOT);
+write(build());
 const kinds = {};
 for (const n of out.nodes) kinds[n.kind] = (kinds[n.kind] ?? 0) + 1;
-console.log(`${out.nodes.length} nodes (${Object.entries(kinds).map(([k, v]) => `${v} ${k}`).join(', ')}), ${out.links.length} links -> ${path.relative(ROOT, OUT)}`);
+console.log(
+  `${out.nodes.length} nodes (${Object.entries(kinds)
+    .map(([k, v]) => `${v} ${k}`)
+    .join(', ')}), ${out.links.length} links -> ${path.relative(ROOT, OUT)}`,
+);

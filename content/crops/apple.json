@@ -1,0 +1,37 @@
+{
+  "id": "apple",
+  "name": "Redcap Apple Tree",
+  "kind": "tree",
+  "climate": "temperate",
+  "icon": "🍎",
+  "growSeconds": 600,
+  "stages": 4,
+  "regrowSeconds": 240,
+  "seed": "sapling.apple",
+  "produce": "apple",
+  "yield": [
+    4,
+    6
+  ],
+  "seedChance": 0,
+  "harvestLabor": 3,
+  "plantLabor": 0,
+  "chop": {
+    "item": "lumber",
+    "yield": [
+      4,
+      6
+    ],
+    "labor": 8,
+    "kind": "timber",
+    "rare": {
+      "item": "thunderLog",
+      "chance": 0.06,
+      "toast": "⚡ A thunderstruck log! Lightning split this tree long ago.",
+      "effect": "thunder"
+    }
+  },
+  "look": {
+    "body": "apple"
+  }
+}

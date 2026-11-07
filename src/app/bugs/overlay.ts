@@ -1,3 +1,4 @@
+import { esc } from '../../util/html';
 // The little card in the top-left corner while a bug report is being made. It is left out of the
 // report's own pictures (the frames are the 3D view only; screenshots skip it).
 
@@ -33,8 +34,6 @@ const CSS = /* css */ `
 #bug-overlay code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; background: rgba(255,255,255,0.12); padding: 1px 4px; border-radius: 4px; }
 @keyframes bug-pulse { 50% { opacity: 0.35; } }
 `;
-
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function clock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));

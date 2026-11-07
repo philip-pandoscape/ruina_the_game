@@ -1,0 +1,25 @@
+{
+  "id": "stoneBlock",
+  "name": "Stone Block",
+  "icon": "🧱",
+  "kind": "material",
+  "origin": "quarry",
+  "base": 0,
+  "labor": 10,
+  "fee": 0,
+  "inputs": [
+    {
+      "item": "stone",
+      "n": 10
+    }
+  ],
+  "look": {
+    "body": "stoneBlock",
+    "model": {
+      "files": [
+        "pack_stoneBlock"
+      ],
+      "yaw": 3.141592653589793
+    }
+  }
+}

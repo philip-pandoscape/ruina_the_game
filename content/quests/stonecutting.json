@@ -1,0 +1,47 @@
+{
+  "id": "stonecutting",
+  "name": "Stone From Stonebreak",
+  "giver": "quill",
+  "after": [
+    "firstFlight",
+    "westward"
+  ],
+  "intro": "Land is granted by blueprint, but a blueprint is only paper. A cottage stands on stone and timber, and nobody hands you either ready-cut: you quarry the stone and cut the blocks yourself. Brenna Stoneheart keeps Stonebreak Quarry, up the north road and west along the quarry fork. Go and learn the trade from her.",
+  "steps": [
+    {
+      "text": "Go to Stonebreak Quarry and speak with Brenna Stoneheart",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "brenna"
+        }
+      ]
+    },
+    {
+      "text": "Quarry 10 stone from the pale rock outcrops (F)",
+      "objectives": [
+        {
+          "type": "gather",
+          "kind": "stone",
+          "n": 10
+        }
+      ]
+    },
+    {
+      "text": "Cut a Stone Block at the Stonecutter's Table",
+      "objectives": [
+        {
+          "type": "craftPack",
+          "pack": "stoneBlock",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "turnIn": "brenna",
+  "outro": "A good square block, and it's yours. A cottage takes three of them, and an Iron Fittings Crate for the roof: six ore from the rust-streaked rocks, packed at this same table. Set the block down (X) or load it on your cart - nobody ties timber with stone on their back. And if your arms give out, my stores sell stone and ore by the piece.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 60
+  }
+}

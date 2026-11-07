@@ -1,0 +1,9 @@
+{
+  "id": "milk",
+  "name": "Milk",
+  "icon": "🥛",
+  "cat": "produce",
+  "stack": 200,
+  "value": 5,
+  "desc": "Creamy, and best sold far away in a hamper."
+}

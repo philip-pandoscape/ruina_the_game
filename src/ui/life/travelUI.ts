@@ -1,14 +1,16 @@
-import type { World } from '../../sim/types';
-import type { AutoWalk, Refusal, WalkEvent } from '../../app/autoWalk';
-import { routeFrom, type Point } from '../../sim/zone/roads';
+import type { World } from '../../engine/rules';
+import { routeFrom, type Point } from '../../engine/zone';
+import type { AutoWalk, Refusal, WalkEvent } from '../../input/autoWalk';
+import type { Handler } from '../components/window';
 import { openMenu } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
+import { esc } from '../../util/html';
 
-// Travel by road and auto-run, as the island's UI shows them. On the map a click marks a spot and
+// Travel by road and auto-run, as the life's UI shows them. On the map a click marks a spot and
 // sets off along the roads to it (a right-click offers the rest), the arrows or the D-pad pick a
 // place and Enter or A sets off; the way is drawn on the map and the minimap. Under the compass, a
-// readout while something walks for you, saying how to stop. The walking is src/app/autoWalk.ts.
+// readout while something walks for you, saying how to stop. The walking is src/input/autoWalk.ts.
 
 interface Place {
   id: string;
@@ -18,12 +20,13 @@ interface Place {
   z: number;
 }
 
-type Handler = (arg: string, e: MouseEvent | null) => void;
 type Press = 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset' | 'tab' | 'toggle' | 'tree';
 
 export interface TravelDeps {
   walk: AutoWalk;
   world: World;
+  /** The square of the world the big map shows now, and whether it's the whole world's (no clicks to travel then). */
+  frame: () => { minX: number; minZ: number; size: number; world: boolean };
   places: () => Place[];
   /** Where you are. */
   player: () => Point;
@@ -39,8 +42,6 @@ const MAP_PX = 768;
 const SPOT = 'Marked Spot';
 const GOLD = '#ffd166';
 const INK = 'rgba(43, 26, 14, 0.85)';
-
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 export class TravelUI {
   private readout = document.createElement('div');
@@ -163,6 +164,8 @@ export class TravelUI {
   attachMap(canvas: HTMLCanvasElement): void {
     canvas.addEventListener('click', (e) => {
       e.stopPropagation();
+      // The whole world's map is to look at: travel is by the region's.
+      if (this.d.frame().world) return;
       const at = this.spotAt(canvas, e);
       const m = this.walk.marker;
       // A second click on the marker while on the way there: stop and forget it.
@@ -173,6 +176,7 @@ export class TravelUI {
     canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (this.d.frame().world) return;
       const at = this.spotAt(canvas, e);
       const why = this.walk.refusal();
       openMenu(e.clientX, e.clientY, at.label, [
@@ -199,8 +203,8 @@ export class TravelUI {
     const pl = this.placeAt(canvas, e);
     if (pl) return { x: pl.x, z: pl.z, label: pl.name };
     const [px, py] = this.pixel(canvas, e);
-    const hf = this.d.world.terrain!;
-    return { x: hf.max - (px / MAP_PX) * hf.size, z: hf.max - (py / MAP_PX) * hf.size, label: SPOT };
+    const f = this.d.frame();
+    return { x: f.minX + f.size - (px / MAP_PX) * f.size, z: f.minZ + f.size - (py / MAP_PX) * f.size, label: SPOT };
   }
 
   /** Where on the map's own pixels a mouse event is. */
@@ -210,8 +214,8 @@ export class TravelUI {
   }
 
   private toPx(x: number, z: number): Point {
-    const hf = this.d.world.terrain!;
-    return [((hf.max - x) / hf.size) * MAP_PX, ((hf.max - z) / hf.size) * MAP_PX];
+    const f = this.d.frame();
+    return [((f.minX + f.size - x) / f.size) * MAP_PX, ((f.minZ + f.size - z) / f.size) * MAP_PX];
   }
 
   private placeAt(canvas: HTMLCanvasElement, e: MouseEvent): Place | null {

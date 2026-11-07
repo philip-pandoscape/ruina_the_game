@@ -1,5 +1,6 @@
-import type { Build } from '../../tuning';
-import type { Levels } from '../../skills';
+import type { Build } from '../../content/tuning';
+import type { Levels } from '../../content/skills';
+import { esc } from '../../util/html';
 
 /** What the skill book and tree need from the game around them. */
 export interface SkillsContext {
@@ -19,4 +20,4 @@ export interface SkillsContext {
   device(): 'keyboard' | 'gamepad';
 }
 
-export const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
+export { esc };

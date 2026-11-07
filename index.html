@@ -8,11 +8,11 @@
     <link rel="icon" href="data:," />
     <script>
       // The title screen, from the very first frame: src/ui/splash.ts takes it over once the game's
-      // code arrives. It is for people only: automated tests and the battlefield (?test, ?yard,
-      // ?raid, ?server=) start straight away without it. The intro plays once per tab.
+      // code arrives. It is for people only: the offline modes (?test for the tests, ?offline) start
+      // straight away without it. The intro plays once per tab.
       (function () {
         var q = new URLSearchParams(location.search);
-        if (q.get('server') || q.has('raid') || q.has('yard') || q.has('test')) return;
+        if (q.has('test') || q.has('offline')) return;
         var quick = false;
         try {
           quick = !!sessionStorage.getItem('ruina.introSeen');
@@ -55,6 +55,8 @@
       #splash .sp-load { position: absolute; left: 50%; bottom: calc(54 * var(--u)); width: calc(520 * var(--u)); transform: translateX(-50%); text-align: center; transition: opacity 0.5s; }
       #splash .sp-load.off { opacity: 0; }
       #splash .sp-status { margin-bottom: calc(10 * var(--u)); font-size: calc(19 * var(--u)); letter-spacing: 0.14em; color: #f3d6a8; text-shadow: 0 calc(2 * var(--u)) calc(4 * var(--u)) rgba(5, 3, 14, 0.9); min-height: 1.2em; }
+      /* How much of the files being fetched has arrived (src/ui/splash.ts), under the bar without moving it. */
+      #splash .sp-bytes { position: absolute; left: 0; right: 0; top: 100%; margin-top: calc(9 * var(--u)); font-size: calc(14 * var(--u)); letter-spacing: 0.12em; color: rgba(243, 214, 168, 0.6); font-variant-numeric: tabular-nums; }
       #splash .sp-bar { position: relative; height: calc(12 * var(--u)); padding: calc(2 * var(--u)); border-radius: calc(8 * var(--u));
         background: linear-gradient(180deg, #2a1608, #4a2a12); box-shadow: 0 0 0 calc(1.5 * var(--u)) #c9923f, 0 0 0 calc(3 * var(--u)) #24120a, 0 calc(6 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, 0.55); }
       #splash .sp-bar i { position: relative; display: block; height: 100%; width: 5%; border-radius: calc(6 * var(--u)); transition: width 0.6s cubic-bezier(0.3, 0.7, 0.3, 1);
@@ -92,13 +94,12 @@
     <div id="ui">
       <div id="stats"></div>
       <div id="hint"></div>
-      <div id="player-hp"><div class="fill"></div><span class="label"></span></div>
       <div id="abilities"></div>
       <div id="castbar"><div class="fill"></div><span class="label"></span></div>
       <div id="skills" hidden></div>
     </div>
     <!-- The title screen: dusk over Emberholm's spire. Sign-in and character select happen on it
-         (src/ui/splash.ts), and it fades into the game once the island is built. -->
+         (src/ui/splash.ts), and it fades into the game once the world is built. -->
     <div id="splash" aria-label="Ruina">
       <svg class="sp-scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <defs>
@@ -212,11 +213,11 @@
         <div class="sp-orn"><i></i><b></b><i></i></div>
         <div class="sp-tag">Build a Life Among the Ruins</div>
       </div>
-      <div class="sp-load"><div class="sp-status">Waking the Island…</div><div class="sp-bar"><i></i></div></div>
+      <div class="sp-load"><div class="sp-status">Waking the World…</div><div class="sp-bar"><i></i></div></div>
       <div class="sp-foot">Prototype</div>
     </div>
     <script>
-      // The title screen's moving parts on one canvas: stars, embers rising off the island, the sun
+      // The title screen's moving parts on one canvas: stars, embers rising off Emberholm, the sun
       // glinting on the sea and the beacon on the spire. Light on purpose; still for reduced motion;
       // stopped (window.__splash.stop) once the game is showing.
       (function () {
@@ -243,7 +244,7 @@
         for (var i = 0; i < 130; i++) stars.push({ x: rnd() * 1920, y: rnd() * 470, r: 0.5 + rnd() * rnd() * 1.9, a: 0.25 + rnd() * 0.75, f: 0.6 + rnd() * 2.2, p: rnd() * 6.3 });
         for (i = 0; i < 46; i++) glints.push({ t: rnd(), w: 6 + rnd() * 22, p: rnd() * 6.3, f: 2 + rnd() * 5 });
         function ember(e, fresh) {
-          // Mostly off the island and up through the sky, a few drifting past close by.
+          // Mostly off Emberholm and up through the sky, a few drifting past close by.
           e.near = rnd() < 0.12;
           e.x = e.near ? rnd() * 1920 : 960 + rnd() * 1000 - (rnd() < 0.3 ? 900 : 0);
           e.y = fresh ? 300 + rnd() * 780 : 820 + rnd() * 260;
@@ -387,6 +388,8 @@
         };
       })();
     </script>
-    <script type="module" src="/src/main.ts"></script>
+    <!-- The way in: the title screen, sign-in and character select; it fetches the game itself
+         (src/main.ts) once a character is chosen (src/app/boot.ts). -->
+    <script type="module" src="/src/app/boot.ts"></script>
   </body>
 </html>

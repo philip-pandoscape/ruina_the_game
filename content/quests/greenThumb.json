@@ -1,0 +1,26 @@
+{
+  "id": "greenThumb",
+  "name": "Green Thumb",
+  "giver": "",
+  "after": [
+    "harvest"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "Anyone can bring in one harvest. Keep at it.",
+  "steps": [
+    {
+      "text": "Harvest 30 crops",
+      "objectives": [
+        {
+          "type": "harvest",
+          "n": 30
+        }
+      ]
+    }
+  ],
+  "outro": "The fields know your hands now.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

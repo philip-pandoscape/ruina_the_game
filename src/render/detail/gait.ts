@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp01, lerp, smooth } from './body';
+import { clamp } from '../../util/math';
 
 // How a humanoid's feet move over the ground at a given speed. A stride cycle is a left step and
 // a right step; each foot spends part of it planted (the stance) and the rest swinging forward.
@@ -78,8 +79,6 @@ export function directional(heading: number): { back: number; ahead: number; beh
   const behind = wrap(h - Math.PI);
   return { back, ahead: h, behind, pelvisAhead: 0.6 * clamp(h, -1.9, 1.9), pelvisBehind: 0.45 * behind };
 }
-
-const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 
 /** 0 for a walk, 1 for a run: how much flight there is, how the feet land. */
 export const runGait = (speed: number, stride: Stride = BOX_STRIDE): number => smooth((speed - stride.runFrom) / (stride.runTo - stride.runFrom));
@@ -216,11 +215,7 @@ export function planFoot(shape: GaitShape, u: number, out: FootPlan): FootPlan {
   const reach = lerp(0.05, 0.11, run) + 0.03 * sprint; // and the foot overshoots, then paws back
   const high = (lerp(0.11, 0.44, run) + 0.1 * sprint) * lift * (1 - 0.35 * shape.crouch);
   const late = (lerp(0.07, 0.17, run) + 0.05 * sprint) * lift;
-  out.ankle.set(
-    0,
-    bezier(_a0.y, _a0.y + high, _a1.y + late, _a1.y, q),
-    bezier(_a0.z, _a0.z - kick, _a1.z + reach, _a1.z, q),
-  );
+  out.ankle.set(0, bezier(_a0.y, _a0.y + high, _a1.y + late, _a1.y, q), bezier(_a0.z, _a0.z - kick, _a1.z + reach, _a1.z, q));
   // The foot trails behind from toe-off, then reaches toes-up (walk) or flat (run) for the landing.
   const hang = lerp(0.25, 0.75, run) * Math.sin(Math.PI * clamp01(q / 0.75));
   out.pitch = lerp(offPitch, onPitch, smooth(q)) + hang * (1 - q);

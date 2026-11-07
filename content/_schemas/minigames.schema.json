@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "minigames",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "blurb": {
+      "type": "string"
+    },
+    "players": {
+      "type": "string"
+    },
+    "turnSeconds": {
+      "type": "number"
+    },
+    "timeoutsToForfeit": {
+      "type": "number"
+    },
+    "rules": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "blurb",
+    "players",
+    "turnSeconds",
+    "timeoutsToForfeit",
+    "rules"
+  ],
+  "additionalProperties": false
+}

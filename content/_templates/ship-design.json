@@ -1,0 +1,48 @@
+{
+  "id": "newShip",
+  "name": "New Ship",
+  "vehicle": "newVehicle",
+  "deed": "deed.newVehicle",
+  "design": "design.newShip",
+  "stages": [
+    {
+      "name": "Keel",
+      "needs": {
+        "lumberBundle": 3
+      },
+      "labor": 40,
+      "desc": "Lay the keel and the stem.",
+      "reveal": -0.6
+    },
+    {
+      "name": "Hull",
+      "needs": {
+        "lumberBundle": 3,
+        "ironCrate": 2
+      },
+      "labor": 50,
+      "desc": "Plank the hull and fit the iron.",
+      "reveal": 1.8
+    },
+    {
+      "name": "Deck",
+      "needs": {
+        "lumberBundle": 2,
+        "ironCrate": 1
+      },
+      "labor": 40,
+      "desc": "Lay the deck and raise the castle.",
+      "reveal": 4.2
+    },
+    {
+      "name": "Rigging",
+      "needs": {
+        "sailcloth": 3,
+        "lumberBundle": 1
+      },
+      "labor": 50,
+      "desc": "Step the mast and bend on the sail.",
+      "reveal": 99
+    }
+  ]
+}

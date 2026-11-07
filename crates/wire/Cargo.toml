@@ -1,0 +1,24 @@
+[package]
+name = "ruina-wire"
+description = "What a browser hears of the world: records packed once per cell and tick, per-connection handles, deltas against what it acknowledged, priorities and a byte budget"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# No I/O, no clocks, no threads: the sims fill a Frame, the gate hands it to each connection's Viewer
+# and sends the bytes it returns. A tick's cells are Serialize and Deserialize, so they cross from a
+# sim to a gate in another process as they are (crates/world-api carries them); nothing in them is
+# the engine's.
+[dependencies]
+# rc: a player's name is shared by every tick's record of them.
+serde = { workspace = true, features = ["rc"] }
+# Only for packing the engine's players, creatures, arrows and meteors into records (pack.rs), which
+# the sims do; a gate can do without it (default-features = false).
+ruina-engine = { workspace = true, optional = true }
+
+[features]
+default = ["engine"]
+engine = ["dep:ruina-engine"]
+
+[dev-dependencies]
+serde_json.workspace = true

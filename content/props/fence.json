@@ -1,0 +1,16 @@
+{
+  "id": "fence",
+  "w": 2,
+  "d": 0.15,
+  "h": 1,
+  "collider": "box",
+  "look": {
+    "body": "fence",
+    "model": {
+      "files": [
+        "fence"
+      ],
+      "sink": 0.08
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "wool",
+  "name": "Wool",
+  "icon": "🧶",
+  "cat": "produce",
+  "stack": 200,
+  "value": 6,
+  "desc": "Soft fleece, ready to bale."
+}

@@ -1,0 +1,14 @@
+[package]
+name = "ruina-engine-wasm"
+description = "The engine's rules for the browser: the same code as the server's, compiled to WebAssembly and called through a plain C interface"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ruina-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true

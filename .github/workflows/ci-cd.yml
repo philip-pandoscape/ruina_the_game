@@ -1,10 +1,12 @@
-# Every push to beta or production, and every pull request into them, is checked: the client
-# typechecks and builds, the Rust server's tests pass, and the Playwright suite plays the game
-# against a real server and database (the battlefield and TS/Rust conformance tests included).
+# Every push to beta or production, and every pull request into them, is checked by the test tiers
+# (tests/AGENTS.md): the unit tier always (the client typechecks, builds and passes its unit tests;
+# the Rust tests pass), the integration tier where it's asked for (the engine's WebAssembly against
+# the native engine, then the Playwright suite playing the game against a real server and database).
 # A push that passes is deployed to the Railway environment of the same name and checked live.
-# For now a push to beta skips the Playwright suite, which takes half an hour and more here without
-# a GPU: it runs on the developer's machine before every push. Pull requests, production and a
-# manual run (workflow_dispatch) still play it.
+# A push to beta skips the integration tier, which takes half an hour and more here without a GPU:
+# it runs on the developer's machine before every push. Pull requests, production and a manual run
+# (workflow_dispatch) still play it. The stress tier needs a real GPU, so it runs on the developer's
+# machine before a release, not here.
 #
 #   beta        push directly; deploys to https://ruinathegame-beta.up.railway.app
 #   production  pull requests only (branch protection); deploys to https://ruinathegame-production.up.railway.app
@@ -34,11 +36,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The build copies the models, textures and fonts in: the real files, not their LFS pointers.
+      - uses: ./.github/actions/lfs
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      # The engine's WebAssembly (crates/engine-wasm): the browser's rules, which the unit tests and
+      # the build load.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: engine-wasm
+      - name: The engine for the browser
+        run: npm run engine
+      - name: Unit tests
+        run: npx vitest run --project unit
+      # Code nothing uses fails the check (knip finds the pages through the build, and knip.json adds the tests and tools).
+      - name: Dead code
+        run: npx knip --no-progress
+      # The one format (biome.json) and its light lint rules: npm run format fixes the format.
+      - name: Format and lint
+        run: npx biome ci .
       - name: Typecheck and build
         run: npm run build
 
@@ -48,26 +70,41 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: server
+          components: clippy, rustfmt
+          # The engine for the browser (crates/engine-wasm).
+          targets: wasm32-unknown-unknown
+      # The workspace at the root, its target/ beside it (rust-cache's default).
+      - uses: Swatinem/rust-cache@v2
+      # The one format (rustfmt.toml), and clippy's default lints as errors: the code holds none
+      # today, and keeps it that way.
+      - name: Lints
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+      # In debug, with the dependencies optimized (the workspace's Cargo.toml): quicker to build than a
+      # release test binary, which took most of this job's time while the tests run in seconds.
       - name: Unit tests
-        run: cargo test --release --locked --manifest-path server/Cargo.toml
+        run: cargo test --locked --workspace
+      # The integration tier runs the server and holds the engine's WebAssembly to the native engine;
+      # a push to beta doesn't play it (Railway builds its own server from the Dockerfile), so it
+      # doesn't need these either.
       - name: Build
-        run: cargo build --release --locked --manifest-path server/Cargo.toml
-      # The game tests run the server, and check the browser's rules against the Rust ones.
+        if: github.event_name != 'push' || github.ref_name != 'beta'
+        run: |
+          cargo build --release --locked
+          cargo build --release --locked -p ruina-engine-wasm --target wasm32-unknown-unknown
       - uses: actions/upload-artifact@v7
+        if: github.event_name != 'push' || github.ref_name != 'beta'
         with:
           name: server-binaries
           retention-days: 3
           path: |
-            server/target/release/yggdrasil-server
-            server/target/release/simcheck
-            server/target/release/aicheck
-            server/target/release/balance
-            server/target/release/terraincheck
-            server/target/release/worldcheck
-            server/target/release/lifecheck
+            target/release/ruina-server
+            target/release/balance
+            target/release/terraincheck
+            target/release/engineprobe
+            target/wasm32-unknown-unknown/release/ruina_engine_wasm.wasm
 
   # The suite plays the real game in a browser that draws in software here, so it's split across
   # four runners. They share the tests out by count, not time, so the one with the open world's
@@ -97,6 +134,8 @@ jobs:
           --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - uses: actions/checkout@v7
+      # The game the tests play loads the real models, textures and fonts.
+      - uses: ./.github/actions/lfs
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -105,8 +144,13 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: server-binaries
-          path: server/target/release
-      - run: chmod +x server/target/release/*
+          path: target
+      - run: chmod +x target/release/*
+      # The engine's WebAssembly and the browser's ground sampling against the native engine, and the
+      # balance harness (tests/conformance): no browser, so once, on the first runner.
+      - name: WebAssembly against native
+        if: matrix.shard == 1
+        run: npx vitest run --project conformance
       - name: Install the browser
         run: npx playwright install --with-deps chromium
       - name: Start the game server
@@ -114,12 +158,12 @@ jobs:
           DATABASE_URL: postgres://ruina:ruina@localhost:5432/ruina
           DEV_LOGIN: '1'
         run: |
-          nohup server/target/release/yggdrasil-server --battle off --port 7777 > server.log 2>&1 &
+          nohup target/release/ruina-server --port 7777 > server.log 2>&1 &
           for i in $(seq 60); do curl -fs localhost:7777/api/health && exit 0; sleep 1; done
           cat server.log
           exit 1
       - name: Play the game
-        # tests/update.spec.ts stops and starts a game server of its own, on this database.
+        # tests/integration/update.spec.ts stops and starts a game server of its own, on this database.
         env:
           RUINA_DATABASE_URL: postgres://ruina:ruina@localhost:5432/ruina
         run: npx playwright test --shard=${{ matrix.shard }}/4
@@ -177,6 +221,9 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v7
+        if: steps.key.outputs.ready == 'true'
+      # Railway builds what this uploads, so the real files go up, not their LFS pointers.
+      - uses: ./.github/actions/lfs
         if: steps.key.outputs.ready == 'true'
       - uses: actions/setup-node@v7
         if: steps.key.outputs.ready == 'true'

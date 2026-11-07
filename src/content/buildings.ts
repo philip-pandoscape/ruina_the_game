@@ -156,20 +156,6 @@ export function opening(ch: string): number | null {
   return null;
 }
 
-/**
- * The treads of a flight, in the plan's frame: each a rectangle (centre, half sizes along the
- * flight's own across and along, its turn) and the height of its top above the storey's floor.
- */
-export function stairTreads(st: StairPlan): Array<{ x: number; z: number; hw: number; hd: number; rot: number; top: number }> {
-  const out = [];
-  const step = STAIR.run / STAIR.treads;
-  for (let k = 0; k < STAIR.treads; k++) {
-    const [ox, oz] = turn(0, -(k + 0.5) * step, st.rot);
-    out.push({ x: st.x + ox, z: st.z + oz, hw: STAIR.halfWidth, hd: step / 2, rot: st.rot, top: ((k + 1) * STOREY) / STAIR.treads });
-  }
-  return out;
-}
-
 /** The stairwell a flight cuts in the floor above: a module wide, STAIR.length long, from its foot. */
 export function stairwell(st: StairPlan): { x: number; z: number; hw: number; hd: number; rot: number } {
   const [ox, oz] = turn(0, -STAIR.length / 2, st.rot);
@@ -202,7 +188,10 @@ export function mirrorPlan(plan: BuildingPlan): BuildingPlan {
     roof: {
       ...plan.roof,
       chimneys: plan.roof.chimneys?.map((c) => ({ x: -c.x, z: c.z })),
-      dormers: plan.roof.ridge === 'z' ? plan.roof.dormers?.map((d) => ({ side: (-d.side) as 1 | -1, at: d.at })) : plan.roof.dormers?.map((d) => ({ side: d.side, at: -d.at })),
+      dormers:
+        plan.roof.ridge === 'z'
+          ? plan.roof.dormers?.map((d) => ({ side: -d.side as 1 | -1, at: d.at }))
+          : plan.roof.dormers?.map((d) => ({ side: d.side, at: -d.at })),
     },
     stairs: plan.stairs?.map((s) => ({ ...s, x: -s.x, rot: -s.rot })),
     items: plan.items?.map((it) => ({ ...it, x: -it.x, rot: -(it.rot ?? 0) })),
@@ -213,4 +202,12 @@ export function mirrorPlan(plan: BuildingPlan): BuildingPlan {
 export function placedPlan(id: string, mirror?: boolean): BuildingPlan | undefined {
   const plan = buildingPlan(id);
   return plan && mirror ? mirrorPlan(plan) : plan;
+}
+
+/** The kit's roofs rise this far over their walls, by span. */
+export const ROOF_RISE: Record<number, number> = { 4: 3.73, 6: 4.89, 8: 6.0 };
+
+/** The roof's span (across the ridge). */
+export function roofSpan(plan: BuildingPlan): number {
+  return plan.roof.ridge === 'z' ? plan.w : plan.d;
 }

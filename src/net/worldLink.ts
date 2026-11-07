@@ -1,38 +1,50 @@
-import type { Command, LifeEvent } from '../sim/life/life';
-import type { Placement } from '../sim/life/interact';
-import type { LifeState, Vehicle, Weather } from '../sim/life/state';
-import type { Build } from '../tuning';
+import type { Command, Land, LifeEvent, LifeState, Market, Placement, Vehicle, Weather } from '../engine/life';
+import type { Build } from '../content/tuning';
+import { MINIGAMES } from '../content/minigames';
+import contentHash from '../../shared/hash.json' with { type: 'json' };
 import { currentAccount, ServerDown } from './account';
-import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrowd';
-import { resumeAfterReload } from '../app/resume';
+import { type FeedTick, feedFromJson, type PeerSample } from './feedTick';
+import { WireFeed } from './wire/feed';
+import { UPDATE } from './wire/schema';
+import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
-// Your connection to the game server (server/src/world_socket.rs), which plays Emberholm: your
-// browser sends what you press (about 60 inputs a second) and what you ask your island to do
-// (commands), and the server runs them through the island's rules, keeps the island in Postgres,
-// and answers 20 times a second with where you really are, what your island holds, and what
+// Your connection to the game server (crates/server/src/gate/socket.rs), which plays Emberholm: your
+// browser sends what you press (about 60 inputs a second) and what you ask your life to do
+// (commands), and the server runs them through the world's rules, keeps your life in Postgres,
+// and answers 20 times a second with where you really are, what your life holds, and what
 // everyone else in your channel is doing. Your own player is predicted with the same rules in the
 // meantime (src/net/netPlayer.ts) and corrected to what arrives here. Only one window plays a
 // character at a time. /ws/world?character=<id> plays that one of your characters.
 //
-// When the server is updated, it says so (updating), writes your island and hangs up as a service
+// When the server is updated, it says so (updating), writes your life and hangs up as a service
 // restart (1012); a connection can also just drop. Either way the game freezes while this keeps
 // trying, and carries on once the server is back. If the page is out of date by then (the server
-// speaks another protocol, or a new build of the game is out), it reloads and comes straight back
-// into the world with the same character (src/app/resume.ts).
+// speaks another protocol or was built from other content, or a new build of the game is out), it
+// reloads and comes straight back into the world with the same character (src/app/resume.ts).
 //
-//   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims, space}
-//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
+//   server → browser  (text) welcome {protocol, content, character, account, build, now, channel, dev, estates, claims, space}
+//                     tick {tick, you, lifeEvents?, life?, tables?, stats?}
+//                     (binary) update: the wire for crowds (crates/wire; src/net/wire), the world near you
+//                     in place of a tick's peers, actors, arrows, meteors and events, acknowledged
+//                     each (binary: 8, the newest update, which of the 32 before it arrived)
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
-//                     | space {space}: into a dungeon's copy, or back out (server/src/spaces.rs)
+//                     | space {space}: into a dungeon's copy, or back out (crates/server/src/directory/mod.rs)
 //                     | party {party} | partyInvite {invite} | notice {text}   (parties, src/ui/party)
+//                     | channels {channels}: your region's channels as you see them (crates/channels), asked
+//                       for, and sent when your channel begins to close
+//                     | channelMoved {from, to, why}: the server moved you to another channel (a space
+//                       comes with it)   (channels, src/ui/channels)
 //                     | reset | kicked | error {text} | updating
-//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
+//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number, the u32
+//                     tick (× 16) everyone else is drawn at, and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 //                     | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
-//                     | move {table, m} | concede {table}
+//                     | move {table, m} | concede {table}   (a game is its place in shared/minigames.json)
 //                     | dungeon {id, enter} | partyInvite {to?, name?} | partyAnswer {from, accept}
 //                     | partyLeave | partyKick {id} | partyLead {id}
+//                     | channels: your region's channels, please | channel {to} | channel {party: true}:
+//                       to another channel, or your party's
 
 export interface Welcome {
   character: { id: number; name: string };
@@ -52,10 +64,10 @@ export interface Welcome {
   space?: SpaceView;
 }
 
-/** Where you play: a channel of Emberholm, or a copy of a dungeon (server/src/spaces.rs space_json). */
+/** Where you play: a channel of Emberholm, or a copy of a dungeon (crates/server/src/directory/mod.rs space_json). */
 export type SpaceView = { kind: 'channel'; channel: number } | { kind: 'dungeon'; dungeon: string; name: string; copy: number };
 
-/** Your party as the server keeps it (server/src/spaces.rs party_json). */
+/** Your party as the server keeps it (crates/server/src/directory/mod.rs party_json). */
 export interface PartyView {
   id: number;
   leader: number;
@@ -70,6 +82,30 @@ export interface PartyInviteView {
   from: number;
   name: string;
   ms: number;
+}
+
+/** Your region's channels as you see them (crates/channels/src/region.rs ChannelsView; src/ui/channels). */
+export interface ChannelsView {
+  region: string;
+  /** Your channel (0: you aren't in one of the region's). */
+  here: number;
+  list: Array<{ n: number; load: 'quiet' | 'lively' | 'busy' | 'full'; closing: boolean; party: number; friends: number }>;
+  /** Your channel is merging into another: which, and how long (ms) until you're moved, as it was sent. */
+  closing: { into: number; ms: number } | null;
+  /** How long (ms, as it was sent) until you may change channel again. */
+  wait: number | null;
+  /** What stops you changing channel as you stand, if anything: a sentence. */
+  blocked: string | null;
+  /** Your party's channel, if it isn't yours, and whether you're waiting to join it. */
+  party: number | null;
+  following: boolean;
+}
+
+/** The server moved you to another channel: from where, to where, and why. */
+export interface ChannelMoved {
+  from: number;
+  to: number;
+  why: 'choice' | 'party' | 'merge';
 }
 
 /** Someone's houses, farms and ships on the slipway, as the server shares them. */
@@ -89,10 +125,12 @@ export interface EstateEntry {
 export interface PeerEntry {
   id: number;
   name: string;
+  /** A bot (crates/engine/src/bots.rs): a player whose inputs a brain decides, there to fight or train with. */
+  bot?: boolean;
   p: Record<string, unknown>;
 }
 
-/** Your own player as the server has it after input `ack`, with the parts of your island that move with you. */
+/** Your own player as the server has it after input `ack`, with the parts of your life that move with you. */
 export interface YouState {
   /** Your slot, which arrows and effects you caused are marked with. */
   id: number;
@@ -110,23 +148,49 @@ export interface YouState {
 export interface WorldTick {
   tick: number;
   you: YouState;
-  peers: PeerEntry[];
-  actors: NetActor[];
-  arrows: ArrowRecord[];
-  meteors: MeteorRecord[];
-  events: EffectEvent[];
-  /** Toasts, panels to open and the like, from your island since the last tick. */
+  /** Everyone else, the creatures, arrows, meteors and effects: a server before the wire for crowds sent them here; one on it sends them as updates of their own (binary), and leaves these out. */
+  peers?: PeerEntry[];
+  actors?: NetActor[];
+  /** As the server writes them; the feed marks which are yours and the tick they're as of (src/net/feedTick.ts). */
+  arrows?: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
+  meteors?: Array<Omit<MeteorRecord, 'tick'>>;
+  events?: EffectEvent[];
+  /** Toasts, panels to open and the like, from your life since the last tick. */
   lifeEvents?: LifeEvent[];
-  /** Your whole island, when it changed (and every couple of seconds anyway). */
-  life?: { rev: number; state: LifeState; placing: Placement | null; resting: boolean };
+  /** Your whole life, when it changed (and every couple of seconds anyway). */
+  life?: { rev: number; state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean };
   /** Mini-game tables near you, as everyone sees them (none: no table near). */
   tables?: TableShown[];
+  /** Once a second, for admins: how the game you're in is running and how its fights go. */
+  stats?: WorldStats;
 }
 
-/** A mini-game's table as everyone in the world sees it (server/src/minigames Table::shown). */
+/** How a game on the server is running (crates/server/src/sim/mod.rs, once a second to admins). */
+export interface WorldStats {
+  tick: number;
+  players: number;
+  bots: number;
+  /** How long a tick takes to run, ms (smoothed). */
+  tickMs: number;
+  /** Every tick since the last stats: its rules and its updates, ms each (the load harness reads them). */
+  ticks?: Array<[number, number]>;
+  /** What this tick sent this browser, bytes: the JSON tick this came with and the update on the wire. */
+  bytes: number;
+  /** Of which the update on the wire (the wire for crowds), bytes. */
+  wire?: number;
+  /** Blows between players (bots included) since the game began; those only lag compensation landed; how far back it looked (ms, recent). */
+  pvpHits: number;
+  savedByRewind: number;
+  rewindMs: number;
+  heals: number;
+  meteorsLanded: number;
+}
+
+/** A mini-game's table as everyone in the world sees it (crates/engine/src/minigames Table::shown). */
 export interface TableShown {
   id: number;
-  game: string;
+  /** The game: its place in shared/minigames.json. */
+  game: number;
   /** Its middle on the ground, and the way from seat 0 to seat 1 (x = sin, z = cos). */
   x: number;
   y: number;
@@ -136,8 +200,8 @@ export interface TableShown {
   seats: Array<{ id: number; name: string }>;
   /** Each player's stake (copper). */
   stake: number;
-  /** Beacons: who lit each hex (0 nobody, 1 seat 0, 2 seat 1) and the winning row. */
-  board: { lit: number[]; row: number[] };
+  /** The board as anyone may see it, in the game's own terms (its board views read it). */
+  board: unknown;
   /** Once the game is over: who won (null: nobody) and why. */
   over?: { winner: number | null; why: 'rules' | 'conceded' | 'timeouts' | 'away' | 'aborted' };
 }
@@ -151,17 +215,18 @@ export interface TableView extends Omit<TableShown, 'seats'> {
   /** What was left on the clock of the player to move when this was sent. */
   ms: number;
   toMove: number | null;
-  /** The game's own state (Beacons: src/ui/minigames/beacons.ts BeaconsState). */
+  /** The game as its rules show it to you, in its own terms (its board view's: src/ui/minigames/boards/). */
   state: Record<string, unknown>;
 }
 
-/** A challenge as the server tells it to both players (server/src/minigames Challenge::json). */
+/** A challenge as the server tells it to both players (crates/engine/src/minigames Challenge::json). */
 export interface ChallengeView {
   from: number;
   fromName: string;
   to: number;
   toName: string;
-  game: string;
+  /** The game: its place in shared/minigames.json. */
+  game: number;
   /** Each player's stake (copper). */
   stake: number;
   /** Time left to answer when this was sent. */
@@ -185,8 +250,15 @@ export type LinkStatus = 'online' | 'updating' | 'reconnecting' | 'kicked' | 'si
 const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 2000, 4000] };
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
-/** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
-const WORLD_PROTOCOL = 7;
+/** What this page speaks; the server says what it speaks in its welcome (crates/server/src/gate/socket.rs). */
+const WORLD_PROTOCOL = 13;
+/**
+ * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
+ * says its own in its welcome. Built from other content, the two would read what goes on the wire
+ * as a place in a bundle's list (a creature's kind, a weapon, a skill, a mini-game) as different
+ * things, so it counts as another protocol.
+ */
+const CONTENT = contentHash.content;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -201,7 +273,10 @@ export class WorldLink {
   /** Something the server wants the player to know (a save it couldn't write, say). */
   onError: ((text: string) => void) | null = null;
   onTick: ((t: WorldTick) => void) | null = null;
-  onPeers: ((list: PeerEntry[]) => void) | null = null;
+  /** The world around you as of each tick (src/net/feedTick.ts), after its onTick. */
+  onWorld: ((f: FeedTick) => void) | null = null;
+  /** Players with a fresh state, and those in sight that weren't refreshed (null: everyone in sight is in the list). */
+  onPeers: ((list: PeerSample[], kept: readonly number[] | null) => void) | null = null;
   onEstate: ((e: EstateEntry) => void) | null = null;
   onClaims: ((claims: Record<string, string>) => void) | null = null;
   onLeft: ((id: number) => void) | null = null;
@@ -227,18 +302,29 @@ export class WorldLink {
   onInvite: ((i: PartyInviteView | null) => void) | null = null;
   /** Something the server wants the player to read (not a problem: a party joined, say). */
   onNotice: ((text: string) => void) | null = null;
+  /** Your region's channels as last heard (null until asked), and when they came; the last move between channels, and when. */
+  channels: ChannelsView | null = null;
+  channelsHeard = 0;
+  onChannels: ((c: ChannelsView | null) => void) | null = null;
+  moved: ChannelMoved | null = null;
+  movedHeard = 0;
+  onMoved: ((m: ChannelMoved) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
-  readonly peers = new Map<number, PeerEntry>();
+  readonly peers = new Map<number, PeerSample>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
-  /** The server's clock when it last wrote your island to the database. */
+  /** The server's clock when it last wrote your life to the database. */
   lastSaved = 0;
   /** Ticks heard since connecting (tests wait on this). */
   ticks = 0;
-  /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
+  /** The newest tick, and the newest whole life, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
+  /** The newest of the world around you, as the feed takes it. */
+  latestWorld: FeedTick | null = null;
   latestLife: WorldTick['life'] | null = null;
+  /** The newest stats the server sent (admins only, once a second). */
+  stats: WorldStats | null = null;
   /** The server said it is stopping for an update. */
   private updating = false;
   /**
@@ -248,6 +334,8 @@ export class WorldLink {
   lag = 0;
   /** The server's clock in its last welcome (ms since 1970), and when that came (performance.now()). */
   private clock = { server: 0, heard: 0 };
+  /** The world near you as heard on the wire for crowds, for this connection (a new one starts afresh). */
+  private wire = new WireFeed();
 
   private constructor(
     private ws: WebSocket,
@@ -255,18 +343,25 @@ export class WorldLink {
     heard: number,
     /** The character this connection plays (and comes back with). */
     readonly character: number,
+    private readonly beforeReload: BeforeReload,
   ) {
     this.welcomed(welcome, heard);
     this.attach(ws);
   }
 
   private welcomed(w: Welcome, heard: number): void {
+    this.wire = new WireFeed();
     this.peers.clear();
     this.estates.clear();
     for (const e of w.estates ?? []) this.estates.set(e.id, e);
     this.claims = w.claims ?? {};
     this.clock = { server: w.now, heard };
     this.space = w.space ?? { kind: 'channel', channel: w.channel };
+    // The channels as they were on the connection before are asked for again.
+    if (this.channels) {
+      this.channels = null;
+      this.onChannels?.(null);
+    }
     // A game or a challenge that's still on comes again from the server, after its welcome.
     const hadTable = this.table !== null;
     const hadChallenges = !!(this.challenges.sent || this.challenges.waiting);
@@ -288,23 +383,28 @@ export class WorldLink {
    * Connects to play `character` (one of yours; without one, the one you played last) and waits for
    * the welcome. Rejects with ServerDown if the server can't be reached.
    */
-  static async open(character?: number): Promise<{ link: WorldLink; welcome: Welcome }> {
-    const { ws, welcome, heard } = await connect(character);
-    return { link: new WorldLink(ws, welcome, heard, welcome.character.id), welcome };
+  static async open(character: number | undefined, beforeReload: BeforeReload): Promise<{ link: WorldLink; welcome: Welcome }> {
+    const { ws, welcome, heard } = await connect(character, beforeReload);
+    return { link: new WorldLink(ws, welcome, heard, welcome.character.id, beforeReload), welcome };
   }
 
   get open(): boolean {
     return this.status === 'online' && this.ws.readyState === WebSocket.OPEN;
   }
 
-  /** One frame of what you pressed: its sequence number and the 10 bytes netPlayer.ts packs. */
-  sendInput(seq: number, raw: readonly number[]): boolean {
+  /**
+   * One frame of what you pressed: its sequence number, the server tick (× 16) everyone else is
+   * drawn at on this screen (so the server checks your swings against where you saw them), and the
+   * 10 bytes netPlayer.ts packs.
+   */
+  sendInput(seq: number, view: number, raw: readonly number[]): boolean {
     if (!this.open) return false;
-    const msg = new DataView(new ArrayBuffer(2 + 4 + OPEN_INPUT));
+    const msg = new DataView(new ArrayBuffer(2 + 8 + OPEN_INPUT));
     msg.setUint8(0, SEND_INPUTS);
     msg.setUint8(1, 1);
     msg.setUint32(2, seq, true);
-    for (let k = 0; k < OPEN_INPUT; k++) msg.setUint8(6 + k, (raw[k] ?? 0) & 255);
+    msg.setUint32(6, view, true);
+    for (let k = 0; k < OPEN_INPUT; k++) msg.setUint8(10 + k, (raw[k] ?? 0) & 255);
     this.out(msg.buffer);
     return true;
   }
@@ -315,7 +415,7 @@ export class WorldLink {
     setTimeout(() => this.open && this.ws.send(data), this.lag);
   }
 
-  /** Asks your island to do something, on the input with sequence number `seq`. */
+  /** Asks your life to do something, on the input with sequence number `seq`. */
   command(seq: number, c: Command): boolean {
     return this.send({ t: 'cmd', s: seq, c });
   }
@@ -324,7 +424,7 @@ export class WorldLink {
     return this.send({ t: 'build', build });
   }
 
-  // ---------- Mini-games (server/src/world_game/tables.rs) ----------
+  // ---------- Mini-games (crates/server/src/sim/tables.rs) ----------
 
   /**
    * Tests: how long each turn lasts (seconds) in a game this browser challenges someone to, on a
@@ -332,10 +432,16 @@ export class WorldLink {
    */
   challengeTurn: number | null = null;
 
-  /** Challenges another player here to `game` for `stake` copper each (development servers: `seed` deals a known game). */
+  /**
+   * Challenges another player here to the game `game` names (its id) for `stake` copper each
+   * (development servers: `seed` deals a known game). On the wire the game is its place in
+   * shared/minigames.json, as the server sends it back.
+   */
   challenge(to: number, game: string, stake: number, seed?: number): boolean {
+    const index = MINIGAMES.findIndex((g) => g.id === game);
+    if (index < 0) return false;
     const turn = this.challengeTurn;
-    return this.send({ t: 'challenge', to, game, stake, ...(seed !== undefined ? { seed } : {}), ...(turn !== null ? { turn } : {}) });
+    return this.send({ t: 'challenge', to, game: index, stake, ...(seed !== undefined ? { seed } : {}), ...(turn !== null ? { turn } : {}) });
   }
 
   /** Takes your challenge back. */
@@ -358,11 +464,19 @@ export class WorldLink {
     return this.send({ t: 'concede', table });
   }
 
-  // ---------- Dungeons and parties (server/src/spaces.rs, server/src/parties.rs) ----------
+  // ---------- Dungeons and parties (crates/server/src/directory/mod.rs, crates/server/src/social/parties.rs) ----------
 
   /** Through a dungeon's portal (you're at it), or back out of its copy (you're at its way out). */
   dungeon(id: string, enter: boolean): boolean {
     return this.send({ t: 'dungeon', id, enter });
+  }
+
+  /**
+   * Into a developer zone (admins only; the server says no to anyone else): the yard, the battlefield,
+   * on side `team` (0 or 1) where sides are taken; asked again there, onto that side.
+   */
+  zone(id: string, team?: number): boolean {
+    return this.send(team === undefined ? { t: 'zone', id } : { t: 'zone', id, team });
   }
 
   /** Invites someone playing to your party: by id, or by name (in any channel or dungeon). */
@@ -389,7 +503,19 @@ export class WorldLink {
     return this.send({ t: 'partyLead', id });
   }
 
-  /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
+  // ---------- Channels (crates/channels; the server's directory places you, moves you and merges channels) ----------
+
+  /** Asks for your region's channels as they are now (the answer comes as `channels`). */
+  askChannels(): boolean {
+    return this.send({ t: 'channels' });
+  }
+
+  /** Asks to go to channel `n`, or to your party's: the server's rules say whether you may. */
+  changeChannel(to: number | 'party'): boolean {
+    return this.send(to === 'party' ? { t: 'channel', party: true } : { t: 'channel', to });
+  }
+
+  /** Starts your life over on the server. Resolves once it's done (or after 3 s). */
   reset(): Promise<void> {
     return new Promise((resolve) => {
       this.resetDone.push(resolve);
@@ -418,6 +544,7 @@ export class WorldLink {
   }
 
   private receive(data: unknown): void {
+    if (data instanceof ArrayBuffer) return this.hearWire(new Uint8Array(data));
     if (typeof data !== 'string') return;
     let msg: { t?: string; text?: string; id?: number; name?: string; estate?: Estate; claims?: Record<string, string>; at?: number } & Partial<WorldTick>;
     try {
@@ -430,16 +557,17 @@ export class WorldLink {
       this.ticks++;
       this.latest = t;
       if (t.life) this.latestLife = t.life;
-      for (const e of t.peers ?? []) this.peers.set(e.id, e);
-      this.onPeers?.(t.peers ?? []);
+      if (t.stats) this.stats = t.stats;
       this.onTick?.(t);
+      // A tick that carries the world (everyone, every tick); on the wire for crowds it comes in
+      // updates of its own (hearWire).
+      if (t.peers !== undefined) this.heardWorld(feedFromJson(t));
     } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
     else if (msg.t === 'reset') {
-      // Anything heard before this was the island that's gone.
+      // Anything heard before this was the life that's gone.
       this.latestLife = null;
       for (const done of this.resetDone.splice(0)) done();
-    }
-    else if (msg.t === 'kicked') this.setStatus('kicked');
+    } else if (msg.t === 'kicked') this.setStatus('kicked');
     else if (msg.t === 'updating') {
       // The server is stopping for an update: nothing more counts until the new one is up.
       this.updating = true;
@@ -467,9 +595,17 @@ export class WorldLink {
     } else if (msg.t === 'space') {
       const s = (msg as { space?: SpaceView }).space;
       if (!s) return;
-      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks.
+      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks. On the
+      // wire the server forgets what it sent you here, and starts again after this. The channels
+      // heard were the old place's: they're asked for again.
       this.peers.clear();
       this.latest = null;
+      this.latestWorld = null;
+      this.wire.reset();
+      if (this.channels) {
+        this.channels = null;
+        this.onChannels?.(null);
+      }
       this.space = s;
       this.onSpace?.(s);
     } else if (msg.t === 'party') {
@@ -480,7 +616,34 @@ export class WorldLink {
       this.invite = (msg as { invite?: PartyInviteView | null }).invite ?? null;
       this.inviteHeard = performance.now();
       this.onInvite?.(this.invite);
+    } else if (msg.t === 'channels') {
+      this.channels = (msg as { channels?: ChannelsView | null }).channels ?? null;
+      this.channelsHeard = performance.now();
+      this.onChannels?.(this.channels);
+    } else if (msg.t === 'channelMoved') {
+      const m = msg as Partial<ChannelMoved>;
+      if (typeof m.from !== 'number' || typeof m.to !== 'number' || !m.why) return;
+      this.moved = { from: m.from, to: m.to, why: m.why };
+      this.movedHeard = performance.now();
+      this.onMoved?.(this.moved);
     } else if (msg.t === 'notice') this.onNotice?.(msg.text ?? '');
+  }
+
+  /** The world as of a tick, however it came: kept for whoever comes late, and handed on. */
+  private heardWorld(world: FeedTick): void {
+    this.latestWorld = world;
+    for (const e of world.peers) this.peers.set(e.id, e);
+    this.onPeers?.(world.peers, world.kept);
+    this.onWorld?.(world);
+  }
+
+  /** An update on the wire for crowds: heard, acknowledged, and handed on as the world. */
+  private hearWire(bytes: Uint8Array): void {
+    if (bytes[0] !== UPDATE) return;
+    const world = this.wire.hear(bytes, this.character);
+    // What's been applied, whether or not this one was (a stale or broken one is dropped unacknowledged).
+    this.out(this.wire.ack());
+    if (world) this.heardWorld(world);
   }
 
   /** The connection closed (`code`: the WebSocket's close code). Keeps trying until it's back. */
@@ -494,11 +657,11 @@ export class WorldLink {
       // A new build of the game came out (with the new server, most likely): load it, and come
       // straight back in.
       if (await newBuildOut()) {
-        reloadInto(this.character);
+        reloadInto(this.character, this.beforeReload);
         return;
       }
       try {
-        const { ws, welcome, heard } = await connect(this.character);
+        const { ws, welcome, heard } = await connect(this.character, this.beforeReload);
         this.ws = ws;
         this.welcomed(welcome, heard);
         this.attach(ws);
@@ -527,9 +690,15 @@ export class WorldLink {
 /** The page is reloading to come back as the newer game: nothing more to do here. */
 export class Reloading extends ServerDown {}
 
+/**
+ * Told the character a reload goes back into, just before the page reloads, so it comes straight
+ * back into the world (the app remembers it: src/app/resume.ts).
+ */
+export type BeforeReload = (character: number) => void;
+
 /** Reloads into the world with `character`, without the intro or the character select screen. */
-function reloadInto(character: number | undefined): void {
-  if (character !== undefined) resumeAfterReload(character);
+function reloadInto(character: number | undefined, beforeReload: BeforeReload): void {
+  if (character !== undefined) beforeReload(character);
   location.reload();
 }
 
@@ -562,7 +731,7 @@ async function newBuildOut(): Promise<boolean> {
 }
 
 /** A connection and its welcome, with when the welcome came (performance.now()). */
-function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome; heard: number }> {
+function connect(character: number | undefined, beforeReload: BeforeReload): Promise<{ ws: WebSocket; welcome: Welcome; heard: number }> {
   return new Promise((resolve, reject) => {
     const which = character === undefined ? '' : `?character=${character}`;
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/world${which}`);
@@ -585,11 +754,15 @@ function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome;
       ws.onclose = null;
       // The server was updated since this page loaded: load the new game, straight back into the
       // world with this character (once; if that didn't help, say so rather than reloading forever).
-      if ((msg as { protocol?: number }).protocol !== WORLD_PROTOCOL) {
+      const theirs = msg as { protocol?: number; content?: string };
+      if (theirs.protocol !== WORLD_PROTOCOL || theirs.content !== CONTENT) {
         ws.close();
+        // For whoever is developing: a world server built from other content than the page's
+        // needs building again (npm run up).
+        console.warn(`The world server speaks protocol ${theirs.protocol} with content ${theirs.content}; this page ${WORLD_PROTOCOL} with ${CONTENT}.`);
         if (!sessionStorage.getItem(RELOADED)) {
           sessionStorage.setItem(RELOADED, '1');
-          reloadInto(character ?? msg.character?.id);
+          reloadInto(character ?? msg.character?.id, beforeReload);
           reject(new Reloading('The game was updated. Loading the new version…'));
           return;
         }

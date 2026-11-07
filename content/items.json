@@ -1,0 +1,54 @@
+{
+  "comment": "Things that live in your bag, who sells them, and what workbenches make. Read by src/content/items.ts. Prices are copper (100c = 1s, 100s = 1g). Trade and material packs are not items: they ride on your back or in a vehicle (shared/trade.json). `categories`: what each kind of item is called (`name` in a tooltip, `group` as a heading) and what using one is called in the bag (`verb`); what using it does is the rules' (src/engine/life/interact.ts useItem), so a new category is new code. A placeable says where it is placed (`placeOn`: ground, a farm plot's scarecrow; plot, an empty house plot for a house blueprint; slipway, a ship design) and what using it tells you (`hint`).",
+  "bagSlots": 30,
+  "categories": {
+    "seed": {
+      "name": "Seed",
+      "group": "Seeds and Young",
+      "verb": "Plant This"
+    },
+    "produce": {
+      "name": "Produce",
+      "group": "Produce"
+    },
+    "material": {
+      "name": "Material",
+      "group": "Materials"
+    },
+    "consumable": {
+      "name": "Consumable",
+      "group": "Consumables",
+      "verb": "Use"
+    },
+    "placeable": {
+      "name": "Placeable",
+      "group": "Placeables",
+      "verb": "Place"
+    },
+    "glider": {
+      "name": "Glider",
+      "group": "Gliders",
+      "verb": "Equip"
+    },
+    "deed": {
+      "name": "Vehicle Deed",
+      "group": "Deeds",
+      "verb": "Summon"
+    },
+    "mount": {
+      "name": "Mount",
+      "group": "Mounts",
+      "verb": "Call"
+    }
+  },
+  "items": {
+    "$things": "items"
+  },
+  "vendors": {
+    "$things": "vendors",
+    "id": "npc"
+  },
+  "recipes": {
+    "$things": "recipes"
+  }
+}

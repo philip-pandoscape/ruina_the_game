@@ -1,0 +1,9 @@
+{
+  "id": "ironOre",
+  "name": "Iron Ore",
+  "icon": "⛓️",
+  "cat": "material",
+  "stack": 200,
+  "value": 15,
+  "desc": "Rusty ore for nails, fittings and axles, mined from the rust-streaked outcrops at Stonebreak Quarry (F) or bought at Brenna's Quarry Stores. Six make an Iron Fittings Crate at the Stonecutter's Table."
+}

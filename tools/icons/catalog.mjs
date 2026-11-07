@@ -118,7 +118,11 @@ export const SHEETS = [
       { name: 'seed-barley', items: ['seed.barley'], paint: 'the same small burlap seed sack, with ears of golden barley tucked into its tie' },
       { name: 'seed-flax', items: ['seed.flax'], paint: 'the same small burlap seed sack, with a sprig of sky-blue flax flowers tucked into its tie' },
       { name: 'seed-emberberry', items: ['seed.emberberry'], paint: 'the same small burlap seed sack, with a sprig of ember-red berries tucked into its tie' },
-      { name: 'apple-sapling', items: ['sapling.apple'], paint: 'a young apple sapling with a few leaves and one small red apple, its roots wrapped in a burlap ball' },
+      {
+        name: 'apple-sapling',
+        items: ['sapling.apple'],
+        paint: 'a young apple sapling with a few leaves and one small red apple, its roots wrapped in a burlap ball',
+      },
       { name: 'pine-sapling', items: ['sapling.pine'], paint: 'a young pine sapling, its roots wrapped in a burlap ball' },
       { name: 'pine', emoji: ['🌲'], paint: 'a tall dark-green pine tree' },
       { name: 'oak', emoji: ['🌳'], paint: 'a broad leafy oak tree with strong roots spreading at its base' },
@@ -144,14 +148,41 @@ export const SHEETS = [
     id: 'vehicles',
     bg: 'magenta',
     icons: [
-      { name: 'farm-cart', emoji: ['🚜'], paint: 'a wooden farm cart painted green with cream trim and red spoked wheels, a small red pennant at the back, side view facing left' },
-      { name: 'roadster', emoji: ['🏎️'], paint: 'a low open-top two-seat steam roadster with no windscreen, painted red, with brass headlamps and red spoked wheels, side view facing left' },
-      { name: 'hauler', emoji: ['🚚'], paint: 'a heavy steam truck painted dark green with cream trim, a black boiler and a smokestack puffing white steam, red spoked wheels and a cargo bed, side view facing left' },
+      {
+        name: 'farm-cart',
+        emoji: ['🚜'],
+        paint: 'a wooden farm cart painted green with cream trim and red spoked wheels, a small red pennant at the back, side view facing left',
+      },
+      {
+        name: 'roadster',
+        emoji: ['🏎️'],
+        paint: 'a low open-top two-seat steam roadster with no windscreen, painted red, with brass headlamps and red spoked wheels, side view facing left',
+      },
+      {
+        name: 'hauler',
+        emoji: ['🚚'],
+        paint:
+          'a heavy steam truck painted dark green with cream trim, a black boiler and a smokestack puffing white steam, red spoked wheels and a cargo bed, side view facing left',
+      },
       { name: 'rowboat', emoji: ['🚣'], paint: 'a small white rowboat with blue stripes and a pair of wooden oars' },
       { name: 'sloop', emoji: ['⛵'], paint: 'a single-masted sloop with a yellow and teal hull and a cream sail with a red top band' },
-      { name: 'cog', emoji: ['🚢'], paint: 'a broad-beamed medieval merchant cog with a brown wooden hull, a raised stern castle and a square red-and-cream striped sail' },
-      { name: 'wayfarer', emoji: ['🪁'], paint: 'a hang glider, a flying contraption and not a bird: one broad triangular wing of patched cream canvas stretched over a light wooden frame, with a wooden control bar hanging beneath it, seen from slightly below and in front' },
-      { name: 'swiftwing', items: ['glider.swiftwing'], paint: "a sleek racing hang glider, a flying contraption and not a bird: one narrow swept-back wing of canvas striped brown and white like a hawk's feathers, on a dark wooden frame with a control bar beneath it, seen from slightly below and in front" },
+      {
+        name: 'cog',
+        emoji: ['🚢'],
+        paint: 'a broad-beamed medieval merchant cog with a brown wooden hull, a raised stern castle and a square red-and-cream striped sail',
+      },
+      {
+        name: 'wayfarer',
+        emoji: ['🪁'],
+        paint:
+          'a hang glider, a flying contraption and not a bird: one broad triangular wing of patched cream canvas stretched over a light wooden frame, with a wooden control bar hanging beneath it, seen from slightly below and in front',
+      },
+      {
+        name: 'swiftwing',
+        items: ['glider.swiftwing'],
+        paint:
+          "a sleek racing hang glider, a flying contraption and not a bird: one narrow swept-back wing of canvas striped brown and white like a hawk's feathers, on a dark wooden frame with a control bar beneath it, seen from slightly below and in front",
+      },
       { name: 'eagle', emoji: ['🦅'], paint: 'a golden eagle with its wings spread, in flight' },
     ],
   },
@@ -224,7 +255,11 @@ export const SHEETS = [
       { name: 'wildfire', emoji: ['🎇'], paint: 'a burst of fiery sparks spreading outward' },
       { name: 'ember-heart', emoji: ['🌋'], paint: 'a small volcano erupting glowing orange lava' },
       { name: 'ash', emoji: ['🌫️'], paint: 'a billowing cloud of grey ash with glowing orange embers' },
-      { name: 'pyreborn', emoji: ['🐉'], paint: 'the horned head of a small red dragon in profile, breathing a short burst of fire; the whole head and the flame sit well inside the cell' },
+      {
+        name: 'pyreborn',
+        emoji: ['🐉'],
+        paint: 'the horned head of a small red dragon in profile, breathing a short burst of fire; the whole head and the flame sit well inside the cell',
+      },
       { name: 'glass-cannon', emoji: ['🔮'], paint: 'a violet crystal ball glowing with arcane light, on a small bronze stand' },
       { name: 'focused-mind', emoji: ['🧠'], paint: 'a pale blue glowing brain wreathed in faint arcane sparks' },
       { name: 'menders-grace', emoji: ['🕊️'], paint: 'a white dove with its wings spread' },
@@ -250,14 +285,23 @@ export const SHEETS = [
     id: 'dungeons',
     bg: 'magenta',
     icons: [
-      { name: 'party', emoji: ['👥'], paint: 'three adventurers shown as head-and-shoulders busts standing close together and overlapping a little: a knight in a steel helm in front, a hooded ranger in green to the left and a mage in a blue pointed hat to the right' },
+      {
+        name: 'party',
+        emoji: ['👥'],
+        paint:
+          'three adventurers shown as head-and-shoulders busts standing close together and overlapping a little: a knight in a steel helm in front, a hooded ranger in green to the left and a mage in a blue pointed hat to the right',
+      },
       { name: 'crown', emoji: ['👑'], paint: 'a small golden crown with five points, each tipped with a tiny ruby' },
       { name: 'portal', paint: 'a rough stone archway with a swirling teal-and-dark-blue magic portal filling its opening, a few sparks drifting from it' },
       { name: 'gong', paint: 'a dented copper cooking pot hung by a rope from a short wooden frame, used as a gong, with a wooden mallet leaning against it' },
       { name: 'lens', paint: 'a great lighthouse lens: a tall rounded lantern of stacked faceted glass rings in a brass frame, glowing warm gold inside' },
       { name: 'totem', paint: 'a short carved wooden goblin totem post with a grinning painted face, two curved horns and a small round shield hung on it' },
       { name: 'waterfall', paint: 'a white waterfall pouring off a grey rock ledge into a small turquoise pool, with a little spray' },
-      { name: 'goblin', paint: "a goblin's face head-on: green skin, long pointed ears, a big hooked nose, yellow eyes and a toothy grin, wearing a dented iron pot as a helmet" },
+      {
+        name: 'goblin',
+        paint:
+          "a goblin's face head-on: green skin, long pointed ears, a big hooked nose, yellow eyes and a toothy grin, wearing a dented iron pot as a helmet",
+      },
     ],
   },
 ];

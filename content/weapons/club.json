@@ -1,0 +1,40 @@
+{
+  "name": "club",
+  "title": "Club",
+  "icon": "🔨",
+  "tags": [
+    "melee",
+    "attack",
+    "blunt"
+  ],
+  "combo": [
+    {
+      "startup": 5,
+      "active": 4,
+      "recovery": 14,
+      "damage": 9,
+      "lunge": 2.5,
+      "reach": 1.8,
+      "arcDeg": 110,
+      "hitstop": 4,
+      "knock": 2.5,
+      "playerKnock": 2.5,
+      "shake": 0.2,
+      "cancelAfter": 6
+    },
+    {
+      "startup": 7,
+      "active": 5,
+      "recovery": 20,
+      "damage": 16,
+      "lunge": 4,
+      "reach": 1.9,
+      "arcDeg": 110,
+      "hitstop": 6,
+      "knock": 5,
+      "playerKnock": 5,
+      "shake": 0.4,
+      "cancelAfter": 10
+    }
+  ]
+}

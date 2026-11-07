@@ -1,0 +1,63 @@
+{
+  "w": 2.85,
+  "d": 1.1,
+  "h": 0.81,
+  "collider": "box",
+  "parts": [
+    {
+      "model": "Table_Large"
+    },
+    {
+      "model": "Book_Stack_1",
+      "x": -1,
+      "z": -0.15,
+      "y": 0.81
+    },
+    {
+      "model": "Book_7",
+      "x": -0.3,
+      "z": 0.1,
+      "y": 0.81,
+      "rot": 0.3
+    },
+    {
+      "model": "Scroll_1",
+      "x": 0.25,
+      "z": 0.2,
+      "y": 0.81,
+      "rot": 0.8
+    },
+    {
+      "model": "Scroll_2",
+      "x": 0.5,
+      "z": -0.1,
+      "y": 0.81,
+      "rot": -0.4
+    },
+    {
+      "model": "Coin_Pile",
+      "x": 0.95,
+      "z": 0.15,
+      "y": 0.81
+    },
+    {
+      "model": "CandleStick",
+      "x": 1.1,
+      "z": -0.3,
+      "y": 0.81
+    },
+    {
+      "model": "Chair_1",
+      "z": -0.75
+    }
+  ],
+  "light": {
+    "x": 1.1,
+    "z": -0.3,
+    "y": 1,
+    "intensity": 1.2,
+    "distance": 4.5,
+    "color": 16759414,
+    "flicker": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "deed.cog",
+  "name": "Merchant Cog Deed",
+  "icon": "🚢",
+  "cat": "deed",
+  "stack": 1,
+  "value": 0,
+  "vehicle": "cog",
+  "desc": "Summon your cog at deep water. 16 pack slots; a square sail that loves a following wind."
+}

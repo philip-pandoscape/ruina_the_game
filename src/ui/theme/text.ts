@@ -1,10 +1,33 @@
 // How UI text is written (design/ui.html, "Writing"). Labels are in Title Case: buttons, menu
 // entries, tabs, window titles, headings, status tags, stat names, the controls hint. Sentences
-// (what people say, descriptions, notes, toasts) are in sentence case. tests/ui.spec.ts holds the
+// (what people say, descriptions, notes, toasts) are in sentence case. tests/integration/ui.spec.ts holds the
 // open windows to this.
 
 /** Words a title keeps in lower case, unless they start or end it. */
-export const SMALL_WORDS: ReadonlySet<string> = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'so', 'yet', 'as', 'at', 'by', 'in', 'of', 'off', 'on', 'per', 'to', 'up', 'via', 'vs']);
+export const SMALL_WORDS: ReadonlySet<string> = new Set([
+  'a',
+  'an',
+  'the',
+  'and',
+  'but',
+  'or',
+  'nor',
+  'for',
+  'so',
+  'yet',
+  'as',
+  'at',
+  'by',
+  'in',
+  'of',
+  'off',
+  'on',
+  'per',
+  'to',
+  'up',
+  'via',
+  'vs',
+]);
 
 /** "sell all produce" → "Sell All Produce". Words already capitalised (names, "UI") are kept. */
 export function titleCase(text: string): string {

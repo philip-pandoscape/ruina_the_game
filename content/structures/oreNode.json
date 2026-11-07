@@ -1,0 +1,18 @@
+{
+  "id": "oreNode",
+  "name": "Ore Outcrop",
+  "w": 2.8,
+  "d": 2.4,
+  "h": 1.8,
+  "collider": "post",
+  "r": 1.2,
+  "look": {
+    "body": "oreNode",
+    "model": {
+      "files": [
+        "oreNode"
+      ],
+      "sink": 0.2
+    }
+  }
+}

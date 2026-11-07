@@ -10,7 +10,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
   - Numbers: bearing -1.2217 rad (about -70°, atan2(dz, dx) from the mountain's centre at 40, 250);
     lip 26 m out from the centre, foot 74; the slot is 10 m wide.
   - The falls are cut after the tree and rock scatter, so no other tree or rock on the island moves
-    (`tests/dungeon-way-in.spec.ts` checks this).
+    (`tests/integration/dungeon-way-in.spec.ts` checks this).
 - **The ledge behind the curtain:** 85 m up, 26 to 34 m out from the centre, under a hood of rock
   (a deck with its top at 92 m).
   - Anyone dropping off the summit lands on the hood, so the only way onto the ledge is to glide in.
@@ -18,7 +18,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
     the back wall doesn't slide off.
 - **The portal** (`dungeons` in the island's recipe):
   - At (49.714, 85, 223.313), reach 2.2 m. F there shows "Enter Goblin's Dread" (TS-only focus in
-    `src/sim/life/interact.ts`).
+    `src/engine/life/interact.ts`).
   - You come out at (50.74, 220.494) facing the curtain (`outside`). That's just beyond the portal's
     reach, so you don't step straight back in.
 - **The pools are visual only:** under 0.5 m deep in the rules, so there's no wading or swimming.
@@ -28,16 +28,16 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
   - `goblinKit.ts`: goblin props (totem, lanterns, nets, cave drawings).
   - `src/render/camera.ts`: under a deck overhead, the camera stays under it and pulls in short of
     rock.
-- **The server** gets the terrain only from the bake (`server/data/emberholm.zone`, rebaked with
-  `BAKE=1 npx playwright test tests/terrain.spec.ts`), and reads the door from the recipe.
+- **The server** gets the terrain only from the bake (`crates/engine/data/emberholm.zone`, rebaked with
+  `npm run bake`), and reads the door from the recipe.
 
 ## A dungeon's copy
 
 - **Where it is:** `shared/dungeons/goblinsDread.json` lays the inside out as boxes and decks around
   `origin` (0, 400, 640), a spot high above the sea north of the island that nothing else uses.
   - These colliders are solid only in a copy. The server adds them to a copy's OpenWorld
-    (`server/src/open/dungeon.rs`, `make_dungeon`). The browser switches them on while you're inside
-    and off when you leave (`src/sim/zone/dungeon.ts` `setDungeonSolid`, driven by
+    (`crates/engine/src/open/dungeon.rs`, `make_dungeon`). The browser switches them on while you're inside
+    and off when you leave (`src/engine/world/dungeons.ts` `setDungeonSolid`, driven by
     `src/app/dungeonVisit.ts`).
   - So they're never invisible walls in the open world.
 - **What's in it:** `arrive` (where you come in), `exit` (F within r leaves, "Leave Goblin's Dread"),
@@ -53,7 +53,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
 - **To add a room:** add its boxes and decks to `goblinsDread.json` and its look to `dungeonView.ts`.
   Both sides read the same file, so there's nothing to bake.
 
-## Parties (server/src/parties.rs, src/ui/party/)
+## Parties (crates/server/src/social/parties.rs, src/ui/party/)
 
 - **The rules:**
   - Up to 5 members.
@@ -75,11 +75,11 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
     Party.
   - On a controller, the invitation takes A and B, and the window takes the D-pad.
 
-## Dungeon copies (server/src/spaces.rs)
+## Dungeon copies (crates/server/src/directory/mod.rs)
 
 - **Spaces** holds every game: channels (ids from 1 up) and copies (ids from -1 down), plus the
   parties, where each character is, their home channel, and which copy each owner has.
-  - A copy is a `ChannelGame` whose `space` is a Copy (`server/src/world_game.rs`). The same world
+  - A copy is a `ChannelGame` whose `space` is a Copy (`crates/server/src/sim/mod.rs`). The same world
     thread ticks it and it saves islands the same way. It has no slimes, no estates, and its own
     actors.
 - **The rules:**
@@ -104,11 +104,11 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
 
 | Test | What it covers |
 |---|---|
-| `server/src/parties.rs` | Unit tests: invitations, leading, kicking, the cap of 5, lapsing |
-| `server/src/spaces.rs` | Unit tests: one copy per party, a separate copy for a player on their own, the 30-minute rule, a minute's warning before being put out, adopting a copy, reconnecting inside, Start Over |
-| `server/src/open/dungeon.rs` | Unit test: solid only in a copy |
-| `tests/party.spec.ts` (online) | Forming a party by name; a party into one copy and someone on their own into theirs; leaving and coming back to the same copy |
-| `tests/dungeon-way-in.spec.ts` | Gliding off the deck into the falls onto the stage; in and out through the portal offline; dropping off the summit lands on the hood; no tree or rock moved |
-| `tests/update.spec.ts` | A server restart while you're inside brings you back outside the door with the cave put away |
-| `tests/terrain.spec.ts` | 400 extra points over the falls, where the server and the browser must agree on the ground |
-| `tests/look.spec.ts` | Shots of the falls from Lanternwick, of the ledge, and of the inner grotto |
+| `crates/server/src/social/parties.rs` | Unit tests: invitations, leading, kicking, the cap of 5, lapsing |
+| `crates/server/src/directory/mod.rs` | Unit tests: one copy per party, a separate copy for a player on their own, the 30-minute rule, a minute's warning before being put out, adopting a copy, reconnecting inside, Start Over |
+| `crates/engine/src/open/dungeon.rs` | Unit test: solid only in a copy |
+| `tests/integration/party.spec.ts` (online) | Forming a party by name; a party into one copy and someone on their own into theirs; leaving and coming back to the same copy |
+| `tests/integration/dungeon-way-in.spec.ts` | Gliding off the deck into the falls onto the stage; in and out through the portal offline; dropping off the summit lands on the hood; no tree or rock moved |
+| `tests/integration/update.spec.ts` | A server restart while you're inside brings you back outside the door with the cave put away |
+| `tests/conformance/terrain.test.ts` | 400 extra points over the falls, where the server and the browser must agree on the ground |
+| `tests/stress/look.spec.ts` | Shots of the falls from Lanternwick, of the ledge, and of the inner grotto |

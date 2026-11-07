@@ -1,0 +1,29 @@
+{
+  "id": "emberPreserves",
+  "name": "Emberberry Preserves",
+  "icon": "🫙",
+  "origin": "lanternwick",
+  "base": 420,
+  "labor": 30,
+  "fee": 30,
+  "inputs": [
+    {
+      "item": "emberberry",
+      "n": 8
+    },
+    {
+      "item": "apple",
+      "n": 2
+    }
+  ],
+  "look": {
+    "body": "emberPreserves",
+    "model": {
+      "files": [
+        "pack_emberPreserves"
+      ],
+      "yaw": 3.141592653589793
+    }
+  },
+  "kind": "trade"
+}

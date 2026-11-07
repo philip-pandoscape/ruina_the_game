@@ -1,0 +1,10 @@
+{
+  "id": "animal.lamb",
+  "name": "Lamb",
+  "icon": "🐑",
+  "cat": "seed",
+  "stack": 5,
+  "raises": "sheep",
+  "value": 80,
+  "desc": "Raise it in a plot cell. Feed it barley; shear the grown sheep for wool."
+}

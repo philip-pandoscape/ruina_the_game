@@ -39,7 +39,6 @@ export interface PartDef {
   shape: ShapeDef;
   mat: string;
   pos?: Vec3;
-  outline?: number | false;
   castShadow?: boolean;
   /** Escape hatch for the handful of shapes that need a rotate or a squash first. */
   tweak?: (g: THREE.BufferGeometry) => void;

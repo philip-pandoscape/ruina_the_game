@@ -1,0 +1,18 @@
+{
+  "id": "timberNode",
+  "name": "Deadfall Timber",
+  "w": 3.6,
+  "d": 1.6,
+  "h": 1,
+  "collider": "post",
+  "r": 0.9,
+  "look": {
+    "body": "timberNode",
+    "model": {
+      "files": [
+        "timberNode"
+      ],
+      "sink": 0.1
+    }
+  }
+}

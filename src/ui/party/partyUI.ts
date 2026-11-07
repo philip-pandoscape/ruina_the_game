@@ -1,13 +1,54 @@
 import './party.css';
-import type { PartyView, SpaceView, WorldLink } from '../../net/worldLink';
-import { COMBAT } from '../../tuning';
-import type { LifePress } from '../life/lifeUI';
+import { COMBAT } from '../../content/tuning';
+import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu, type MenuEntry } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
+import { esc } from '../../util/html';
 
-// Parties, online (server/src/parties.rs): a few players who play together, as groups do in World
-// of Warcraft, and go into a dungeon's copy together (server/src/spaces.rs). The party frame under
+/** Where someone plays: a channel of Emberholm, or a copy of a dungeon. */
+export type SpaceView = { kind: 'channel'; channel: number } | { kind: 'dungeon'; dungeon: string; name: string; copy: number };
+
+/** Your party as the server keeps it. */
+export interface PartyView {
+  id: number;
+  leader: number;
+  /** In the order they joined; `place` is where they play (null while they're offline). */
+  members: Array<{ id: number; name: string; online: boolean; place: SpaceView | null }>;
+  /** The party's copies of dungeons: how many are inside, and in how many seconds one closes if nobody is. */
+  dungeons: Array<{ id: string; name: string; inside: number; closesIn: number | null }>;
+}
+
+/** An invitation to someone's party, waiting for your answer (`ms` left when it was sent). */
+export interface PartyInviteView {
+  from: number;
+  name: string;
+  ms: number;
+}
+
+/**
+ * What the party window reads of the world connection and asks of it. The app hands it the
+ * connection (src/net/worldLink.ts), which the window doesn't import.
+ */
+export interface PartyLink {
+  /** Your party (null: none), the invitation waiting for your answer, and when each came (performance.now()). */
+  readonly party: PartyView | null;
+  readonly partyHeard: number;
+  readonly invite: PartyInviteView | null;
+  readonly inviteHeard: number;
+  onParty: ((p: PartyView | null) => void) | null;
+  onInvite: ((i: PartyInviteView | null) => void) | null;
+  /** Everyone in your channel as last heard (their health among what they say). */
+  readonly peers: ReadonlyMap<number, { p: Record<string, unknown> }>;
+  partyInvite(who: { to: number } | { name: string }): boolean;
+  partyAnswer(from: number, accept: boolean): boolean;
+  partyLeave(): boolean;
+  partyKick(id: number): boolean;
+  partyLead(id: number): boolean;
+}
+
+// Parties, online (crates/server/src/social/parties.rs): a few players who play together, as groups do in World
+// of Warcraft, and go into a dungeon's copy together (crates/server/src/directory/mod.rs). The party frame under
 // your portrait shows everyone else in it (health while they're near you, where they are when
 // they're not); the Party window (O) invites someone, by name or from the players near you, and is
 // where the leader hands on the lead or removes someone, and anyone leaves. An invitation asks in a
@@ -15,10 +56,10 @@ import { uiRoot } from '../theme/scale';
 // server says: the windows show it and send what you choose. Offline there's nobody to party with.
 
 export interface PartyDeps {
-  link: WorldLink;
+  link: PartyLink;
   /** Your own character. */
   me: number;
-  /** Which of the island's windows is open, if any (one docked on the left covers the frame). */
+  /** Which of the life's windows is open, if any (one docked on the left covers the frame). */
   openPanel: () => string | null;
   /** The pointer is the camera's: let go of it, to use a window. */
   freeMouse: () => void;
@@ -26,12 +67,8 @@ export interface PartyDeps {
   nearby: () => Array<{ id: number; name: string; dist: number }>;
 }
 
-/** The island's windows that dock on the left, where the party frame is. */
-const LEFT_PANELS = new Set(['dialog', 'shop', 'craft', 'storage', 'log', 'character', 'garage', 'settings', 'dev', 'map']);
 /** Players this near are listed to invite. */
 const NEAR = 40;
-
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function el(cls: string, id: string): HTMLDivElement {
   const e = document.createElement('div');
@@ -59,6 +96,8 @@ export class PartyUI {
   private sig = { frame: '', invite: '', win: '' };
   /** What's typed in the window's name field, kept while it redraws. */
   private name = '';
+  /** The window opened: another docked where it docks closes (the Channels window). */
+  onOpen: (() => void) | null = null;
 
   constructor(private d: PartyDeps) {
     for (const w of [this.frame, this.invite, this.win]) {
@@ -121,7 +160,7 @@ export class PartyUI {
     return true;
   }
 
-  /** A key, before the island's windows see it: O opens and shuts the Party window; Escape declines an invitation, then closes the window. */
+  /** A key, before the life's windows see it: O opens and shuts the Party window; Escape declines an invitation, then closes the window. */
   intercept(k: LifePress): boolean {
     if (k === 'party') {
       this.toggle();
@@ -149,6 +188,7 @@ export class PartyUI {
   open(): void {
     this.win.hidden = false;
     this.focus = -1;
+    this.onOpen?.();
     this.d.freeMouse();
     this.render(true);
   }
@@ -200,7 +240,7 @@ export class PartyUI {
 
   private renderFrame(force: boolean): void {
     const p = this.party();
-    const covered = LEFT_PANELS.has(this.d.openPanel() ?? '') || !this.win.hidden;
+    const covered = docksLeft(this.d.openPanel()) || !this.win.hidden;
     if (!p || covered) {
       this.frame.hidden = true;
       return;

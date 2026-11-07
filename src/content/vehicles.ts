@@ -1,6 +1,7 @@
 import data from '../../shared/vehicles.json' with { type: 'json' };
+import type { Look } from './looks';
 
-// Everything you can ride, as content. The rules (src/sim/life/vehicles.ts) and the 3D models
+// Everything you can ride, as content. The rules (src/engine/life/vehicles.ts) and the 3D models
 // (src/render/models/*) both read these definitions, so a seat moved in shared/vehicles.json moves
 // where you sit *and* where the bench is drawn.
 //
@@ -40,6 +41,11 @@ interface Common {
   seats: Seat[];
   /** Trade-pack slots. */
   cargo: Anchor[];
+  /**
+   * What it is drawn as (src/content/looks.ts): no body, one made from its numbers (a cart on its
+   * wheels, a boat with its mast), or a horse for a mount.
+   */
+  look?: Look;
 }
 
 export interface WheeledDef extends Common {
@@ -126,6 +132,8 @@ export interface GliderDef {
   minHeight: number;
   /** F in flight: a burst of speed and lift, then a cooldown. */
   gust?: { speed: number; lift: number; cooldownSeconds: number };
+  /** What it is drawn as (src/content/looks.ts): no body, the canvas wayfarer at its span. */
+  look?: Look;
 }
 
 export const VEHICLES = data.vehicles as unknown as VehicleDef[];

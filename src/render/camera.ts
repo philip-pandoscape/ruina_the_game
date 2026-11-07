@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { CAMERA } from '../tuning';
+import { CAMERA } from '../content/tuning';
+import { lookAtWorld } from './origin';
 
 // Over-the-shoulder camera that orbits the player and shakes on big hits.
 export class FollowCamera {
@@ -38,7 +39,11 @@ export class FollowCamera {
   private inside = 0; // eased toward indoors
   private lift = 0; // eased extra pitch that looks over the wall behind you indoors
 
-  constructor(aspect: number, far = 320, private maxDistance = 14) {
+  constructor(
+    aspect: number,
+    far = 320,
+    private maxDistance = 14,
+  ) {
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, aspect, 0.1, far);
   }
 
@@ -130,7 +135,8 @@ export class FollowCamera {
         const p = Math.min(1.45, pitch + k * 0.11);
         const f = distance * Math.cos(p);
         lift = p - pitch;
-        if (this.blocker(look.x, look.y, look.z, look.x - Math.sin(this.yaw) * f, look.y + distance * Math.sin(p), look.z - Math.cos(this.yaw) * f) > 0.97) break;
+        if (this.blocker(look.x, look.y, look.z, look.x - Math.sin(this.yaw) * f, look.y + distance * Math.sin(p), look.z - Math.cos(this.yaw) * f) > 0.97)
+          break;
       }
       lift *= this.inside;
     }
@@ -162,7 +168,7 @@ export class FollowCamera {
       this.reach = free < this.reach ? free : this.reach + (free - this.reach) * (1 - Math.exp(-4 * dt));
       if (this.reach < 0.999) cam.position.lerpVectors(look, cam.position, this.reach);
     }
-    cam.lookAt(look);
+    lookAtWorld(cam, look);
 
     this.shakeTime += dt;
     this.trauma = Math.max(0, this.trauma - 2.2 * dt);

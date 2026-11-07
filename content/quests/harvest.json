@@ -1,0 +1,25 @@
+{
+  "id": "harvest",
+  "name": "First Harvest",
+  "giver": "hollis",
+  "after": [
+    "patch"
+  ],
+  "intro": "When your crops are ripe, bring them in. Harvesting takes labor - your stamina for honest work - which comes back with time and rest.",
+  "steps": [
+    {
+      "text": "Harvest ripe crops from your plot",
+      "objectives": [
+        {
+          "type": "harvest",
+          "n": 8
+        }
+      ]
+    }
+  ],
+  "outro": "A fine first harvest. Now, produce alone sells for pennies. Tamsin at the workbench can show you how to turn it into real coin.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 40
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "id": "farmCart",
+  "name": "Farm Cart",
+  "class": "wheeled",
+  "icon": "🚜",
+  "desc": "A sturdy two-seat cart with a four-pack bed. Slow, forgiving, and the backbone of every trade run.",
+  "length": 3.6,
+  "width": 1.9,
+  "height": 1.9,
+  "radius": 1.25,
+  "hp": 600,
+  "maxSpeed": 8.5,
+  "reverseSpeed": 3,
+  "offroad": 0.8,
+  "accel": 4.5,
+  "brake": 10,
+  "drag": 0.35,
+  "rolling": 0.6,
+  "turnRate": 1.5,
+  "grip": 9,
+  "driftGrip": 3,
+  "climb": 0.62,
+  "boostSpeed": 0,
+  "seats": [
+    {
+      "x": 0.42,
+      "y": 1.05,
+      "z": 0.95,
+      "pose": "drive"
+    },
+    {
+      "x": -0.42,
+      "y": 1.05,
+      "z": 0.95,
+      "pose": "sit"
+    }
+  ],
+  "cargo": [
+    {
+      "x": 0.43,
+      "y": 0.92,
+      "z": -0.25
+    },
+    {
+      "x": -0.43,
+      "y": 0.92,
+      "z": -0.25
+    },
+    {
+      "x": 0.43,
+      "y": 0.92,
+      "z": -1.05
+    },
+    {
+      "x": -0.43,
+      "y": 0.92,
+      "z": -1.05
+    }
+  ],
+  "wheels": [
+    {
+      "x": 0.98,
+      "z": 1.05,
+      "r": 0.5,
+      "steer": true
+    },
+    {
+      "x": -0.98,
+      "z": 1.05,
+      "r": 0.5,
+      "steer": true
+    },
+    {
+      "x": 0.98,
+      "z": -1.1,
+      "r": 0.5,
+      "steer": false
+    },
+    {
+      "x": -0.98,
+      "z": -1.1,
+      "r": 0.5,
+      "steer": false
+    }
+  ],
+  "look": {
+    "body": "farmCart"
+  }
+}

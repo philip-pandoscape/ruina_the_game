@@ -1,15 +1,14 @@
 import * as THREE from 'three';
-import { track } from '../assets';
+import { asset } from '../../assets/manifest';
+import { picture, track } from '../assets';
 import { toon } from '../toon';
 
-// The new look's trees: the wind's clock, the trunks' bark (CC0, Poly Haven: bark_brown_02,
+// The trees: the wind's clock, the trunks' bark (CC0, Poly Haven: bark_brown_02,
 // pine_bark) and the material for a tree's solid parts. The crowns are src/render/open/canopy.ts.
 
 /** The wind's clock for the swaying crowns (seconds), advanced by OpenStage. */
 export const foliageTime = { value: 0 };
 
-// Vite hands out the bark files' URLs; under Node (tests that import the game's modules) there are none.
-const barkUrls = (typeof window !== 'undefined' ? import.meta.glob('../assets/bark_*.jpg', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
 const barks = new Map<string, THREE.Texture>();
 
 /** Bark for trunks: wraps once and a half round, repeats every two metres up. */
@@ -21,11 +20,11 @@ export function barkTexture(kind: 'broadleaf' | 'pine'): THREE.Texture {
   tex.repeat.set(1.5, kind === 'pine' ? 5 : 3);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  const url = barkUrls[`../assets/bark_${kind}.jpg`];
-  if (url)
+  // Trees stand all over the world; under Node (tests importing the game's modules) there are no files.
+  if (asset(`bark_${kind}`))
     track(
-      new THREE.TextureLoader().loadAsync(url).then((loaded) => {
-        tex.image = loaded.image;
+      picture(`bark_${kind}`, { need: 'zone' }).then((image) => {
+        tex.image = image;
         tex.needsUpdate = true;
       }),
     );

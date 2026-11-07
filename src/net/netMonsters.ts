@@ -1,17 +1,17 @@
 import { actorKindAt } from '../content/actors';
-import { behaviour } from '../sim/ai/brain';
-import { coneHits, type Target } from '../sim/combat/hit';
-import type { GameEvent } from '../sim/types';
-import type { AttackStep } from '../tuning';
+import { behaviour, coneHits, type Target } from '../engine/creatures';
+import type { GameEvent } from '../engine/rules';
+import { type AttackStep, WEAPONS } from '../content/tuning';
 import type { ActorTimeline } from './actorTimeline';
-import type { NetActor } from './netCrowd';
+import { CAUSE_WEAPON, causeOf } from './netSpells';
+import type { NetActor } from './worldFeed';
 
 // Monsters online, made to feel the way they do offline. The server decides every hit, so on its
 // own the browser would only learn of one when its number arrives, a round trip after the swing
 // passed through the slime on screen: no sparks, no shake, no flash. Here:
 //
 // - Your swing is checked against the monsters as the server last placed them, with the server's
-//   own rule (src/sim/player/attacks.ts checkHit), the moment it strikes. A hit sparks, shakes and
+//   own rule, the moment it strikes. A hit sparks, shakes and
 //   flashes then and there, on the slime as it is drawn; the server's number follows. A hit the
 //   server saw and this guess missed gets the same show when its word arrives, late but whole.
 // - Health going down on anything, from anyone's blow, flashes it at the moment that blow is drawn.
@@ -26,8 +26,6 @@ const CLAIM_MS = 1500;
 const OWN_MS = 900;
 /** How near a hit the server reports must be to a monster to be on it (metres). */
 const ON_IT = 1.2;
-/** The server's numbers say what caused them: 1..4 the weapons (4 the bow), 5 meteor, 6 heal. */
-const CAUSE_MELEE_LAST = 3;
 
 /** What the drawn monster was doing last frame, to see what it has just done. */
 interface Was {
@@ -93,7 +91,7 @@ export class NetMonsters {
     for (const a of present) {
       const k = actorKindAt(a.kind);
       if (!k || a.deadFrame >= 0 || k.faction === 0 || k.faction === 2) continue;
-      // On hills only feet within 2 m of yours (game.rs swing_actors).
+      // On hills only feet within 2 m of yours (combat.rs swing_actors).
       if (Math.abs(a.y + this.ground(a.x, a.z) - p.y) > 2) continue;
       targets.push({ id: a.id, x: a.x, y: a.y, z: a.z, radius: k.radius, hitHeight: k.hitHeight, hitCeiling: k.hitCeiling, faction: k.faction });
     }
@@ -112,7 +110,7 @@ export class NetMonsters {
   }
 
   /**
-   * The server's word that one of your blows landed (cause 1..4 a weapon, 5 a meteor). Returns
+   * The server's word that one of your blows landed (`cause`: a weapon or an ability, causeOf). Returns
    * where the number goes, on the monster as drawn if it was one, and anything still to show: a
    * melee hit that wasn't guessed gets its sparks and shake now.
    */
@@ -152,7 +150,9 @@ export class NetMonsters {
       return { ...at, show: [] };
     }
     const show: GameEvent[] = [];
-    if (cause >= 1 && cause <= CAUSE_MELEE_LAST) {
+    // A melee weapon's blow, not an arrow's or a spell's.
+    const { sort, index } = causeOf(cause);
+    if (sort === CAUSE_WEAPON && !WEAPONS[index]?.combo.some((s) => s.projectileSpeed)) {
       show.push(this.hitAt(a, from.x, from.z, from.index, 0, frame));
       this.counts.late++;
     }
@@ -252,7 +252,7 @@ export class NetMonsters {
     this.counts.flashed++;
   }
 
-  /** A 'hit' on a drawn monster, as src/sim/combat/deal.ts makes one: on its near side, at its middle. */
+  /** A 'hit' on a drawn monster, as the rules make one: on its near side, at its middle. */
   private hitAt(a: NetActor, fromX: number, fromZ: number, index: number, damage: number, frame: number): GameEvent {
     const k = actorKindAt(a.kind);
     const dx = a.x - fromX;

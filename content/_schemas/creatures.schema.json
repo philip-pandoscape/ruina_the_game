@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "creatures",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "kinds": {
+      "type": "array"
+    },
+    "attacks": {
+      "type": "array"
+    },
+    "behaviours": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "kinds",
+    "attacks",
+    "behaviours"
+  ],
+  "additionalProperties": false
+}

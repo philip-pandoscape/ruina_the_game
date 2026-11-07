@@ -1,18 +1,55 @@
-import { createCharacter, deleteCharacter, listCharacters, signOut, type Account, type CharacterInfo } from '../net/account';
+import { adminCard } from './admin/adminMenu';
 import { HeroPreview } from '../render/heroPreview';
+import { DEFAULT_BUILD, weaponIndex } from '../content/tuning';
 import { WEAPON_ICONS, WEAPON_NAMES } from './icons';
 import { iconHtml, money } from './theme/icons';
-import { card, el, frontLayer } from './signIn';
+import { card, el, frontLayer, type Account } from './signIn';
 import { splash } from './splash';
+import { onUiScale, uiScale } from './theme/scale';
+
+/** A character on the account, as the list shows them. */
+export interface CharacterInfo {
+  id: number;
+  name: string;
+  /** The copy of Emberholm they live in; null until they first go in. */
+  channel: number | null;
+  /** When they last went into the world (ms since the epoch), or null. */
+  lastPlayed: number | null;
+  created: number;
+  /** What their skill tree may hold: the starting points and those their quests gave. */
+  skillPoints: number;
+  questsDone: number;
+  coins: number;
+  /** The weapon of their build, by id. */
+  weapon: string;
+}
+
+/**
+ * Where a character's weapon is among the weapons, for its icon, its name and the hero holding it
+ * (one the content no longer has: the weapon a hero starts with).
+ */
+const weaponOf = (c: CharacterInfo): number => {
+  const i = weaponIndex(c.weapon);
+  return i >= 0 ? i : DEFAULT_BUILD.weapon;
+};
+
+/** What the screen asks of the account API. The app hands it the API (src/net/account.ts), which the screen doesn't import. */
+export interface CharactersApi {
+  listCharacters(): Promise<{ characters: CharacterInfo[]; max: number }>;
+  createCharacter(name: string): Promise<CharacterInfo>;
+  deleteCharacter(id: number, name: string): Promise<void>;
+  signOut(): Promise<void>;
+}
 
 // The character select screen, on the title screen: your characters down the right (each with its
-// own island), the chosen one big in the middle, turning slowly on a glowing circle, and Enter
+// own life), the chosen one big in the middle, turning slowly on a glowing circle, and Enter
 // World. Create Character and Delete Character (typing the name to be sure) open dialogs over it;
 // Sign Out goes back to signing in. The last character chosen is remembered in this browser.
 //
 // Keys: Up and Down choose, Enter goes in. Double-clicking a character goes in too.
 
-export type Choice = { enter: CharacterInfo } | { signedOut: true };
+/** In with a character (and, for an admin, straight into a developer zone), or signed out. */
+export type Choice = { enter: CharacterInfo; zone?: string } | { signedOut: true };
 
 const lastKey = (account: number) => `ruina.lastCharacter.${account}`;
 
@@ -50,11 +87,26 @@ export class CharacterSelect {
   private busy = false;
 
   private constructor(
+    private api: CharactersApi,
     private account: Account,
     private characters: CharacterInfo[],
     private max: number,
   ) {
     const outBtn = el('button', { className: 'lui-btn small', type: 'button', textContent: 'Sign Out' });
+    // Admins (the server says who) reach the developer zones and pages from here: a zone takes the
+    // chosen character into the world and on into it.
+    const adminBtn = account.admin ? el('button', { className: 'lui-btn small cs-admin', type: 'button', textContent: 'Admin' }) : null;
+    if (adminBtn)
+      adminBtn.onclick = () =>
+        this.openModal(
+          adminCard(
+            () => this.closeModal(),
+            (zone) => {
+              this.closeModal();
+              this.enter(zone);
+            },
+          ),
+        );
     this.list.setAttribute('role', 'listbox');
     this.list.setAttribute('aria-label', 'Characters');
     const panel = el(
@@ -68,7 +120,7 @@ export class CharacterSelect {
       this.stage,
       panel,
       el('div', { className: 'cs-enter' }, this.enterBtn, el('div', { className: 'tip', textContent: 'Double-click a character to enter, or press Enter.' })),
-      el('div', { className: 'cs-account' }, 'Signed in as ', el('b', { textContent: account.username }), outBtn),
+      el('div', { className: 'cs-account' }, 'Signed in as ', el('b', { textContent: account.username }), ...(adminBtn ? [adminBtn] : []), outBtn),
     );
     this.enterBtn.onclick = () => this.enter();
     this.createBtn.onclick = () => this.create();
@@ -76,7 +128,7 @@ export class CharacterSelect {
     outBtn.onclick = async () => {
       if (this.busy) return;
       this.busy = true;
-      await signOut();
+      await this.api.signOut();
       this.finish({ signedOut: true });
     };
     addEventListener('keydown', this.onKey);
@@ -88,8 +140,8 @@ export class CharacterSelect {
   }
 
   /** Shows the screen until the player enters the world with a character, or signs out. */
-  static show(account: Account, characters: CharacterInfo[], max: number): Promise<Choice> {
-    const screen = new CharacterSelect(account, characters, max);
+  static show(api: CharactersApi, account: Account, characters: CharacterInfo[], max: number): Promise<Choice> {
+    const screen = new CharacterSelect(api, account, characters, max);
     return new Promise((resolve) => (screen.done = resolve));
   }
 
@@ -105,13 +157,16 @@ export class CharacterSelect {
       const row = el('button', { className: 'cs-row', type: 'button' });
       row.dataset.id = String(c.id);
       row.setAttribute('role', 'option');
-      row.innerHTML = `<span class="ib">${iconHtml(WEAPON_ICONS[c.weapon] ?? WEAPON_ICONS[0], undefined, 32)}</span>`;
+      row.innerHTML = `<span class="ib">${iconHtml(WEAPON_ICONS[weaponOf(c)], undefined, 32)}</span>`;
       row.append(
         el(
           'span',
           {},
           el('span', { className: 'n', textContent: c.name }),
-          el('span', { className: 'd', textContent: c.channel ? `Emberholm ${c.channel} · ${c.lastPlayed ? `played ${ago(c.lastPlayed)}` : 'not played yet'}` : 'New to Emberholm' }),
+          el('span', {
+            className: 'd',
+            textContent: c.channel ? `Emberholm ${c.channel} · ${c.lastPlayed ? `played ${ago(c.lastPlayed)}` : 'not played yet'}` : 'New to Emberholm',
+          }),
         ),
       );
       row.onclick = () => this.choose(c);
@@ -147,13 +202,19 @@ export class CharacterSelect {
       const make = el('button', { className: 'lui-btn gold fd-big', type: 'button', textContent: 'Create Character' });
       make.onclick = () => this.create();
       this.stage.replaceChildren(
-        el('div', { className: 'cs-empty fd-in' }, el('h2', { textContent: 'No Characters Yet' }), el('p', { textContent: 'Make someone to live on Emberholm: they get an island of their own.' }), make),
+        el(
+          'div',
+          { className: 'cs-empty fd-in' },
+          el('h2', { textContent: 'No Characters Yet' }),
+          el('p', { textContent: 'Make someone to live on Emberholm: they get a life of their own.' }),
+          make,
+        ),
       );
       return;
     }
     if (!this.preview && !this.stage.querySelector('.cs-name')) {
       try {
-        this.preview = new HeroPreview(600, 620);
+        this.preview = new HeroPreview(600, 620, uiScale, onUiScale);
         this.stage.replaceChildren(this.preview.canvas);
       } catch (e) {
         // No WebGL for a second canvas: the screen works without the hero.
@@ -162,10 +223,10 @@ export class CharacterSelect {
       }
     }
     if (changed || !this.stage.querySelector('.cs-name')) {
-      this.preview?.show(c.weapon, flourish);
+      this.preview?.show(weaponOf(c), flourish);
       const chips = el('div', { className: 'cs-chips' });
       chips.innerHTML =
-        `<span>${iconHtml(WEAPON_ICONS[c.weapon] ?? WEAPON_ICONS[0], undefined, 16)}${WEAPON_NAMES[c.weapon] ?? 'Sword'}</span>` +
+        `<span>${iconHtml(WEAPON_ICONS[weaponOf(c)], undefined, 16)}${WEAPON_NAMES[weaponOf(c)]}</span>` +
         `<span>${c.channel ? `Emberholm ${c.channel}` : 'New to Emberholm'}</span>` +
         `<span><b>${c.skillPoints}</b> Skill Points</span>` +
         `<span><b>${c.questsDone}</b> ${c.questsDone === 1 ? 'Quest' : 'Quests'} Done</span>` +
@@ -195,18 +256,18 @@ export class CharacterSelect {
     }
   };
 
-  private enter(): void {
+  private enter(zone?: string): void {
     const c = this.selected;
     if (!c || this.busy || this.modal) return;
     this.busy = true;
     localStorage.setItem(lastKey(this.account.id), String(c.id));
-    this.finish({ enter: c });
+    this.finish(zone ? { enter: c, zone } : { enter: c });
   }
 
   private finish(choice: Choice): void {
     removeEventListener('keydown', this.onKey);
     // Going in: the circle flares under them as the screen fades away.
-    if ('enter' in choice) this.preview?.show(choice.enter.weapon, true);
+    if ('enter' in choice) this.preview?.show(weaponOf(choice.enter), true);
     this.root.classList.add('cs-out');
     const preview = this.preview;
     this.preview = null;
@@ -218,7 +279,7 @@ export class CharacterSelect {
   }
 
   private async refresh(select: number | null): Promise<void> {
-    const { characters, max } = await listCharacters();
+    const { characters, max } = await this.api.listCharacters();
     this.characters = characters;
     this.max = max;
     this.render(characters.find((c) => c.id === select) ?? firstChoice(characters, this.remembered()));
@@ -239,7 +300,15 @@ export class CharacterSelect {
   }
 
   /** A dialog with a name field: Create Character, or Delete Character's confirmation. */
-  private ask(o: { title: string; text: HTMLElement; label: string; action: string; danger?: boolean; ready?: (v: string) => boolean; go: (v: string) => Promise<void> }): void {
+  private ask(o: {
+    title: string;
+    text: HTMLElement;
+    label: string;
+    action: string;
+    danger?: boolean;
+    ready?: (v: string) => boolean;
+    go: (v: string) => Promise<void>;
+  }): void {
     const input = el('input', { name: 'name', maxLength: 20, spellcheck: false, autocomplete: 'off' });
     const error = el('div', { className: 'fd-error' });
     error.setAttribute('role', 'alert');
@@ -273,11 +342,13 @@ export class CharacterSelect {
     if (this.characters.length >= this.max) return;
     this.ask({
       title: 'Create Character',
-      text: el('p', { textContent: 'They start out on Emberholm with an island of their own. Their name shows over their head: 3 to 20 letters, digits, - or _.' }),
+      text: el('p', {
+        textContent: 'They start out on Emberholm with a life of their own. Their name shows over their head: 3 to 20 letters, digits, - or _.',
+      }),
       label: 'Name',
       action: 'Create',
       go: async (name) => {
-        const made = await createCharacter(name);
+        const made = await this.api.createCharacter(name);
         await this.refresh(made.id);
       },
     });
@@ -286,7 +357,7 @@ export class CharacterSelect {
   private remove(): void {
     const c = this.selected;
     if (!c) return;
-    const text = el('p', {}, 'This deletes ', el('b', { textContent: c.name }), ' and everything on their island, for good. Type their name to be sure.');
+    const text = el('p', {}, 'This deletes ', el('b', { textContent: c.name }), ' and everything they own, for good. Type their name to be sure.');
     this.ask({
       title: 'Delete Character',
       text,
@@ -295,7 +366,7 @@ export class CharacterSelect {
       danger: true,
       ready: (v) => v.toLowerCase() === c.name.toLowerCase(),
       go: async (typed) => {
-        await deleteCharacter(c.id, typed);
+        await this.api.deleteCharacter(c.id, typed);
         const i = this.characters.findIndex((x) => x.id === c.id);
         await this.refresh(this.characters[i + 1]?.id ?? this.characters[i - 1]?.id ?? null);
       },

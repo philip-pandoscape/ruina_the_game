@@ -91,7 +91,7 @@ header.top code, footer code { background: rgba(255, 220, 160, 0.12); color: #ff
       <div class="rule"><b>Every action three ways.</b> Mouse, keyboard and controller can all do everything a window offers. A window open on a controller takes the pad; with a mouse you can keep walking.</div>
       <div class="rule"><b>Scaled, not reflowed.</b> The UI is laid out on a virtual screen 1029 px tall and scaled to the window (<code>scale.ts</code>), times the player's UI Size setting. Sizes in the CSS are those virtual pixels.</div>
       <div class="rule"><b>Never in the way.</b> Nothing covers another part of the HUD at 1280×720 or 1920×1080, and no game key needs Ctrl, so the browser's shortcuts and the game's never meet: crouch and the glider's flare are C, and a key pressed with Ctrl (or Cmd) is left to the browser (Ctrl+W closes the tab, as it always does).</div>
-      <div class="rule"><b>Show what the server says.</b> Online, windows show the island the server keeps. Commands go to the server; the window redraws when its answer arrives (the same tick).</div>
+      <div class="rule"><b>Show what the server says.</b> Online, windows show the life the server keeps. Commands go to the server; the window redraws when its answer arrives (the same tick).</div>
     </div>
   </section>
 
@@ -124,7 +124,7 @@ header.top code, footer code { background: rgba(255, 220, 160, 0.12); color: #ff
         </table>
         <h3>Try It</h3>
         <div class="tc-try"><input id="tcIn" value="exit to the character select screen" aria-label="A label to put in Title Case"><output id="tcOut"></output></div>
-        <p style="margin-top:8px;font-size:13px;color:var(--ink-2)"><code>titleCase()</code> and <code>isTitleCase()</code> in <code>src/ui/theme/text.ts</code>; <code>tests/ui.spec.ts</code> opens the game's windows and checks their labels with it.</p>
+        <p style="margin-top:8px;font-size:13px;color:var(--ink-2)"><code>titleCase()</code> and <code>isTitleCase()</code> in <code>src/ui/theme/text.ts</code>; <code>tests/integration/ui.spec.ts</code> opens the game's windows and checks their labels with it.</p>
       </div>
     </div>
     <h3>Also</h3>
@@ -196,7 +196,7 @@ header.top code, footer code { background: rgba(255, 220, 160, 0.12); color: #ff
   <section class="sheet" id="checklist">
     <h2>Checklist for New UI</h2>
     <ul class="checklist">
-      <li>Labels in Title Case, sentences in sentence case (<code>isTitleCase</code>, and <code>tests/ui.spec.ts</code> covers the windows it opens).</li>
+      <li>Labels in Title Case, sentences in sentence case (<code>isTitleCase</code>, and <code>tests/integration/ui.spec.ts</code> covers the windows it opens).</li>
       <li>Built from <code>.mw</code>, <code>.lui-btn</code>, <code>.ib</code>, <code>.tt</code>, <code>.ctx</code> and the colour variables; no one-off colours.</li>
       <li>One gold button at most, for the main action.</li>
       <li>Works with mouse, keyboard and controller; Esc and B back out.</li>

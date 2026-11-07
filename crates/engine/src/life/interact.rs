@@ -1,0 +1,1542 @@
+//! What pressing F does right now, and the commands everything else sends (their shapes for the page:
+//! src/engine/life/interact.ts and life.ts). The focus is worked out from what is near you and in
+//! front of you, so the prompt on screen is always exactly what the next press will do.
+
+use crate::jsmath::JsMath;
+use std::collections::BTreeSet;
+use std::f64::consts::PI;
+
+use super::content::{
+    QuestDef, QuestStep, animal_def, blueprint_def, carry, claims_plot, crop_def, design_for_item, format_coins, gathering, item_def, labor as labor_settings,
+    pack_def, place_name, quest_def, recipe as recipe_by_id, recipes_at, rideable, ship_design, structure_def,
+};
+use super::contracts::accept_contract;
+use super::farming::{
+    add_scarecrow, cell_at, cell_centre, fell, find_rare, grow_for, harvest, is_ripe, plant, plant_at, plot_problem, scarecrow_index, seconds_to_ripe,
+    stage_of, water,
+};
+use super::housing::{
+    DAY, Need, build_stage, deliver_material, demolished_at, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs,
+    tax_due,
+};
+use super::livestock::{collect, feed, grown_up, hungry, produce_ready, raise};
+use super::quests::{abandon, accept, complete, quests_at};
+use super::shipyard::{build_ship_stage, deliver_ship_material, design_items_in_bag, launch, lay_keel, ship_finished, ship_needs, ship_on, ship_stage_ready};
+use super::state::{Home, Stack};
+use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, run_recipe, sell, sell_pack, unload_pack};
+use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, pack_blocks, recall, ridden, summon, vehicle_index};
+use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
+use crate::jsmath::{js_hypot, js_max, js_min, js_round};
+use crate::open::Sim;
+use crate::open::dungeon::dungeon;
+use crate::open::map::{WorldMap, world_map};
+use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
+use crate::open::zone::{Outpost, to_local};
+use crate::player::Mode;
+
+/// The trading post `npc` keeps, wherever in the world it is.
+fn outpost_of(npc: &str) -> Option<&'static Outpost> {
+    world_map().recipes().flat_map(|r| &r.outposts).find(|o| o.npc == npc)
+}
+
+/// Whether the gathering spot `id` has come back since it was last picked clean.
+pub fn node_ready(life: &Life, id: &str) -> bool {
+    life.state.nodes.get(id).copied().unwrap_or(0.0) <= life.state.clock
+}
+
+/// Seconds left on something, as "1m 20s".
+pub fn short_time(s: f64) -> String {
+    let s = js_max(0.0, s.ceil());
+    if s >= DAY {
+        return format!("{}d {}h", num((s / DAY).floor()), num(((s % DAY) / 3600.0).floor()));
+    }
+    if s >= 3600.0 {
+        return format!("{}h {}m", num((s / 3600.0).floor()), num(((s % 3600.0) / 60.0).floor()));
+    }
+    if s >= 60.0 {
+        return format!("{}m {}s", num((s / 60.0).floor()), num(s % 60.0));
+    }
+    format!("{}s", num(s))
+}
+
+/// A number the way JavaScript writes it into a string (`${x}`).
+fn num(x: f64) -> String {
+    if x == 0.0 {
+        "0".into() // -0 too
+    } else if x.is_nan() {
+        "NaN".into()
+    } else if x.is_infinite() {
+        if x > 0.0 { "Infinity" } else { "-Infinity" }.into()
+    } else if x.abs() >= 1e21 {
+        format!("{x:e}").replace('e', "e+")
+    } else if x.abs() < 1e-6 {
+        format!("{x:e}")
+    } else {
+        format!("{x}")
+    }
+}
+
+/// A number the way JavaScript tests it in an `if`: anything but 0 and NaN.
+fn truthy(x: f64) -> bool {
+    x != 0.0 && !x.is_nan()
+}
+
+/// An optional string the way JavaScript tests it in an `if`: there, and not empty.
+fn has(s: &Option<String>) -> bool {
+    s.as_deref().is_some_and(|s| !s.is_empty())
+}
+
+fn quest_step(q: &QuestDef, step: i64) -> Option<&QuestStep> {
+    usize::try_from(step).ok().and_then(|i| q.steps.get(i))
+}
+
+/// "Lumber Bundle 1/2 · Stone Block 0/2": what a stage still needs, for the prompt; with `place`,
+/// where each pack it still wants is made.
+fn needs_list(needs: &[Need], place: bool) -> String {
+    needs
+        .iter()
+        .map(|n| {
+            let def = pack_def(&n.pack);
+            let made = if place && n.have < n.need { format!(" ({})", place_name(&def.origin)) } else { String::new() };
+            format!("{} {}/{}{made}", def.name, n.have, n.need)
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+/// The seed F plants: the one you chose while you have any left, else the first in your bag.
+fn chosen_seed(life: &Life) -> Option<String> {
+    let seed = &life.state.seed;
+    if !seed.is_empty() && life.count(seed) > 0 {
+        return Some(seed.clone());
+    }
+    life.state.bag.iter().find(|s| item_def(&s.item).cat == "seed").map(|s| s.item.clone()).filter(|s| !s.is_empty())
+}
+
+// ---------- Working out the focus ----------
+
+/// The best of what is around you: near, and in front of you.
+struct Pick {
+    x: f64,
+    z: f64,
+    fx: f64,
+    fz: f64,
+    best: Option<Focus>,
+    score: f64,
+}
+
+impl Pick {
+    fn consider(&mut self, f: Focus, dist: f64, range: f64) {
+        if dist > range {
+            return;
+        }
+        let dx = f.x - self.x;
+        let dz = f.z - self.z;
+        let l = js_hypot(dx, dz);
+        let facing = if l > 0.3 { (dx * self.fx + dz * self.fz) / l } else { 1.0 };
+        let score = dist + (1.0 - facing) * 1.2;
+        if score < self.score {
+            self.score = score;
+            self.best = Some(f);
+        }
+    }
+}
+
+/// What a workbench's prompt says it is for: a bench for building materials names what it makes;
+/// a trade bench names its town, as trade packs are worth what they are by where they're made.
+fn bench_makes(bench: &str, place: &str) -> String {
+    let packs: Vec<_> = recipes_at(bench).filter_map(|r| r.makes.pack.as_deref()).map(pack_def).collect();
+    if !packs.is_empty() && packs.iter().all(|pk| pk.kind.as_deref() == Some("material")) {
+        packs.iter().map(|pk| pk.name.as_str()).collect::<Vec<_>>().join(" · ")
+    } else {
+        format!("{} Packs", place_name(place))
+    }
+}
+
+/// What pressing F would do right now. While a scarecrow is being placed, this also moves it to
+/// the spot in front of you.
+pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
+    let p = &*sim.player;
+    let hf = sim.terrain();
+    if p.mode == Mode::Ride {
+        let mount = ridden(life, sim).is_some_and(|i| rideable(&life.land.vehicles[i].def).is_mount());
+        return Some(Focus {
+            action: "exit".into(),
+            key: "exit".into(),
+            label: if mount { "Dismount" } else { "Get Out" }.into(),
+            ok: true,
+            x: p.pos.x,
+            y: p.pos.y,
+            z: p.pos.z,
+            ..Default::default()
+        });
+    }
+    if life.placing.is_some() {
+        let ahead = 7.0;
+        let x = p.pos.x + p.facing.js_sin() * ahead;
+        let z = p.pos.z + p.facing.js_cos() * ahead;
+        let rot = js_round(p.facing / (PI / 12.0)) * (PI / 12.0);
+        let problem = plot_problem(life, sim, x, z, rot);
+        let item = life.placing.as_ref().map(|pl| pl.item.clone()).unwrap_or_default();
+        if let Some(pl) = life.placing.as_mut() {
+            pl.x = x;
+            pl.z = z;
+            pl.rot = rot;
+            pl.problem = problem.clone();
+        }
+        let ok = problem.is_none();
+        return Some(Focus {
+            action: "placeScarecrow".into(),
+            key: "place".into(),
+            label: problem.unwrap_or_else(|| format!("Place {} Here", item_def(&item).name)),
+            detail: Some("Esc to Cancel".into()),
+            ok,
+            x,
+            y: hf.height(x, z),
+            z,
+            ..Default::default()
+        });
+    }
+    if p.mode != Mode::Normal && p.mode != Mode::Swim {
+        return None;
+    }
+
+    let life: &Life = life;
+    // What can be near you: the regions of the space you're in (none in a dungeon).
+    let here: &WorldMap = sim.terrain();
+    let (px, pz) = (p.pos.x, p.pos.z);
+    let fx = p.facing.js_sin();
+    let fz = p.facing.js_cos();
+    let mut pick = Pick { x: px, z: pz, fx, fz, best: None, score: f64::INFINITY };
+    let back = carried(life, sim).map(|i| &life.land.packs[i]);
+
+    // People.
+    for n in here.recipes().flat_map(|r| &r.npcs) {
+        let d = js_hypot(n.x - px, n.z - pz);
+        if d > 4.0 {
+            continue;
+        }
+        let y = hf.height(n.x, n.z);
+        let at = |action: &str, label: String, detail: String, ok: bool| Focus {
+            action: action.into(),
+            key: format!("npc:{}", n.id),
+            label,
+            detail: Some(detail),
+            ok,
+            npc: Some(n.id.clone()),
+            x: n.x,
+            y,
+            z: n.z,
+            ..Default::default()
+        };
+        if let (Some(outpost), Some(back)) = (outpost_of(&n.id), back) {
+            let def = pack_def(&back.def);
+            let f = match quote(life, back, &outpost.id) {
+                Some(q) => {
+                    let seals = if truthy(q.seals) { format!(" + {} Seal{}", num(q.seals), if q.seals > 1.0 { "s" } else { "" }) } else { String::new() };
+                    let fresh = if q.fresh >= 1.0 { "Fresh" } else { "Stale" };
+                    let detail = format!(
+                        "{}{seals} · Demand {}% · {fresh} {}%",
+                        format_coins(q.coins),
+                        num(js_round(q.demand * 100.0)),
+                        num(js_round((q.fresh - 1.0) * 100.0))
+                    );
+                    at("sell", format!("Sell {}", def.name), detail, true)
+                }
+                None => {
+                    let why = if back.origin == outpost.id {
+                        "Made here - sell it elsewhere"
+                    } else if def.kind.as_deref() == Some("material") {
+                        "Building materials go to a building site"
+                    } else {
+                        ""
+                    };
+                    at("info", format!("{} won't buy that here", n.name), why.into(), false)
+                }
+            };
+            pick.consider(f, d, 4.0);
+            continue;
+        }
+        let (offer, turn_in) = quests_at(life, &n.id);
+        let talk_goal = life.state.quests.active.iter().any(|qp| {
+            quest_step(quest_def(&qp.id), qp.step).is_some_and(|st| st.objectives.iter().any(|o| o.type_ == "talk" && o.npc.as_deref() == Some(n.id.as_str())))
+        });
+        let tag = if !turn_in.is_empty() {
+            "Quest Complete!"
+        } else if talk_goal {
+            "Quest"
+        } else if !offer.is_empty() {
+            "New Quest"
+        } else {
+            n.title.as_str()
+        };
+        pick.consider(at("talk", format!("Talk to {}", n.name), tag.into(), true), d, 4.0);
+    }
+
+    // Workbenches.
+    for b in here.recipes().flat_map(|r| &r.workbenches) {
+        let d = js_hypot(b.x - px, b.z - pz);
+        let name = b.name.as_deref().unwrap_or("Workbench");
+        let detail = if back.is_some() { "Your back is full".into() } else { bench_makes(&b.id, &b.place) };
+        let f = Focus {
+            action: "craft".into(),
+            key: format!("bench:{}", b.id),
+            label: format!("Use {name}"),
+            detail: Some(detail),
+            ok: true,
+            bench: Some(b.id.clone()),
+            x: b.x,
+            y: hf.height(b.x, b.z),
+            z: b.z,
+            ..Default::default()
+        };
+        pick.consider(f, d, 3.4);
+    }
+
+    // Packs lying on the ground.
+    if back.is_none() {
+        for pk in &life.land.packs {
+            if pk.at != "ground" {
+                continue;
+            }
+            let d = js_hypot(pk.x - px, pk.z - pz);
+            let f = Focus {
+                action: "pickup".into(),
+                key: format!("pack:{}", pk.id),
+                label: format!("Pick Up {}", pack_def(&pk.def).name),
+                ok: true,
+                pack: Some(pk.id),
+                x: pk.x,
+                y: pk.y,
+                z: pk.z,
+                ..Default::default()
+            };
+            pick.consider(f, d, carry().pickup_range);
+        }
+    }
+
+    // Vehicles: the seat to get in, the cargo bed to load or unload.
+    for v in &life.land.vehicles {
+        let d = distance_to(v, px, pz);
+        if d > 2.2 {
+            continue;
+        }
+        let def = rideable(&v.def);
+        let a = nearest_anchor(v, px, pz, back.is_some());
+        let free = v.cargo.iter().position(|&c| c == 0);
+        let loaded = v.cargo.iter().position(|&c| c != 0);
+        let used = v.cargo.iter().filter(|&&c| c != 0).count();
+        let slots = def.cargo.len();
+        let at = |action: &str, key: String, label: String, detail: Option<String>, ok: bool| Focus {
+            action: action.into(),
+            key,
+            label,
+            detail,
+            ok,
+            vehicle: Some(v.id),
+            x: v.x,
+            y: v.y,
+            z: v.z,
+            ..Default::default()
+        };
+        let load = if a.kind == "cargo" && slots > 0 { back.zip(free) } else { None };
+        let unload = if a.kind == "cargo" && back.is_none() { loaded } else { None };
+        if let Some((back, free)) = load {
+            let f = at("load", format!("veh:{}:load", v.id), format!("Load {}", pack_def(&back.def).name), Some(format!("{} {used}/{slots}", def.name)), true);
+            pick.consider(Focus { slot: Some(free as i64), ..f }, d, 2.2);
+        } else if let Some(loaded) = unload {
+            let f = at("unload", format!("veh:{}:unload", v.id), format!("Take a Pack from the {}", def.name), Some(format!("{used}/{slots} Aboard")), true);
+            pick.consider(Focus { slot: Some(loaded as i64), ..f }, d, 2.2);
+        } else {
+            let mount = def.is_mount();
+            // With a pack on your back only a pack animal will carry you; a cart takes it in its bed.
+            let blocked = back.is_some() && pack_blocks(def).is_some();
+            let detail = if blocked {
+                Some(if mount { "Will not carry a pack" } else { "Load your pack first" }.into())
+            } else if slots > 0 {
+                Some(format!("Cargo {used}/{slots}"))
+            } else {
+                None
+            };
+            pick.consider(
+                at("board", format!("veh:{}", v.id), format!("{} {}", if mount { "Ride" } else { "Drive" }, def.name), detail, !blocked),
+                d + 0.3,
+                2.2,
+            );
+        }
+    }
+
+    // Online, someone else's vehicle with a seat beside its driver's: ride along (the channel seats you).
+    for o in &life.others_vehicles {
+        let v = &o.vehicle;
+        let def = rideable(&v.def);
+        if def.seats.len() < 2 {
+            continue;
+        }
+        let d = distance_to(v, px, pz);
+        if d > 2.2 {
+            continue;
+        }
+        let room = o.taken.len() < def.seats.len() - 1;
+        let detail = if back.is_some() {
+            "Put your pack down first".to_string()
+        } else if room {
+            def.name.clone()
+        } else {
+            "No room left".to_string()
+        };
+        let f = Focus {
+            action: "ride".into(),
+            key: format!("ride:{}:{}", o.host, v.id),
+            label: format!("Ride with {}", o.name),
+            detail: Some(detail),
+            ok: back.is_none() && room,
+            host: Some(o.host),
+            vehicle: Some(v.id),
+            x: v.x,
+            y: v.y,
+            z: v.z,
+            ..Default::default()
+        };
+        pick.consider(f, d + 0.3, 2.2);
+    }
+
+    // Your farm plots: whatever is in the cell in front of you.
+    let tx = px + fx * 1.3;
+    let tz = pz + fz * 1.3;
+    if let Some((k, idx)) = cell_at(life, tx, tz) {
+        let sc = &life.land.scarecrows[k];
+        let here = sc.cells.get(idx).and_then(|c| c.as_ref());
+        let (cx, cz) = cell_centre(sc, idx);
+        let y = hf.height(cx, cz);
+        let at = |action: &str, label: String, detail: String, ok: bool| Focus {
+            action: action.into(),
+            key: format!("cell:{}:{idx}", sc.id),
+            label,
+            detail: Some(detail),
+            ok,
+            sc: Some(sc.id),
+            cell: Some(idx as i64),
+            x: cx,
+            y,
+            z: cz,
+            ..Default::default()
+        };
+        match here {
+            None => match chosen_seed(life) {
+                Some(seed) => {
+                    let def = item_def(&seed);
+                    let verb = if has(&def.raises) { "Raise" } else { "Plant" };
+                    let what = def.name.replacen(" Seeds", "", 1);
+                    pick.consider(at("plant", format!("{verb} {what}"), format!("{} Left · Z: Change Seed", life.count(&seed)), true), 0.5, 9.0);
+                }
+                None => pick.consider(at("info", "Empty Soil".into(), "Buy seeds from Mara, or young animals from Sela".into(), false), 0.5, 9.0),
+            },
+            Some(plant) if plant.is_animal() => {
+                let def = animal_def(&plant.crop);
+                let name = if grown_up(plant) { &def.name } else { &def.young };
+                let fed = life.count(&def.feed) >= def.feed_n;
+                if produce_ready(plant) {
+                    pick.consider(at("collect", def.verb.clone(), format!("{} Labor", num(def.collect_labor)), true), 0.5, 9.0);
+                } else if hungry(life, plant) {
+                    pick.consider(at("feed", format!("Feed the {name}"), format!("{} {} · Hungry", def.feed_n, item_def(&def.feed).name), fed), 0.5, 9.0);
+                } else {
+                    let left = js_max(0.0, (plant.fed_until.unwrap_or(0.0) - life.state.clock).ceil());
+                    let state = if grown_up(plant) {
+                        format!("{} {}%", def.produce, num(js_round(plant.produce.unwrap_or(0.0) * 100.0)))
+                    } else {
+                        format!("Growing {}%", num(js_round(plant.growth * 100.0)))
+                    };
+                    pick.consider(at("feed", format!("Feed the {name}"), format!("{state} · Fed for {}", short_time(left)), fed), 0.5, 9.0);
+                }
+            }
+            Some(plant) => {
+                let def = crop_def(&plant.crop);
+                let stage = stage_of(plant);
+                let pct = num(js_round(plant.growth * 100.0));
+                if is_ripe(plant) && has(&def.produce) {
+                    pick.consider(at("harvest", format!("Harvest {}", def.name), format!("{} Labor", num(def.harvest_labor)), true), 0.5, 9.0);
+                } else if let Some(chop) = def.chop.as_ref().filter(|_| stage >= def.stages - 2) {
+                    pick.consider(at("fell", format!("Fell {}", def.name), format!("{} Labor · Timber", num(chop.labor)), true), 0.5, 9.0);
+                } else if !plant.watered && plant.growth < 1.0 {
+                    pick.consider(
+                        at("water", format!("Water {}", def.name), format!("{pct}% · Ripe in ~{}", short_time(seconds_to_ripe(life, plant))), true),
+                        0.5,
+                        9.0,
+                    );
+                } else {
+                    let watered = if plant.watered { "Watered · " } else { "" };
+                    pick.consider(
+                        at("info", format!("{} - {pct}%", def.name), format!("{watered}Ripe in ~{}", short_time(seconds_to_ripe(life, plant))), false),
+                        0.5,
+                        9.0,
+                    );
+                }
+            }
+        }
+    }
+
+    // Gathering: timber, stone, ore, herbs.
+    for nd in here.recipes().flat_map(|r| &r.nodes) {
+        let Some(y) = gathering().get(&nd.kind) else { continue };
+        let sd = structure_def(&nd.kind);
+        let d = js_max(0.0, js_hypot(nd.x - px, nd.z - pz) - sd.w / 2.0);
+        if d > 2.0 {
+            continue;
+        }
+        let ready = node_ready(life, &nd.id);
+        let (label, detail) = if ready {
+            (y.verb.clone(), format!("{} Labor · {}-{} {}", num(y.labor), y.n[0], y.n[1], item_def(&y.item).name))
+        } else {
+            // A node is only on cooldown once it has a time to come back at.
+            let back_at = life.state.nodes.get(&nd.id).copied().unwrap_or(f64::NAN);
+            (format!("{} - Picked Clean", sd.name), format!("Back in {}", short_time(back_at - life.state.clock)))
+        };
+        let f = Focus {
+            action: if ready { "gather" } else { "info" }.into(),
+            key: format!("node:{}", nd.id),
+            label,
+            detail: Some(detail),
+            ok: ready,
+            node: Some(nd.id.clone()),
+            x: nd.x,
+            y: hf.height(nd.x, nd.z),
+            z: nd.z,
+            ..Default::default()
+        };
+        pick.consider(f, d, 2.0);
+    }
+
+    // Slipways: lay a keel, haul materials, build, launch.
+    for sy in here.recipes().flat_map(|r| &r.shipyards) {
+        let d = js_hypot(sy.x - px, sy.z - pz);
+        if d > 12.0 {
+            continue;
+        }
+        let y = hf.height(sy.x, sy.z);
+        let at = |action: &str, label: String, detail: Option<String>, ok: bool| Focus {
+            action: action.into(),
+            key: format!("slip:{}", sy.id),
+            label,
+            detail,
+            ok,
+            slip: Some(sy.id.clone()),
+            x: sy.x,
+            y,
+            z: sy.z,
+            ..Default::default()
+        };
+        let score = d * 0.3 + 1.2;
+        let Some(bi) = ship_on(life, &sy.id) else {
+            let f = match design_items_in_bag(life).into_iter().next() {
+                Some(design) => at("keel", format!("Lay the {}'s Keel", design_for_item(&design).map_or("", |d| d.name.as_str())), Some(sy.name.clone()), true),
+                None => at("info", sy.name.clone(), Some("Needs a ship design - Captain Ilsa sells them".into()), false),
+            };
+            pick.consider(f, score, 12.0);
+            continue;
+        };
+        let b = &life.land.ships[bi];
+        let design = ship_design(&b.design);
+        if ship_finished(b) {
+            pick.consider(at("launch", format!("Launch the {}", design.name), None, true), score, 12.0);
+            continue;
+        }
+        // (A stage that isn't there is a ship the page can't show either.)
+        let Some(stage) = usize::try_from(b.stage).ok().and_then(|s| design.stages.get(s)) else { continue };
+        let needs = ship_needs(b);
+        if ship_stage_ready(b) {
+            pick.consider(at("shipBuild", format!("Build the {}", stage.name), Some(format!("{} Labor", num(stage.labor))), true), score, 12.0);
+        } else if let Some(back) = back.filter(|bk| needs.iter().any(|n| n.pack == bk.def && n.have < n.need)) {
+            pick.consider(
+                at("shipDeliver", format!("Deliver {}", pack_def(&back.def).name), Some(format!("{}: {}", stage.name, needs_list(&needs, false))), true),
+                score,
+                12.0,
+            );
+        } else {
+            pick.consider(at("info", format!("{}: {} Needs", design.name, stage.name), Some(needs_list(&needs, true)), false), score, 12.0);
+        }
+    }
+
+    // House plots and building sites.
+    for plot in here.recipes().flat_map(|r| &r.house_plots) {
+        let (lx, lz) = to_local(px - plot.x, pz - plot.z, plot.rot);
+        if lx.abs() > 9.0 || lz.abs() > 9.0 {
+            continue;
+        }
+        let h = house_on(life, &plot.id).map(|i| &life.land.houses[i]);
+        let y = hf.height(plot.x, plot.z);
+        let d = js_hypot(lx, lz) * 0.25 + 1.5;
+        let owner = if h.is_some() { None } else { life.plot_owners.get(&plot.id).filter(|o| !o.is_empty()) };
+        let on_plot = |action: &str, label: String, detail: &str, ok: bool| Focus {
+            action: action.into(),
+            key: format!("plot:{}", plot.id),
+            label,
+            detail: Some(detail.into()),
+            ok,
+            plot: Some(plot.id.clone()),
+            x: plot.x,
+            y,
+            z: plot.z,
+            ..Default::default()
+        };
+        if let Some(owner) = owner {
+            pick.consider(on_plot("info", format!("{owner}'s Plot"), "Already Claimed", false), d, 9.0);
+            continue;
+        }
+        let Some(h) = h else {
+            let f = match life.state.bag.iter().find(|s| claims_plot(&s.item)) {
+                Some(bp) => on_plot("claim", format!("Place {}", item_def(&bp.item).name), "Claims This Plot", true),
+                None => on_plot("info", "Plot for Claim".into(), "Needs a Cottage Blueprint - Land Registry", false),
+            };
+            pick.consider(f, d, 9.0);
+            continue;
+        };
+        let (hx, hz, _) = house_pose(h);
+        if !is_complete(h) {
+            let bp = blueprint_def(&h.blueprint);
+            // (A stage that isn't there is a house the page can't show either.)
+            let Some(stage) = usize::try_from(h.stage).ok().and_then(|s| bp.stages.get(s)) else { continue };
+            let needs = still_needs(h);
+            let site = |action: &str, label: String, detail: String, ok: bool| Focus {
+                action: action.into(),
+                key: format!("site:{}", h.id),
+                label,
+                detail: Some(detail),
+                ok,
+                house: Some(h.id),
+                x: hx,
+                y,
+                z: hz,
+                ..Default::default()
+            };
+            if h.pending {
+                pick.consider(site("info", "Claiming the Plot".into(), "Waiting for the Land Registry".into(), false), d, 9.0);
+            } else if stage_ready(h) {
+                pick.consider(site("build", format!("Build the {}", stage.name), format!("{} Labor", num(stage.labor)), true), d, 9.0);
+            } else if let Some(back) = back.filter(|bk| needs.iter().any(|n| n.pack == bk.def && n.have < n.need)) {
+                pick.consider(
+                    site("deliver", format!("Deliver {}", pack_def(&back.def).name), format!("{}: {}", stage.name, needs_list(&needs, false)), true),
+                    d,
+                    9.0,
+                );
+            } else {
+                pick.consider(site("info", format!("{} Needs", stage.name), needs_list(&needs, true), false), d, 9.0);
+            }
+            continue;
+        }
+        for what in ["bed", "chest"] {
+            let (ix, iz) = interior_point(h, what);
+            let dd = js_hypot(ix - px, iz - pz);
+            let f = if what == "bed" {
+                Focus {
+                    action: "rest".into(),
+                    key: format!("bed:{}", h.id),
+                    label: "Rest in Bed".into(),
+                    detail: Some("Labor recovers 3× faster".into()),
+                    ok: true,
+                    house: Some(h.id),
+                    x: ix,
+                    y: y + 0.3,
+                    z: iz,
+                    ..Default::default()
+                }
+            } else {
+                Focus {
+                    action: "storage".into(),
+                    key: format!("chest:{}", h.id),
+                    label: "Open Storage Chest".into(),
+                    ok: true,
+                    house: Some(h.id),
+                    x: ix,
+                    y: y + 0.3,
+                    z: iz,
+                    ..Default::default()
+                }
+            };
+            pick.consider(f, dd, 1.8);
+        }
+        let (owed, due_in) = tax_due(life, h);
+        if lz.abs() > 5.0 {
+            let detail = if due_in > 0.0 {
+                format!("Paid for {}", short_time(due_in))
+            } else {
+                format!("Overdue · Taken Down in {}", short_time(demolished_at(h) - super::land::now(life)))
+            };
+            let f = Focus {
+                action: "tax".into(),
+                key: format!("tax:{}", h.id),
+                label: format!("Pay Property Tax ({})", format_coins(owed)),
+                detail: Some(detail),
+                ok: true,
+                house: Some(h.id),
+                x: plot.x,
+                y,
+                z: plot.z,
+                ..Default::default()
+            };
+            pick.consider(f, d + 1.0, 9.0);
+        }
+    }
+
+    // A dungeon's portal: into your party's copy of it from its door in the world, or back out
+    // from inside (the browser takes you through; online the server does).
+    if p.mode == Mode::Normal {
+        let busy = back.map(|_| "Put your pack down first".to_string());
+        match life.dungeon.as_deref().and_then(dungeon) {
+            Some(inside) => {
+                let (x, z) = (inside.exit.x, inside.exit.z);
+                let f = Focus {
+                    action: "leaveDungeon".into(),
+                    key: format!("dungeon:{}:leave", inside.id),
+                    label: format!("Leave {}", inside.name),
+                    detail: busy,
+                    ok: back.is_none(),
+                    dungeon: Some(inside.id.clone()),
+                    x,
+                    y: p.pos.y,
+                    z,
+                    ..Default::default()
+                };
+                pick.consider(f, js_hypot(x - px, z - pz), inside.exit.r);
+            }
+            None => {
+                for door in here.recipes().flat_map(|r| &r.doors) {
+                    let Some(def) = dungeon(&door.id) else { continue };
+                    let d = js_hypot(door.portal.x - px, door.portal.z - pz);
+                    if (p.pos.y - door.portal.y).abs() > 3.0 {
+                        continue;
+                    }
+                    let f = Focus {
+                        action: "enterDungeon".into(),
+                        key: format!("dungeon:{}", door.id),
+                        label: format!("Enter {}", def.name),
+                        detail: Some(busy.clone().unwrap_or_else(|| format!("Dungeon · Up to {} Players", def.max_players))),
+                        ok: back.is_none(),
+                        dungeon: Some(door.id.clone()),
+                        x: door.portal.x,
+                        y: door.portal.y,
+                        z: door.portal.z,
+                        ..Default::default()
+                    };
+                    pick.consider(f, d, door.portal.r);
+                }
+            }
+        }
+    }
+
+    // Online, another player near you: challenge them to a mini-game (the table is the server's).
+    // Only when F has nothing else to do here, so someone standing at a merchant's counter or on the
+    // plot beside yours never gets in the way of what you came for.
+    if pick.best.is_none() && p.mode == Mode::Normal {
+        let range = crate::minigames::content().challenge.range;
+        for o in &life.others_around {
+            let d = js_hypot(o.x - px, o.z - pz);
+            let detail = o.busy.clone().unwrap_or_else(|| if back.is_some() { "Put your pack down first" } else { "Play a Mini-Game" }.to_string());
+            let f = Focus {
+                action: "challenge".into(),
+                key: format!("challenge:{}", o.id),
+                label: format!("Challenge {}", o.name),
+                detail: Some(detail),
+                ok: o.busy.is_none() && back.is_none(),
+                other: Some(o.id),
+                x: o.x,
+                y: o.y,
+                z: o.z,
+                ..Default::default()
+            };
+            pick.consider(f, d, range);
+        }
+    }
+    pick.best
+}
+
+// ---------- Commands ----------
+
+/// Whether you're within `range` of the townsperson `npc`, in the space you're in.
+fn near_npc(sim: &Sim, npc: &str, range: f64) -> bool {
+    sim.world.map.recipes().flat_map(|r| &r.npcs).find(|x| x.id == npc).is_some_and(|n| js_hypot(n.x - sim.player.pos.x, n.z - sim.player.pos.z) <= range)
+}
+
+fn house_index(life: &Life, id: i64) -> Option<usize> {
+    life.land.houses.iter().position(|x| x.id == id)
+}
+
+pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
+    match c {
+        Command::Interact => interact(life, sim),
+        Command::Drop => {
+            if !drop_pack(life, sim) && sim.player.pack == 0 {
+                life.toast("You are not carrying a pack", "info");
+            }
+        }
+        Command::Mount => mount_command(life, sim),
+        Command::Exit => {
+            dismount(life, sim);
+        }
+        Command::Gust => {
+            if !gust(sim) && sim.player.mode == Mode::Glide {
+                life.toast("The wing is still recovering", "info");
+            }
+        }
+        Command::Glider => {
+            if sim.player.mode == Mode::Glide {
+                close_glider(sim, "fold");
+                return;
+            }
+            match glider_blocked(sim) {
+                Some(why) => life.toast(why, "bad"),
+                None => {
+                    open_glider(sim);
+                }
+            }
+        }
+        Command::CycleSeed => {
+            let bag = &life.state.bag;
+            let seeds: Vec<String> = bag
+                .iter()
+                .enumerate()
+                .filter(|&(k, s)| item_def(&s.item).cat == "seed" && bag.iter().position(|x| x.item == s.item) == Some(k))
+                .map(|(_, s)| s.item.clone())
+                .collect();
+            if seeds.is_empty() {
+                return;
+            }
+            let next = seeds.iter().position(|s| *s == life.state.seed).map_or(0, |i| (i + 1) % seeds.len());
+            life.state.seed = seeds[next].clone();
+            life.toast(format!("Planting {}", item_def(&life.state.seed).name), "info");
+        }
+        Command::Use { item } => use_item(life, sim, item),
+        Command::Buy { npc, item, n } => {
+            if near_npc(sim, npc, 6.0) {
+                buy(life, npc, item, *n);
+            }
+        }
+        Command::Sell { npc, item, n } => {
+            if near_npc(sim, npc, 6.0) {
+                sell(life, npc, item, *n);
+            }
+        }
+        Command::Buyback { npc, item, n } => {
+            if near_npc(sim, npc, 6.0) {
+                buy_back(life, npc, item, *n);
+            }
+        }
+        Command::Craft { recipe } => {
+            // You have to be at the bench, or with the crafter, to use their recipes.
+            let Some(r) = recipe_by_id(recipe) else { return };
+            let near = match sim.world.map.recipes().flat_map(|r| &r.workbenches).find(|b| b.id == r.bench) {
+                Some(bench) => js_hypot(bench.x - sim.player.pos.x, bench.z - sim.player.pos.z) <= 6.0,
+                None => near_npc(sim, &r.bench, 6.0),
+            };
+            if !near {
+                life.toast("Too far from the workbench", "bad");
+                return;
+            }
+            run_recipe(life, sim, recipe);
+        }
+        Command::Accept { quest } => {
+            accept(life, quest);
+        }
+        Command::Contract { id } => {
+            let k = life.state.contracts.as_ref().and_then(|cs| cs.offered.iter().find(|x| x.id == *id));
+            let post = k.and_then(|k| world_map().recipes().flat_map(|r| &r.outposts).find(|o| o.id == k.outpost));
+            if post.is_some_and(|post| near_npc(sim, &post.npc, 6.0)) {
+                accept_contract(life, *id);
+            }
+        }
+        Command::Complete { quest } => {
+            complete(life, quest);
+        }
+        Command::Abandon { quest } => {
+            abandon(life, quest);
+        }
+        Command::Summon { item } => {
+            summon(life, sim, item);
+        }
+        Command::Recall { vehicle } => {
+            if recall(life, sim, *vehicle, false) {
+                life.toast("Sent home", "info");
+            }
+        }
+        Command::CancelPlace => life.placing = None,
+        Command::Store { house, item, n } => store_or_take(life, true, *house, item, *n),
+        Command::Take { house, item, n } => store_or_take(life, false, *house, item, *n),
+        Command::PayTax { house } => {
+            if house_index(life, *house).is_some() {
+                pay_tax(life, *house);
+            }
+        }
+        Command::Rest => life.resting = true,
+        Command::Grant { item, n, coins, seals, labor } => {
+            let mut items = Vec::new();
+            if let Some(item) = item.as_deref().filter(|i| !i.is_empty()) {
+                let n = n.unwrap_or(1);
+                let left = life.give(item, n, false);
+                items.push(Stack { item: item.to_string(), n: n - left });
+            }
+            let coins = coins.filter(|&c| truthy(c)).unwrap_or(0.0);
+            let seals = seals.filter(|&s| truthy(s)).unwrap_or(0.0);
+            life.state.coins += coins;
+            life.state.seals += seals;
+            if coins != 0.0 || seals != 0.0 || !items.is_empty() {
+                life.record("grant", "world".into(), coins, seals, items, None);
+            }
+            if let Some(labor) = labor.filter(|&l| truthy(l)) {
+                life.state.labor = js_min(labor_settings().max, life.state.labor + labor);
+            }
+        }
+        Command::Warp { seconds } => {
+            // (The trading posts' demand recovers by the clock it runs on: offline the life's.)
+            let seconds = *seconds;
+            life.state.clock += seconds;
+            grow_for(life, seconds);
+            life.regen_labor(seconds, false, false);
+        }
+        // The channel moves you itself (crates/server/src/sim/mod.rs); it never reaches a life.
+        Command::Teleport { .. } | Command::Ride { .. } | Command::Bots { .. } => {}
+    }
+}
+
+/// Puts things from your bag into a finished house's chest (store), or back (take).
+fn store_or_take(life: &mut Life, store: bool, house: i64, item: &str, n: i64) {
+    // Only a real count moves anything: a negative one would make items out of nothing.
+    if n <= 0 {
+        return;
+    }
+    let Some(hi) = house_index(life, house) else { return };
+    if !is_complete(&life.land.houses[hi]) {
+        return;
+    }
+    let bp = blueprint_def(&life.land.houses[hi].blueprint);
+    if store {
+        let n = n.min(life.count(item));
+        let slots: BTreeSet<&str> = life.land.houses[hi].storage.iter().map(|s| s.item.as_str()).collect();
+        if n == 0 || (!slots.contains(item) && slots.len() >= bp.perks.storage_slots) {
+            return;
+        }
+        life.take(item, n);
+        let h = &mut life.land.houses[hi];
+        // (Saturating: a count no browser sends must not overflow.)
+        match h.storage.iter_mut().find(|x| x.item == item) {
+            Some(s) => s.n = s.n.saturating_add(n),
+            None => h.storage.push(Stack { item: item.to_string(), n }),
+        }
+    } else {
+        let Some(si) = life.land.houses[hi].storage.iter().position(|x| x.item == item) else { return };
+        let n = n.min(life.land.houses[hi].storage[si].n);
+        let left = life.give(item, n, true);
+        let s = &mut life.land.houses[hi].storage[si];
+        s.n = s.n.saturating_sub(n.saturating_sub(left));
+        if s.n <= 0 {
+            life.land.houses[hi].storage.remove(si);
+        }
+    }
+    life.revision += 1;
+}
+
+fn use_item(life: &mut Life, sim: &mut Sim, item: &str) {
+    if life.count(item) < 1 {
+        return;
+    }
+    let def = item_def(item);
+    match def.cat.as_str() {
+        "seed" => {
+            life.state.seed = item.to_string();
+            life.toast(format!("F plants {} now", def.name), "info");
+        }
+        // Set down on open ground ahead of you (a farm plot's scarecrow); a house blueprint or a ship
+        // design is placed with F at a house plot or a slipway, as its hint says.
+        "placeable" => {
+            if def.place_on.as_deref() == Some("ground") {
+                life.placing = Some(Placement { item: item.to_string(), x: 0.0, z: 0.0, rot: 0.0, problem: None });
+            }
+            if let Some(hint) = def.hint.as_deref().filter(|h| !h.is_empty()) {
+                life.toast(hint, "info");
+            }
+        }
+        "glider" => {
+            let glider = def.glider.clone().unwrap_or_default();
+            life.state.glider = glider.clone();
+            sim.player.glider = glider;
+            life.toast(format!("{} equipped", def.name), "good");
+        }
+        "deed" | "mount" => {
+            if def.cat == "mount" {
+                mount_command(life, sim);
+                return;
+            }
+            summon(life, sim, item);
+        }
+        "consumable" => {
+            if let Some(labor) = def.use_.as_ref().and_then(|u| u.labor).filter(|&l| truthy(l)) {
+                life.take(item, 1);
+                life.state.labor = js_min(labor_settings().max, life.state.labor + labor);
+                life.toast(format!("+{} labor", num(labor)), "good");
+            }
+        }
+        _ => {}
+    }
+}
+
+fn interact(life: &mut Life, sim: &mut Sim) {
+    // Worked out afresh: the press acts on what is in front of you now, not a frame ago.
+    let f = find_focus(life, sim);
+    life.focus = f.clone();
+    let Some(f) = f else { return };
+    if !f.ok && f.action != "info" {
+        return;
+    }
+    // Cells and slots come from the focus just worked out, so they are in range; anything else
+    // finds nothing there.
+    let cell = f.cell.and_then(|c| usize::try_from(c).ok()).unwrap_or(usize::MAX);
+    let slot = f.slot.and_then(|s| usize::try_from(s).ok()).unwrap_or(usize::MAX);
+    let sc = f.sc.filter(|&id| scarecrow_index(life, id).is_some());
+    let house = f.house.filter(|&id| house_index(life, id).is_some());
+    let vehicle = f.vehicle.filter(|&id| vehicle_index(life, id).is_some());
+    let slip = f.slip.clone().unwrap_or_default();
+    match f.action.as_str() {
+        "talk" => {
+            life.notify(QuestEvent { npc: f.npc.clone(), ..QuestEvent::new("talk") });
+            life.emit(LifeEvent::Open { ui: "dialog".into(), id: f.npc.clone().unwrap_or_default() });
+        }
+        "sell" => {
+            if let Some(outpost) = f.npc.as_deref().and_then(|npc| outpost_of(npc)) {
+                sell_pack(life, sim, &outpost.id);
+            }
+        }
+        "craft" => life.emit(LifeEvent::Open { ui: "craft".into(), id: f.bench.clone().unwrap_or_default() }),
+        "pickup" => {
+            if let Some(pack) = f.pack.filter(|&id| pack_index(life, id).is_some()) {
+                pick_up(life, sim, pack);
+            }
+        }
+        "board" => {
+            if let Some(v) = vehicle {
+                board(life, sim, v);
+            }
+        }
+        "load" => {
+            if let Some(v) = vehicle {
+                load_pack(life, sim, v, slot);
+            }
+        }
+        "unload" => {
+            if let Some(v) = vehicle {
+                unload_pack(life, sim, v, slot);
+            }
+        }
+        "exit" => {
+            dismount(life, sim);
+        }
+        "plant" => {
+            let seed = chosen_seed(life);
+            if let (Some(sc), Some(seed)) = (sc, seed) {
+                life.state.seed = seed.clone();
+                if has(&item_def(&seed).raises) {
+                    raise(life, sc, cell, &seed);
+                } else {
+                    plant(life, sc, cell, &seed);
+                }
+            }
+        }
+        "feed" => {
+            if let Some(sc) = sc.filter(|&sc| plant_at(life, sc, cell).is_some_and(|p| p.is_animal())) {
+                feed(life, sc, cell);
+            }
+        }
+        "collect" => {
+            if let Some(sc) = sc {
+                collect(life, sc, cell, f.x, f.y, f.z);
+            }
+        }
+        "water" => {
+            if let Some(sc) = sc.filter(|&sc| plant_at(life, sc, cell).is_some()) {
+                water(life, sc, cell);
+            }
+        }
+        "harvest" => {
+            if let Some(sc) = sc {
+                harvest(life, sc, cell, f.y);
+            }
+        }
+        "fell" => {
+            if let Some(sc) = sc {
+                fell(life, sc, cell, f.y);
+            }
+        }
+        "gather" => gather(life, &f),
+        "claim" => {
+            let bp = life.state.bag.iter().find(|s| claims_plot(&s.item)).map(|s| s.item.clone());
+            if let Some(bp) = bp {
+                place_house(life, sim, &f.plot.clone().unwrap_or_default(), &bp);
+            }
+        }
+        "deliver" => {
+            if let Some(h) = house {
+                deliver_material(life, sim, h);
+            }
+        }
+        "build" => {
+            if let Some(h) = house {
+                build_stage(life, sim, h);
+            }
+        }
+        "rest" => {
+            let Some(hi) = house.and_then(|h| house_index(life, h)) else { return };
+            let (bx, bz) = interior_point(&life.land.houses[hi], "bed");
+            life.resting = true;
+            life.state.home = Some(Home { x: bx, z: bz });
+            sim.player.vel.x = 0.0;
+            sim.player.vel.z = 0.0;
+            life.toast("You settle in. Labor recovers 3× faster while you rest - move to get up.", "info");
+        }
+        "storage" => life.emit(LifeEvent::Open { ui: "storage".into(), id: f.house.map(|h| h.to_string()).unwrap_or_default() }),
+        "tax" => {
+            if let Some(h) = house {
+                pay_tax(life, h);
+            }
+        }
+        "placeScarecrow" => {
+            let Some(pl) = life.placing.clone() else { return };
+            if pl.problem.as_deref().is_some_and(|p| !p.is_empty()) {
+                return;
+            }
+            if life.land.ids.left() == 0 {
+                life.toast(super::land::NO_IDS, "bad");
+                return;
+            }
+            if !life.take(&pl.item, 1) {
+                life.placing = None;
+                return;
+            }
+            add_scarecrow(life, sim, pl.x, pl.z, pl.rot);
+            life.placing = None;
+            life.toast("🧑‍🌾 Plot claimed. Walk onto the soil and press F to plant.", "good");
+            life.notify(QuestEvent::new("placeScarecrow"));
+        }
+        "keel" => {
+            if let Some(design) = design_items_in_bag(life).into_iter().next() {
+                lay_keel(life, &slip, &design);
+            }
+        }
+        "shipDeliver" => {
+            if let Some(b) = ship_on(life, &slip) {
+                let id = life.land.ships[b].id;
+                deliver_ship_material(life, sim, id);
+            }
+        }
+        "shipBuild" => {
+            if let Some(b) = ship_on(life, &slip) {
+                let id = life.land.ships[b].id;
+                build_ship_stage(life, id);
+            }
+        }
+        "launch" => {
+            if let Some(b) = ship_on(life, &slip) {
+                let id = life.land.ships[b].id;
+                launch(life, id);
+            }
+        }
+        _ => {} // "info"
+    }
+}
+
+/// F at a resource node: timber, stone, ore or herbs into your bag, and the node rests a while.
+fn gather(life: &mut Life, f: &Focus) {
+    let Some(nd) = f.node.as_deref().and_then(|id| world_map().recipes().flat_map(|r| &r.nodes).find(|n| n.id == id)) else { return };
+    let Some(y) = gathering().get(&nd.kind) else { return };
+    if !node_ready(life, &nd.id) {
+        return;
+    }
+    if !life.has_room(&y.item, y.n[1]) {
+        life.toast("Your bag is full", "bad");
+        return;
+    }
+    if !life.afford(0.0, 0.0, y.labor, &y.verb.to_lowercase()) {
+        return;
+    }
+    let n = life.rand_int(y.n[0], y.n[1]);
+    life.give(&y.item, n, false);
+    if let Some(rare) = &y.rare
+        && life.rand() < rare.chance
+    {
+        find_rare(life, rare, nd.x, f.y, nd.z);
+    }
+    let back = life.state.clock + y.respawn;
+    life.state.nodes.insert(nd.id.clone(), back);
+    life.revision += 1;
+    life.emit(LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: y.kind.clone() });
+    // A step like "quarry 10 stone" counts the stone, not the swings.
+    life.notify(QuestEvent { kind: Some(y.kind.clone()), amount: Some(n as f64), ..QuestEvent::new("gather") });
+}
+
+/// Every step: resting ends as soon as you move.
+pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
+    if !life.resting {
+        return;
+    }
+    let p = &sim.player;
+    if js_hypot(p.vel.x, p.vel.z) > 0.6 || p.mode != Mode::Normal {
+        life.resting = false;
+    }
+}
+
+// The expected prompts, toasts and numbers here are what the TypeScript copy of the rules gave for
+// the same steps on the same life, while there was one.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::life::content::{ItemDef, items};
+    use crate::life::farming::tests::{got, lucky, quiet_life, stand};
+    use crate::life::state::{QuestProgress, Stack};
+
+    /// What the prompt says: (action, label, detail, ok).
+    fn prompt(life: &mut Life, sim: &Sim) -> (String, String, String, bool) {
+        let f = find_focus(life, sim).expect("something to do here");
+        (f.action, f.label, f.detail.unwrap_or_default(), f.ok)
+    }
+
+    fn says(action: &str, label: &str, detail: &str, ok: bool) -> (String, String, String, bool) {
+        (action.into(), label.into(), detail.into(), ok)
+    }
+
+    fn toasts(life: &mut Life) -> Vec<String> {
+        life.drain_events()
+            .into_iter()
+            .map(|e| match e {
+                LifeEvent::Toast { text, .. } => text,
+                other => panic!("not a toast: {other:?}"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn short_times_read_like_the_browsers() {
+        let cases = [
+            (0.0, "0s"),
+            (0.2, "1s"),
+            (59.2, "1m 0s"),
+            (61.0, "1m 1s"),
+            (3599.0, "59m 59s"),
+            (3725.0, "1h 2m"),
+            (86400.0, "1d 0h"),
+            (90061.0, "1d 1h"),
+            (-3.0, "0s"),
+            (f64::NAN, "NaNs"),
+        ];
+        for (s, want) in cases {
+            assert_eq!(short_time(s), want, "{s}");
+        }
+        assert_eq!((num(-0.0), num(250.0), num(0.25), num(1e21)), ("0".into(), "250".into(), "0.25".into(), "1e+21".into()));
+    }
+
+    #[test]
+    fn the_prompt_is_whatever_is_in_the_cell_in_front_of_you() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
+        let aim = |life: &Life, sim: &mut Sim, idx: usize| {
+            let (x, z) = cell_centre(&life.land.scarecrows[0], idx);
+            stand(sim, x, z - 1.3, 0.0);
+        };
+        aim(&life, &mut sim, 0);
+        let f = find_focus(&mut life, &sim).unwrap();
+        assert_eq!((f.key.as_str(), f.sc, f.cell), ("cell:1:0", Some(sc), Some(0)));
+        assert_eq!(prompt(&mut life, &sim), says("info", "Empty Soil", "Buy seeds from Mara, or young animals from Sela", false));
+        life.give("seed.sunroot", 5, true);
+        assert_eq!(prompt(&mut life, &sim), says("plant", "Plant Sunroot", "5 Left · Z: Change Seed", true));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(prompt(&mut life, &sim), says("water", "Water Sunroot", "0% · Ripe in ~2m 30s", true));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(prompt(&mut life, &sim), says("info", "Sunroot - 0%", "Watered · Ripe in ~2m 0s", false));
+        life.state.clock += 150.0;
+        grow_for(&mut life, 150.0);
+        assert_eq!(prompt(&mut life, &sim), says("harvest", "Harvest Sunroot", "2 Labor", true));
+
+        life.give("animal.chick", 1, true);
+        run_command(&mut life, &mut sim, &Command::Use { item: "animal.chick".into() });
+        aim(&life, &mut sim, 1);
+        assert_eq!(prompt(&mut life, &sim), says("plant", "Raise Chick", "1 Left · Z: Change Seed", true));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the Chick", "Growing 0% · Fed for 5m 0s", false));
+        life.state.clock += 301.0;
+        grow_for(&mut life, 301.0);
+        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the Chicken", "2 Barley · Hungry", false));
+        life.give("barley", 4, true);
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the Chicken", "egg 0% · Fed for 5m 0s", true));
+        life.state.clock += 300.0;
+        grow_for(&mut life, 300.0);
+        assert_eq!(prompt(&mut life, &sim), says("collect", "Collect eggs", "1 Labor", true));
+        // From inside the plot, facing back toward its post.
+        stand(&mut sim, -207.0, -239.0, 2.4);
+        assert_eq!(prompt(&mut life, &sim), says("plant", "Plant Sunroot", "4 Left · Z: Change Seed", true));
+        assert_eq!(find_focus(&mut life, &sim).unwrap().key, "cell:1:10");
+        assert_eq!(toasts(&mut life), ["F plants Chick now"]);
+        // What was pressed last is kept as the focus.
+        assert_eq!(life.focus.as_ref().map(|f| f.action.as_str()), Some("feed"));
+    }
+
+    #[test]
+    fn pressing_f_at_a_node_gathers_from_it_and_it_rests_a_while() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let (nd, next) = (life.zone.recipe.nodes[0].clone(), life.zone.recipe.nodes[1].id.clone());
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        stand(&mut sim, nd.x, nd.z - 2.4, 0.0);
+        let f = find_focus(&mut life, &sim).unwrap();
+        let key = format!("node:{}", nd.id);
+        assert_eq!(
+            (f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node.as_deref()),
+            ("gather", "Chop Timber", Some("8 Labor · 3-5 Lumber"), key.as_str(), Some(nd.id.as_str()))
+        );
+        // On Hob's lesson, which wants ten lumber.
+        life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(life.state.bag, vec![Stack { item: "lumber".into(), n: 5 }]);
+        assert_eq!(life.state.labor, 792.0);
+        assert_eq!(life.drain_events(), vec![got(5, "lumber"), LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: "timber".into() }]);
+        assert_eq!(life.state.quests.active[0].counts, [5.0], "the lumber it gave counts, not the one swing");
+        assert_eq!(life.state.nodes.get(&nd.id), Some(&60.0), "kept by the spot's id");
+        assert_eq!(prompt(&mut life, &sim), says("info", "Deadfall Timber - Picked Clean", "Back in 1m 0s", false));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(life.state.bag, vec![Stack { item: "lumber".into(), n: 5 }], "picked clean");
+        life.state.clock = 60.0;
+        assert!(node_ready(&life, &nd.id) && node_ready(&life, &next));
+        // Too tired to chop.
+        life.state.labor = 3.0;
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(toasts(&mut life), ["Too tired - not enough labor to chop timber"]);
+    }
+
+    #[test]
+    fn a_scarecrow_is_walked_out_and_put_down_in_front_of_you() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        life.give("scarecrow", 2, true);
+        stand(&mut sim, -208.0, -247.0, 0.1);
+        run_command(&mut life, &mut sim, &Command::Use { item: "scarecrow".into() });
+        assert_eq!(life.placing, Some(Placement { item: "scarecrow".into(), ..Default::default() }));
+        assert_eq!(prompt(&mut life, &sim), says("placeScarecrow", "Place Scarecrow Here", "Esc to Cancel", true));
+        // Seven metres ahead, turned to the nearest 15 degrees.
+        let pl = life.placing.clone().unwrap();
+        assert!((pl.x + 207.3011660834722).abs() < 1e-9 && (pl.z + 240.03497084305383).abs() < 1e-9, "{pl:?}");
+        assert_eq!((pl.rot, pl.problem), (0.0, None));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        let sc = &life.land.scarecrows;
+        assert!(sc.len() == 1 && (sc[0].x, sc[0].z, sc[0].rot) == (pl.x, pl.z, 0.0));
+        assert!(life.placing.is_none() && life.count("scarecrow") == 1);
+        assert_eq!(
+            toasts(&mut life),
+            ["Walk to open, level ground and press F to place. Esc cancels.", "🧑\u{200d}🌾 Plot claimed. Walk onto the soil and press F to plant."]
+        );
+        // Once the step that put it down is over (the world is only changed then), its tilled
+        // ground is no place for the next one.
+        life.make_solid(&mut world, 1);
+        let mut sim = Sim { player: &mut p, world: &world, owner: 1 };
+        run_command(&mut life, &mut sim, &Command::Use { item: "scarecrow".into() });
+        assert_eq!(prompt(&mut life, &sim).1, "Too close to a road or building");
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!((life.land.scarecrows.len(), life.count("scarecrow")), (1, 1));
+        // Turning snaps the scarecrow round in 15 degree steps; Esc puts it away.
+        stand(&mut sim, -150.0, -214.0, 0.5);
+        find_focus(&mut life, &sim);
+        assert_eq!(life.placing.as_ref().unwrap().rot, 2.0 * (PI / 12.0));
+        run_command(&mut life, &mut sim, &Command::CancelPlace);
+        assert!(life.placing.is_none());
+    }
+
+    /// The toasts among what was said since the last look.
+    fn toasts_among(life: &mut Life) -> Vec<String> {
+        life.drain_events().into_iter().filter_map(|e| if let LifeEvent::Toast { text, .. } = e { Some(text) } else { None }).collect()
+    }
+
+    #[test]
+    fn a_placeable_is_placed_where_its_data_says_and_using_it_says_what_its_hint_says() {
+        let placeables: Vec<&ItemDef> = items().iter().filter(|i| i.cat == "placeable").collect();
+        let mut on: Vec<&str> = placeables.iter().map(|i| i.place_on.as_deref().unwrap_or("")).collect();
+        on.sort_unstable();
+        assert_eq!(on, ["ground", "plot", "slipway"]);
+        // Where the region's farmland is, from its recipe.
+        let recipe: serde_json::Value = serde_json::from_str(include_str!("../../../../shared/regions/emberholm.json")).expect("the recipe");
+        let fields = (recipe["farmland"]["x"].as_f64().expect("farmland x"), recipe["farmland"]["z"].as_f64().expect("farmland z"));
+        for it in placeables {
+            let (mut life, mut world, mut p) = quiet_life();
+            let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+            life.give(&it.id, 1, true);
+            life.drain_events();
+            run_command(&mut life, &mut sim, &Command::Use { item: it.id.clone() });
+            assert_eq!(toasts_among(&mut life), [it.hint.clone().unwrap_or_default()], "{}", it.id);
+            // Only what is set down on open ground is walked out in front of you, and says what it is.
+            let ground = it.place_on.as_deref() == Some("ground");
+            assert_eq!(life.placing.as_ref().map(|pl| pl.item.as_str()), ground.then_some(it.id.as_str()), "{}", it.id);
+            if ground {
+                let facing = sim.player.facing;
+                stand(&mut sim, fields.0, fields.1, facing);
+                let f = find_focus(&mut life, &sim).expect("a place for it");
+                assert_eq!((f.action.as_str(), f.label, f.ok), ("placeScarecrow", format!("Place {} Here", it.name), true));
+            }
+        }
+    }
+
+    #[test]
+    fn a_house_plot_is_claimed_with_whatever_item_claims_one_for_the_blueprint_it_names() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let deed = items().iter().find(|i| i.place_on.as_deref() == Some("plot")).expect("an item that claims a plot");
+        let zone = life.zone;
+        let plot = &zone.recipe.house_plots[0];
+        life.give(&deed.id, 1, true);
+        let facing = sim.player.facing;
+        stand(&mut sim, plot.x, plot.z + 3.0, facing);
+        let f = find_focus(&mut life, &sim).expect("the plot");
+        assert_eq!((f.action.as_str(), f.label), ("claim", format!("Place {}", deed.name)));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(life.land.houses.iter().map(|h| h.blueprint.as_str()).collect::<Vec<_>>(), [deed.places.as_deref().unwrap_or("")]);
+        assert_eq!(life.count(&deed.id), 0);
+    }
+
+    #[test]
+    fn a_gathering_spot_gives_the_rare_find_its_data_names_with_its_toast() {
+        let (kind, spot) = gathering().iter().find(|(_, g)| g.rare.is_some()).expect("a gathering spot with something rare");
+        let rare = spot.rare.as_ref().unwrap();
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let zone = life.zone;
+        let nd = zone.recipe.nodes.iter().find(|n| &n.kind == kind).expect("a spot of that kind");
+        stand(&mut sim, nd.x, nd.z + 1.2, PI);
+        // The haul is drawn first, then the rare find.
+        lucky(&mut life, 1, rare.chance);
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(life.count(&rare.item), 1);
+        assert!(toasts_among(&mut life).contains(&rare.toast));
+    }
+
+    #[test]
+    fn a_tonic_or_the_developer_panel_tops_labor_up_to_the_most_labor_there_is() {
+        let tonic = items().iter().find(|i| i.use_.as_ref().and_then(|u| u.labor).is_some_and(|l| l > 0.0)).expect("a labor tonic");
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let max = labor_settings().max;
+        life.state.labor = max - 1.0;
+        life.give(&tonic.id, 1, true);
+        run_command(&mut life, &mut sim, &Command::Use { item: tonic.id.clone() });
+        assert_eq!(life.state.labor, max);
+        run_command(&mut life, &mut sim, &Command::Grant { item: None, n: None, coins: None, seals: None, labor: Some(5000.0) });
+        assert_eq!(life.state.labor, max);
+    }
+
+    #[test]
+    fn commands_from_the_bag_and_the_developer_panel() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        stand(&mut sim, -150.0, -214.0, 1.0);
+        for (item, n) in [
+            ("seed.flax", 2),
+            ("seed.sunroot", 1),
+            ("animal.calf", 1),
+            ("glider.wayfarer", 1),
+            ("tonic.labor", 2),
+            ("blueprint.cottage", 1),
+            ("design.cog", 1),
+            ("scarecrow", 1),
+        ] {
+            life.give(item, n, true);
+        }
+        let used = |item: &str| Command::Use { item: item.into() };
+        let commands = [
+            Command::CycleSeed,
+            Command::CycleSeed,
+            Command::CycleSeed,
+            Command::CycleSeed,
+            used("glider.wayfarer"),
+            used("tonic.labor"),
+            used("blueprint.cottage"),
+            used("design.cog"),
+            used("sunroot"),
+            Command::Grant { item: None, n: None, coins: None, seals: None, labor: Some(5000.0) },
+            Command::Grant { item: None, n: None, coins: Some(150.0), seals: Some(2.0), labor: None },
+            Command::Grant { item: Some("stone".into()), n: Some(4), coins: None, seals: None, labor: None },
+            Command::Craft { recipe: "pack.harvestCrate".into() },
+            Command::Craft { recipe: "craft.tonic".into() },
+            Command::Craft { recipe: "no.such.recipe".into() },
+        ];
+        for c in &commands {
+            run_command(&mut life, &mut sim, c);
+        }
+        let stone = item_def("stone");
+        assert_eq!(
+            toasts(&mut life),
+            [
+                "Planting Sunroot Seeds",
+                "Planting Calf",
+                "Planting Flax Seeds",
+                "Planting Sunroot Seeds",
+                "Wayfarer Glider equipped",
+                "+250 labor",
+                "Take it to an empty plot at Hearthside Rise and press F there",
+                "Take it to the Lanternwick slipway beside the shipwright and press F there",
+                &format!("+4 {} {}", stone.icon, stone.name),
+                "Too far from the workbench",
+                "Too far from the workbench",
+            ]
+        );
+        let s = &life.state;
+        assert_eq!((s.seed.as_str(), s.glider.as_str(), sim.player.glider.as_str()), ("seed.sunroot", "wayfarer", "wayfarer"));
+        assert_eq!((s.labor, s.coins, s.seals, life.count("tonic.labor"), life.count("stone")), (1000.0, 350.0, 2.0, 1, 4));
+    }
+
+    #[test]
+    fn resting_ends_as_soon_as_you_move() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        run_command(&mut life, &mut sim, &Command::Rest);
+        keep_resting(&mut life, &mut sim);
+        assert!(life.resting);
+        (sim.player.vel.x, sim.player.vel.z) = (0.5, 0.3);
+        keep_resting(&mut life, &mut sim);
+        assert!(life.resting, "a shuffle is not getting up");
+        sim.player.vel.z = 0.4;
+        keep_resting(&mut life, &mut sim);
+        assert!(!life.resting);
+        run_command(&mut life, &mut sim, &Command::Rest);
+        (sim.player.vel.x, sim.player.vel.z, sim.player.mode) = (0.0, 0.0, Mode::Swim);
+        keep_resting(&mut life, &mut sim);
+        assert!(!life.resting);
+    }
+
+    #[test]
+    fn presses_and_commands_about_things_that_are_not_there_change_nothing() {
+        let (mut life, mut world, mut p) = quiet_life();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        stand(&mut sim, -150.0, -214.0, 1.0);
+        life.give("sunroot", 3, true);
+        let before = serde_json::to_value(&life.state).unwrap();
+        let commands = [
+            Command::Store { house: 1, item: "sunroot".into(), n: 3 },
+            Command::Take { house: 1, item: "sunroot".into(), n: 3 },
+            Command::PayTax { house: 1 },
+            Command::Contract { id: 5 },
+            Command::Buy { npc: "mara".into(), item: "seed.sunroot".into(), n: 2 },
+            Command::Sell { npc: "mara".into(), item: "sunroot".into(), n: 2 },
+            Command::Buy { npc: "nobody".into(), item: "seed.sunroot".into(), n: 2 },
+            Command::Use { item: "tonic.labor".into() },
+            Command::Use { item: "no-such-thing".into() },
+            Command::Use { item: "sunroot".into() },
+            Command::CycleSeed,
+            Command::CancelPlace,
+        ];
+        for c in &commands {
+            run_command(&mut life, &mut sim, c);
+        }
+        // Gliding or swinging a sword, F has nothing to do; in a saddle it gets you down.
+        sim.player.mode = Mode::Glide;
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert!(find_focus(&mut life, &sim).is_none() && life.focus.is_none());
+        sim.player.mode = Mode::Attack;
+        assert!(find_focus(&mut life, &sim).is_none());
+        sim.player.mode = Mode::Ride;
+        assert_eq!(prompt(&mut life, &sim), says("exit", "Get Out", "", true));
+        assert_eq!(serde_json::to_value(&life.state).unwrap(), before);
+        assert!(life.drain_events().is_empty());
+    }
+}

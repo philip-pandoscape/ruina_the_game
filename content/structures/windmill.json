@@ -1,0 +1,24 @@
+{
+  "id": "windmill",
+  "name": "Windmill",
+  "w": 6,
+  "d": 6,
+  "h": 13,
+  "collider": "post",
+  "r": 2.6,
+  "look": {
+    "body": "windmill",
+    "model": {
+      "files": [
+        "windmill"
+      ],
+      "w": 5.4,
+      "d": 5.4,
+      "h": 10.6,
+      "sink": 0.2,
+      "keep": [
+        "sails"
+      ]
+    }
+  }
+}

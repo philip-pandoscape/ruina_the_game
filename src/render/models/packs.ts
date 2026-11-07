@@ -6,13 +6,12 @@ import { madePack } from './glb';
 
 // Trade packs: what you craft at a workbench and carry on your back to a trading post.
 // Origin: bottom-centre of the strap face. The straps face +Z (they press against the
-// carrier's back) and the pack extends toward -Z. Roughly 0.56 wide, 0.7 tall, 0.5 deep.
+// carrier's back) and the pack extends toward -Z. Roughly 0.56 wide, 0.7 tall, 0.5 deep. Each is
+// drawn with the body its look names (BODIES), or as a plain sack if it names none.
 
 export const PACK_SIZE = { w: 0.56, h: 0.7, d: 0.5 } as const;
 /** Every pack in shared/trade.json (trade goods and raw materials). */
 export const PACK_IDS: string[] = PACKS.map((p) => p.id);
-
-const OUTLINE = 0.012;
 
 /** Two shoulder straps on the +Z face: flat on the face, with a loop standing off it. */
 function straps(p: Parts, h: number, spread = 0.14): void {
@@ -71,9 +70,7 @@ function harvestCrate(p: Parts): void {
     [-0.15, h + 0.01, zc - 0.12],
     [0.03, h + 0.0, zc - 0.17],
   ];
-  tubers.forEach((t, i) =>
-    p.add(jiggle(ico(0.085, 0), 0.012, i), vary(0xd4a04a, rng, 0.12), t, [rng() * 3, rng() * 3, 0], [1, 0.75, 1.15]),
-  );
+  tubers.forEach((t, i) => p.add(jiggle(ico(0.085, 0), 0.012, i), vary(0xd4a04a, rng, 0.12), t, [rng() * 3, rng() * 3, 0], [1, 0.75, 1.15]));
   // Barley ears poking up at the back corner.
   for (let i = 0; i < 5; i++) {
     const bx = 0.12 + (i - 2) * 0.035;
@@ -105,7 +102,12 @@ function flaxBale(p: Parts): void {
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2;
     const r = 0.12 + (i % 3) * 0.05;
-    p.add(cone(0.03, 0.13, 4), vary(0xeee3bd, rng, 0.06), [Math.cos(a) * r * 0.9, 0.74, zc + Math.sin(a) * r * 0.75], [Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3]);
+    p.add(
+      cone(0.03, 0.13, 4),
+      vary(0xeee3bd, rng, 0.06),
+      [Math.cos(a) * r * 0.9, 0.74, zc + Math.sin(a) * r * 0.75],
+      [Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3],
+    );
   }
   // Three ropes.
   for (const y of [0.18, 0.36, 0.54]) oct(0.283, 0.035, y, PAL.rope);
@@ -167,15 +169,24 @@ function ciderCask(p: Parts): void {
   p.add(box(0.56, 0.04, 0.48), PAL.wood, [0, 0.02, -0.26]);
   // The cask, lying across the back.
   const r = (t: number) => 0.2 - 0.04 * (t / 0.3) ** 2;
-  const prof: Array<[number, number]> = [[0, -0.275], [0.15, -0.275], [0.165, -0.3]];
+  const prof: Array<[number, number]> = [
+    [0, -0.275],
+    [0.15, -0.275],
+    [0.165, -0.3],
+  ];
   for (const t of [-0.2, -0.1, 0, 0.1, 0.2]) prof.push([r(t), t]);
   prof.push([0.165, 0.3], [0.15, 0.275], [0, 0.275]);
   const cy = 0.24;
-  p.add(lathe(prof, 12), (c) => {
-    const a = Math.atan2(c.y - cy, c.z - zc);
-    const stave = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 12);
-    return Math.abs(c.x) > 0.27 ? 0xb98a55 : stave % 2 ? 0x9a6436 : 0x8a5830;
-  }, [0, cy, zc], [0, 0, -Math.PI / 2]);
+  p.add(
+    lathe(prof, 12),
+    (c) => {
+      const a = Math.atan2(c.y - cy, c.z - zc);
+      const stave = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 12);
+      return Math.abs(c.x) > 0.27 ? 0xb98a55 : stave % 2 ? 0x9a6436 : 0x8a5830;
+    },
+    [0, cy, zc],
+    [0, 0, -Math.PI / 2],
+  );
   for (const t of [-0.22, -0.1, 0.1, 0.22]) {
     p.add(ring(r(t) - 0.004, r(t) + 0.012, 0.028, 12), PAL.iron, [t, cy, zc], [0, 0, -Math.PI / 2]);
   }
@@ -268,41 +279,32 @@ function plainSack(p: Parts): void {
   straps(p, 0.62);
 }
 
-/** A carried trade pack; unknown ids get a plain sack so new content still draws. */
+/** The packs' bodies, by name: a pack's look names one. What glows goes in `glow`. */
+const BODIES: Record<string, (body: Parts, glow: Parts) => void> = {
+  harvestCrate,
+  flaxBale,
+  emberPreserves,
+  ciderCask,
+  lumberBundle,
+  stoneBlock,
+  ironCrate,
+};
+
+/** The bodies a look can name. */
+export const packBodies = (): string[] => Object.keys(BODIES);
+
+/** A carried trade pack: the body its look names (a plain sack if none), and its made model once loaded. */
 export function buildPack(id: string): THREE.Group {
   const root = new THREE.Group();
   root.name = `pack:${id}`;
   const body = new Parts();
   const glow = new Parts();
-  switch (id) {
-    case 'harvestCrate':
-      harvestCrate(body);
-      break;
-    case 'flaxBale':
-      flaxBale(body);
-      break;
-    case 'emberPreserves':
-      emberPreserves(body, glow);
-      break;
-    case 'ciderCask':
-      ciderCask(body);
-      break;
-    case 'lumberBundle':
-      lumberBundle(body);
-      break;
-    case 'stoneBlock':
-      stoneBlock(body);
-      break;
-    case 'ironCrate':
-      ironCrate(body);
-      break;
-    default:
-      plainSack(body);
-  }
-  mesh(root, body.build(), { outline: OUTLINE });
-  if (!glow.empty) mesh(root, glow.build(), { mat: glowMaterial(), outline: OUTLINE, shadow: false });
+  const look = PACKS.find((p) => p.id === id)?.look;
+  ((look?.body && BODIES[look.body]) || plainSack)(body, glow);
+  mesh(root, body.build());
+  if (!glow.empty) mesh(root, glow.build(), { mat: glowMaterial(), shadow: false });
   grainify(root);
-  // The new look's made pack takes over when it loads (src/render/models/glb.ts).
-  madePack(id, root);
+  // The made pack takes over when it loads (src/render/models/glb.ts).
+  madePack(look?.model, root);
   return root;
 }

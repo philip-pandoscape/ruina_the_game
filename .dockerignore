@@ -2,7 +2,7 @@
 .claude
 node_modules
 dist
-server/target
+target
 test-results
 playwright-report
 screenshots
@@ -13,3 +13,9 @@ docker-compose.yml
 .dockerignore
 .env
 .env.*
+# Nothing the image needs: the plans and their concept art, the icons' painted sheets (the cut
+# icons are in src/), the design's concept art, the animation library's notes.
+.plans
+tools/icons/sheets
+design/goblins
+reviews

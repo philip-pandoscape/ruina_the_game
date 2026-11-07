@@ -1,33 +1,37 @@
+import { loader, onLoaded } from '../assets/loader';
 import './theme/front.css';
 
 // The title screen. index.html draws its first frame before any of the game's code arrives: a dusk
 // sky over Emberholm's spire, the name, embers, and a loading bar. This takes it over: the bar
 // follows the real steps of loading, signing in and picking a character happen on it (cards on
-// `layer`, scaled like the rest of the UI), and once the island is built and drawn it fades into
-// the game. Automated tests and the battlefield never show it (index.html decides): `splash` is
-// null there.
+// `layer`, scaled like the rest of the UI), and once the world is built and drawn, and the files it
+// can't be drawn without have arrived, it fades into the game. Going in, the bar's last part fills as
+// those files arrive, and under it is how much of them has (src/assets/loader.ts).
+// The offline modes (?test, ?offline) never show it (index.html decides): `splash` is null there.
 
 /**
  * The steps of loading and their share of the bar (the page itself is the first 5%). They can end
- * in any order: the models load while you sign in and choose a character.
+ * in any order: the hero loads while you sign in and choose a character.
  */
 const STEPS = {
-  /** The game's code arrived (this module is running). */
+  /** The title screen's code arrived (this module is running: src/app/boot.ts). */
   bundle: 0.15,
   /** The game server answered. */
   server: 0.08,
-  /** The island's models are loaded. */
-  models: 0.3,
+  /** The rest of the game's code, with its model library, arrived (src/main.ts, once a character is chosen). */
+  models: 0.25,
   /** Going in: connected to the world. */
   joined: 0.07,
-  /** The island's ground and colliders are built. */
-  world: 0.12,
+  /** The world's ground and colliders are built. */
+  world: 0.1,
   /** Its scenery is built. */
-  stage: 0.13,
+  stage: 0.1,
   /** The first frames are drawn. */
-  ready: 0.1,
+  ready: 0.05,
 } as const;
 export type LoadStep = keyof typeof STEPS;
+/** The share of the bar the files the zone can't be drawn without fill as they arrive, going in. */
+const FILES = 0.15;
 
 /** What index.html keeps on window: when the page started, and how to stop the embers. */
 interface SplashGlobal {
@@ -49,9 +53,18 @@ export class Splash {
   private bar: HTMLElement;
   private status: HTMLElement;
   private load: HTMLElement;
+  /** How much of the files the zone can't be drawn without has arrived, under the bar, going in. */
+  private bytes: HTMLElement;
   private reached = 0;
+  /** The share of the step being worked on that the bar is creeping through. */
+  private creeping = 0;
+  /** The share of FILES filled so far. */
+  private files = 0;
+  /** Going in: the bytes of those files that had arrived before, not counted again. */
+  private filesFrom: number | null = null;
   private done = new Set<LoadStep>();
   private gone = false;
+  private stopCounting: () => void;
 
   constructor(
     readonly root: HTMLElement,
@@ -62,8 +75,11 @@ export class Splash {
     this.bar = root.querySelector('.sp-bar i') as HTMLElement;
     this.status = root.querySelector('.sp-status') as HTMLElement;
     this.load = root.querySelector('.sp-load') as HTMLElement;
+    this.bytes = Object.assign(document.createElement('div'), { className: 'sp-bytes' });
+    this.load.append(this.bytes);
     this.reached = global?.progress ?? 0;
     this.step('bundle');
+    this.stopCounting = onLoaded(() => this.count());
   }
 
   /** A step of loading is done: its share of the bar fills. */
@@ -71,18 +87,43 @@ export class Splash {
     if (this.done.has(s)) return;
     this.done.add(s);
     this.reached = Math.min(1, this.reached + STEPS[s]);
-    this.bar.style.transitionDuration = '';
-    this.bar.style.width = `${(this.reached * 100).toFixed(1)}%`;
+    this.creeping = 0;
+    this.draw('');
   }
 
   /**
-   * Working on `s` (a slow step, like building the island): the bar creeps most of the way through
+   * Working on `s` (a slow step, like building the world): the bar creeps most of the way through
    * its share over `seconds`, so it never looks stuck, and step() finishes it.
    */
   toward(s: LoadStep, seconds = 6): void {
     if (this.done.has(s)) return;
-    this.bar.style.transitionDuration = `${seconds}s`;
-    this.bar.style.width = `${(Math.min(1, this.reached + STEPS[s] * 0.85) * 100).toFixed(1)}%`;
+    this.creeping = STEPS[s] * 0.85;
+    this.draw(`${seconds}s`);
+  }
+
+  /** The bar's width: the steps done, the one being worked on, and the files arrived. */
+  private draw(transition: string | null = null): void {
+    if (transition !== null) this.bar.style.transitionDuration = transition;
+    this.bar.style.width = `${(Math.min(1, this.reached + this.creeping + this.files) * 100).toFixed(1)}%`;
+  }
+
+  /**
+   * Going in, the files the zone can't be drawn without (the ground, the town's kit, your body) as
+   * they arrive: their share of the bar, and how many megabytes under it. Never backwards.
+   */
+  private count(): void {
+    if (this.filesFrom === null) return;
+    const { wanted, done } = loader.loaded('front', 'zone');
+    const left = wanted - done;
+    const asked = wanted - this.filesFrom;
+    const mb = (b: number) => (b / 1048576).toFixed(1);
+    this.bytes.textContent = left > 0 ? `${mb(done - this.filesFrom)} of ${mb(asked)} MB` : '';
+    if (asked <= 0) return;
+    const share = FILES * Math.min(1, (done - this.filesFrom) / asked);
+    if (share > this.files) {
+      this.files = share;
+      this.draw();
+    }
   }
 
   /** Whether a step of loading is done. */
@@ -92,7 +133,7 @@ export class Splash {
 
   /** How far along loading is, 0..1 (tests and screenshots). */
   get progress(): number {
-    return this.reached;
+    return Math.min(1, this.reached + this.files);
   }
 
   /** What's happening now, over the bar. */
@@ -108,6 +149,11 @@ export class Splash {
   /** The title look, the character select look (the name moves up out of the way), or going in. */
   setMode(mode: SplashMode): void {
     this.root.dataset.mode = mode;
+    // Going in, the files count from here (the hero's, fetched for character select, are in already).
+    if (mode === 'entering' && this.filesFrom === null) {
+      this.filesFrom = loader.loaded('front', 'zone').done;
+      this.count();
+    }
   }
 
   /**
@@ -142,6 +188,7 @@ export class Splash {
     this.root.classList.add('sp-gone');
     await new Promise((r) => setTimeout(r, reducedMotion() ? 0 : 1150));
     this.global?.stop?.();
+    this.stopCounting();
     this.root.remove();
   }
 }

@@ -86,7 +86,11 @@ function git(cwd: string, args: string[]): Promise<string> {
 
 /** Which code the report was recorded against: the commit, and files changed since it. */
 async function gitInfo(cwd: string): Promise<{ commit: string | null; branch: string | null; changed: string[] }> {
-  const [commit, branch, status] = await Promise.all([git(cwd, ['rev-parse', 'HEAD']), git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']), git(cwd, ['status', '--porcelain'])]);
+  const [commit, branch, status] = await Promise.all([
+    git(cwd, ['rev-parse', 'HEAD']),
+    git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']),
+    git(cwd, ['status', '--porcelain']),
+  ]);
   const changed = status ? status.split('\n').map((l) => l.slice(3)) : [];
   return { commit: commit || null, branch: branch || null, changed: changed.slice(0, 200) };
 }
@@ -160,7 +164,9 @@ export function bugReports(): Plugin {
           }
           if (!dir.startsWith(homes[1])) {
             const quote = said ? `\n     “${said.length > 100 ? `${said.slice(0, 100)}…` : said}”` : '';
-            server.config.logger.info(`\n  🐞 Bug report saved to ${path}${quote}\n     Type /fix-bugs in Claude Code to have it looked at.\n`, { timestamp: true });
+            server.config.logger.info(`\n  🐞 Bug report saved to ${path}${quote}\n     Type /fix-bugs in Claude Code to have it looked at.\n`, {
+              timestamp: true,
+            });
           }
           return send(res, 200, { ok: true, id, path });
         }

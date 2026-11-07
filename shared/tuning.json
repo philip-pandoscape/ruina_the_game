@@ -11,7 +11,7 @@
     "turnSpeed": 20,
     "playerRadius": 0.35,
     "sprintSpeed": 10.5,
-    "sprintAccel": 40.0,
+    "sprintAccel": 40,
     "crouchSpeed": 1.6,
     "crouchHeight": 0.55,
     "crouchEnterFrames": 6,
@@ -30,9 +30,6 @@
     "doubleJumpSteer": 1,
     "flipFrames": 23
   },
-  "slide": {
-    "frames": 26
-  },
   "attack": {
     "bufferFrames": 8,
     "autoAimRange": 3.2,
@@ -47,6 +44,8 @@
   "weapons": [
     {
       "name": "sword",
+      "title": "Sword",
+      "icon": "🗡️",
       "tags": [
         "melee",
         "attack",
@@ -120,6 +119,8 @@
     },
     {
       "name": "club",
+      "title": "Club",
+      "icon": "🔨",
       "tags": [
         "melee",
         "attack",
@@ -158,6 +159,8 @@
     },
     {
       "name": "staff",
+      "title": "Staff",
+      "icon": "🪄",
       "tags": [
         "melee",
         "attack",
@@ -182,6 +185,8 @@
     },
     {
       "name": "bow",
+      "title": "Bow",
+      "icon": "🏹",
       "tags": [
         "ranged",
         "attack",
@@ -211,7 +216,7 @@
     {
       "id": "heal",
       "name": "Healing Circle",
-      "icon": "\ud83d\udc9a",
+      "icon": "💚",
       "desc": "Heal yourself and allies around you.",
       "tags": [
         "restoration",
@@ -235,7 +240,7 @@
     {
       "id": "meteor",
       "name": "Meteor",
-      "icon": "\u2604\ufe0f",
+      "icon": "☄️",
       "desc": "Call a fireball down on a spot. Getting hit while casting interrupts it.",
       "tags": [
         "pyromancy",
@@ -263,29 +268,122 @@
     }
   ],
   "skills": {
-    "comment": "The tree itself is shared/skilltree.json. points: what the training yard and the battlefield (developer tools) may spend. In the open world you have startPoints plus the skillPoints of every quest and milestone you have finished. levels: the skills in your skill book level up as you use them; xp is the total experience each level needs, and per is what every level past the first adds (flat and inc only, so the order they are summed in never matters).",
+    "comment": "The tree itself is shared/skilltree.json. points: what the training yard and the battlefield (developer tools) may spend. In the open world you have startPoints plus the skillPoints of every quest and milestone you have finished. levels: the skills in your skill book level up as you use them; xp is the total experience each level needs, and per is what every level past the first adds, by the skill's id, naming a weapon it changes by its id too (flat and inc only, so the order they are summed in never matters).",
     "points": 30,
     "startPoints": 2,
     "maxNodes": 256,
     "trees": [
-      { "name": "Swordsmanship", "color": "#e0782a" },
-      { "name": "Restoration", "color": "#3fa34d" },
-      { "name": "Pyromancy", "color": "#d2433a" },
-      { "name": "Archery", "color": "#3f7fd0" }
+      {
+        "name": "Swordsmanship",
+        "color": "#e0782a"
+      },
+      {
+        "name": "Restoration",
+        "color": "#3fa34d"
+      },
+      {
+        "name": "Pyromancy",
+        "color": "#d2433a"
+      },
+      {
+        "name": "Archery",
+        "color": "#3f7fd0"
+      }
     ],
     "levels": {
-      "xp": [0, 20, 60, 120, 200, 300, 420, 560, 720, 900],
+      "xp": [
+        0,
+        20,
+        60,
+        120,
+        200,
+        300,
+        420,
+        560,
+        720,
+        900
+      ],
       "per": {
-        "sword": [{ "stat": "attack.damage", "op": "inc", "value": 0.03, "weapon": 0 }],
-        "club": [{ "stat": "attack.damage", "op": "inc", "value": 0.03, "weapon": 1 }],
-        "staff": [{ "stat": "attack.damage", "op": "inc", "value": 0.03, "weapon": 2 }],
-        "bow": [{ "stat": "attack.damage", "op": "inc", "value": 0.03, "weapon": 3 }],
-        "heal": [{ "stat": "ability.amount", "op": "inc", "value": 0.05, "skill": "heal" }],
-        "meteor": [{ "stat": "ability.damage", "op": "inc", "value": 0.05, "skill": "meteor" }],
-        "dodgeRoll": [{ "stat": "movement.stamina", "op": "inc", "value": -0.03, "skill": "dodgeRoll" }],
-        "backstep": [{ "stat": "movement.stamina", "op": "inc", "value": -0.03, "skill": "backstep" }],
-        "block": [{ "stat": "movement.cooldown", "op": "inc", "value": -0.03, "skill": "block" }],
-        "slide": [{ "stat": "movement.cooldown", "op": "inc", "value": -0.03, "skill": "slide" }]
+        "sword": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "sword"
+          }
+        ],
+        "club": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "club"
+          }
+        ],
+        "staff": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "staff"
+          }
+        ],
+        "bow": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "bow"
+          }
+        ],
+        "heal": [
+          {
+            "stat": "ability.amount",
+            "op": "inc",
+            "value": 0.05,
+            "skill": "heal"
+          }
+        ],
+        "meteor": [
+          {
+            "stat": "ability.damage",
+            "op": "inc",
+            "value": 0.05,
+            "skill": "meteor"
+          }
+        ],
+        "dodgeRoll": [
+          {
+            "stat": "movement.stamina",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "dodgeRoll"
+          }
+        ],
+        "backstep": [
+          {
+            "stat": "movement.stamina",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "backstep"
+          }
+        ],
+        "block": [
+          {
+            "stat": "movement.cooldown",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "block"
+          }
+        ],
+        "slide": [
+          {
+            "stat": "movement.cooldown",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "slide"
+          }
+        ]
       }
     }
   },
@@ -365,7 +463,7 @@
     {
       "id": "dodgeRoll",
       "name": "Dodge Roll",
-      "icon": "\ud83e\udd3c",
+      "icon": "🤼",
       "desc": "Roll the way you are moving. Most of it cannot be hit.",
       "tags": [
         "movement",
@@ -376,7 +474,7 @@
         "startup": 2,
         "active": 13,
         "recovery": 9,
-        "speed": 13.0,
+        "speed": 13,
         "direction": "input",
         "invulnFrom": 2,
         "invulnTo": 13,
@@ -386,7 +484,7 @@
     {
       "id": "backstep",
       "name": "Backstep",
-      "icon": "\u21a9\ufe0f",
+      "icon": "↩️",
       "desc": "Hop backwards out of reach. Brief invulnerability on the way out.",
       "tags": [
         "movement",
@@ -397,7 +495,7 @@
         "startup": 1,
         "active": 9,
         "recovery": 11,
-        "speed": 15.0,
+        "speed": 15,
         "direction": "backward",
         "invulnFrom": 1,
         "invulnTo": 7,
@@ -407,7 +505,7 @@
     {
       "id": "block",
       "name": "Block",
-      "icon": "\ud83d\udee1\ufe0f",
+      "icon": "🛡️",
       "desc": "Raise a guard while you hold it. Hits land for a quarter.",
       "tags": [
         "movement",
@@ -419,7 +517,7 @@
         "startup": 3,
         "active": 40,
         "recovery": 7,
-        "speed": 0.0,
+        "speed": 0,
         "direction": "facing",
         "hold": true,
         "damageTaken": 0.25,
@@ -429,7 +527,7 @@
     {
       "id": "slide",
       "name": "Slide",
-      "icon": "\ud83c\udfc2",
+      "icon": "🏂",
       "desc": "Drop into a slide you can steer, and jump out of it to go further.",
       "tags": [
         "movement"

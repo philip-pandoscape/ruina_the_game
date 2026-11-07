@@ -33,7 +33,10 @@ const NAMES: Array<[RegExp, string]> = [
 
 /** "mixamorig:LeftUpLeg" (three drops the colon), "Left_UpLeg", "upperleg.L" all come to "leftupleg". */
 function plain(name: string): string {
-  let n = name.replace(/^.*[:|]/, '').replace(/^mixamorig\d*/i, '').toLowerCase();
+  let n = name
+    .replace(/^.*[:|]/, '')
+    .replace(/^mixamorig\d*/i, '')
+    .toLowerCase();
   const side = n.match(/[._ ]([lr])$/);
   if (side) n = (side[1] === 'l' ? 'left' : 'right') + n.slice(0, -2);
   return n.replace(/[^a-z0-9]/g, '');
@@ -89,7 +92,24 @@ export function readBody(scene: THREE.Object3D, height: number): MadeBody {
   m.skeleton.bones.forEach((b, i) => {
     if (!bone.has(jointOf[i])) bone.set(jointOf[i], b);
   });
-  for (const need of ['hips', 'torso', 'neck', 'head', 'armL', 'elbowL', 'handL', 'armR', 'elbowR', 'handR', 'legL', 'kneeL', 'footL', 'legR', 'kneeR', 'footR']) {
+  for (const need of [
+    'hips',
+    'torso',
+    'neck',
+    'head',
+    'armL',
+    'elbowL',
+    'handL',
+    'armR',
+    'elbowR',
+    'handR',
+    'legL',
+    'kneeL',
+    'footL',
+    'legR',
+    'kneeR',
+    'footR',
+  ]) {
     if (!bone.has(need)) throw new Error(`made body: no bone for ${need} (bones: ${m.skeleton.bones.map((b) => b.name).join(', ')})`);
   }
   // The pose the model is loaded in (its bind pose, for a model fresh from a rigger), skinned the
@@ -103,7 +123,9 @@ export function readBody(scene: THREE.Object3D, height: number): MadeBody {
   // Three's skinning (SkinnedMesh.applyBoneTransform) with each bone's whole chain folded into one
   // matrix up front: world = matrixWorld * bindMatrixInverse * bone * boneInverse * bindMatrix.
   const fold = new THREE.Matrix4().multiplyMatrices(m.matrixWorld, m.bindMatrixInverse);
-  const mats = m.skeleton.bones.map((b, i) => new THREE.Matrix4().multiplyMatrices(fold, b.matrixWorld).multiply(m.skeleton.boneInverses[i]).multiply(m.bindMatrix).elements);
+  const mats = m.skeleton.bones.map(
+    (b, i) => new THREE.Matrix4().multiplyMatrices(fold, b.matrixWorld).multiply(m.skeleton.boneInverses[i]).multiply(m.bindMatrix).elements,
+  );
   const bindPositions = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
@@ -261,13 +283,22 @@ const DOWN = new THREE.Vector3(0, -1, 0);
  */
 function bindTurns(joints: readonly JointDef[], body: MadeBody): Map<string, THREE.Quaternion> {
   const world = new Map<string, THREE.Quaternion>();
-  const aim = (joint: string, from: THREE.Vector3, to: THREE.Vector3) => world.set(joint, new THREE.Quaternion().setFromUnitVectors(DOWN, to.clone().sub(from).normalize()));
+  const aim = (joint: string, from: THREE.Vector3, to: THREE.Vector3) =>
+    world.set(joint, new THREE.Quaternion().setFromUnitVectors(DOWN, to.clone().sub(from).normalize()));
   for (const s of ['L', 'R'] as const) {
     aim(`arm${s}`, at(body, `arm${s}`), at(body, `elbow${s}`));
     aim(`elbow${s}`, at(body, `elbow${s}`), at(body, `hand${s}`));
     // A hand bone with nothing after it (Meshy's have no fingers) lies along the forearm.
     const handTip = tip(body, `hand${s}`);
-    aim(`hand${s}`, at(body, `hand${s}`), handTip.distanceTo(at(body, `hand${s}`)) > 0.02 ? handTip : at(body, `hand${s}`).multiplyScalar(2).sub(at(body, `elbow${s}`)));
+    aim(
+      `hand${s}`,
+      at(body, `hand${s}`),
+      handTip.distanceTo(at(body, `hand${s}`)) > 0.02
+        ? handTip
+        : at(body, `hand${s}`)
+            .multiplyScalar(2)
+            .sub(at(body, `elbow${s}`)),
+    );
     aim(`leg${s}`, at(body, `leg${s}`), at(body, `knee${s}`));
     aim(`knee${s}`, at(body, `knee${s}`), at(body, `foot${s}`));
   }
@@ -368,7 +399,8 @@ export function fit(scene: THREE.Object3D, height: number, base: RigDef): Fitted
   // feet's turned frames, so the toes sit where the model's do.
   const bind = bindTurns(joints, body);
   const bindWorld = new Map<string, THREE.Quaternion>();
-  for (const j of joints) bindWorld.set(j.name, ((j.parent && bindWorld.get(j.parent)) || new THREE.Quaternion()).clone().multiply(bind.get(j.name) ?? new THREE.Quaternion()));
+  for (const j of joints)
+    bindWorld.set(j.name, ((j.parent && bindWorld.get(j.parent)) || new THREE.Quaternion()).clone().multiply(bind.get(j.name) ?? new THREE.Quaternion()));
   for (const j of joints) {
     if (j.name !== 'toeL' && j.name !== 'toeR') continue;
     const toFoot = bindWorld.get(j.parent!)!.clone().invert();
@@ -405,7 +437,10 @@ interface HandSize {
 /** A hand's frame in the bind pose, in our model space: the wrist, along the hand, toward the thumb. */
 function handFrame(body: MadeBody, s: 'L' | 'R'): { wrist: THREE.Vector3; along: THREE.Vector3; thumb: THREE.Vector3 } {
   const wrist = at(body, `hand${s}`);
-  const along = wrist.clone().sub(at(body, `elbow${s}`)).normalize();
+  const along = wrist
+    .clone()
+    .sub(at(body, `elbow${s}`))
+    .normalize();
   const thumb = new THREE.Vector3(0, 0, 1).addScaledVector(along, -along.z).normalize();
   return { wrist, along, thumb };
 }
@@ -613,14 +648,13 @@ export function hull(joints: readonly JointDef[], ankle: number): PartDef[] {
     shape: { kind: 'box', w, h, d, r: Math.min(w, h, d) * 0.3 },
     mat: 'skin',
     pos,
-    outline: false,
     castShadow: false,
     hidden: true,
   });
   const parts: PartDef[] = [
     box('hips', 0.34, 0.22, 0.22, [0, -0.04, 0]),
     box('torso', 0.36, neck, 0.24, [0, neck / 2, 0]),
-    { joint: 'head', shape: { kind: 'sphere', r: 0.11 }, mat: 'skin', pos: [0, 0.1, 0.02], outline: false, castShadow: false, hidden: true },
+    { joint: 'head', shape: { kind: 'sphere', r: 0.11 }, mat: 'skin', pos: [0, 0.1, 0.02], castShadow: false, hidden: true },
   ];
   for (const s of ['L', 'R']) {
     parts.push(
@@ -629,7 +663,7 @@ export function hull(joints: readonly JointDef[], ankle: number): PartDef[] {
       box(`foot${s}`, 0.1, ankle + 0.03, 0.26, [0, -ankle + (ankle + 0.03) / 2, 0.04]),
       box(`arm${s}`, 0.1, upper, 0.1, [0, -upper / 2, 0]),
       box(`elbow${s}`, 0.08, fore, 0.08, [0, -fore / 2, 0]),
-      { joint: `hand${s}`, shape: { kind: 'sphere', r: 0.05 }, mat: 'skin', pos: [0, -0.08, 0], outline: false, castShadow: false, hidden: true },
+      { joint: `hand${s}`, shape: { kind: 'sphere', r: 0.05 }, mat: 'skin', pos: [0, -0.08, 0], castShadow: false, hidden: true },
     );
   }
   return parts;

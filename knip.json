@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "tests/**/*.{test,spec}.ts",
+    "tools/**/*.{mjs,ts}",
+    "*.config.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "design/**/*.ts",
+    "tests/**/*.ts",
+    "tools/**/*.{mjs,ts}"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": [
+    "say"
+  ]
+}

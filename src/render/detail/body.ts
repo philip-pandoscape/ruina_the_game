@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { DetailRig } from './rig';
 import { BOX_STRIDE, MADE_STRIDE, type Stride } from './gait';
+import { clamp, lerp } from '../../util/math';
 
 // Handles on a humanoid rig, and the two ways to pose a limb: by its angles (forward kinematics)
 // or by where its end should be (inverse kinematics, analytic two-bone). Everything is measured in
@@ -8,7 +9,7 @@ import { BOX_STRIDE, MADE_STRIDE, type Stride } from './gait';
 // y = 0 and the creature faces +Z. Squash and stretch stays a cartoon touch on top, and the feet
 // still meet the floor.
 //
-// Conventions (see the joint notes in src/content/creatures/hero.ts):
+// Conventions (see the joint notes in src/render/creatures/heroBody.ts):
 //   arms:  yaw about +Y (+ swings toward +X, the left), then pitch about +X (0 hangs down, -pi/2
 //          points forward, -pi straight up), then twist about the arm itself. Elbows bend the
 //          forearm forward with negative angles.
@@ -40,9 +41,7 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const _e = new THREE.Euler();
 
-export const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 export const clamp01 = (t: number): number => clamp(t, 0, 1);
-export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const smooth = (t: number): number => {
   const k = clamp01(t);
   return k * k * (3 - 2 * k);
@@ -431,4 +430,4 @@ export class Body {
   }
 }
 
-export const V = (x = 0, y = 0, z = 0): THREE.Vector3 => new THREE.Vector3(x, y, z);
+export { clamp, lerp };

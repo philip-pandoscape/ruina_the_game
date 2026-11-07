@@ -1,0 +1,7 @@
+{
+  "id": "pack.sailcloth",
+  "bench": "lanternwickBench",
+  "makes": {
+    "pack": "sailcloth"
+  }
+}

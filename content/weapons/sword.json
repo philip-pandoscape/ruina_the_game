@@ -1,0 +1,75 @@
+{
+  "name": "sword",
+  "title": "Sword",
+  "icon": "🗡️",
+  "tags": [
+    "melee",
+    "attack",
+    "blade"
+  ],
+  "combo": [
+    {
+      "startup": 4,
+      "active": 5,
+      "recovery": 12,
+      "damage": 12,
+      "lunge": 3.2,
+      "reach": 2,
+      "arcDeg": 170,
+      "hitstop": 4,
+      "knock": 2.5,
+      "playerKnock": 3,
+      "shake": 0.25,
+      "cancelAfter": 5
+    },
+    {
+      "startup": 4,
+      "active": 5,
+      "recovery": 12,
+      "damage": 14,
+      "lunge": 3.2,
+      "reach": 2,
+      "arcDeg": 170,
+      "hitstop": 4,
+      "knock": 3,
+      "playerKnock": 3.5,
+      "shake": 0.3,
+      "cancelAfter": 5
+    },
+    {
+      "startup": 7,
+      "active": 6,
+      "recovery": 20,
+      "damage": 26,
+      "lunge": 6,
+      "reach": 2.1,
+      "arcDeg": 80,
+      "hitstop": 8,
+      "knock": 6,
+      "playerKnock": 7,
+      "shake": 0.6,
+      "cancelAfter": 10
+    }
+  ],
+  "variants": [
+    {
+      "id": "whirlwind",
+      "replace": 2,
+      "step": {
+        "startup": 6,
+        "active": 8,
+        "recovery": 18,
+        "damage": 28,
+        "lunge": 1.5,
+        "reach": 2.5,
+        "arcDeg": 360,
+        "hitstop": 8,
+        "knock": 6,
+        "playerKnock": 7,
+        "shake": 0.6,
+        "cancelAfter": 10,
+        "pose": "spin"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "craft.farmCart",
+  "bench": "bertram",
+  "inputs": [
+    {
+      "item": "lumber",
+      "n": 12
+    },
+    {
+      "item": "ironOre",
+      "n": 4
+    }
+  ],
+  "coins": 100,
+  "labor": 30,
+  "makes": {
+    "item": "deed.farmCart",
+    "n": 1
+  }
+}

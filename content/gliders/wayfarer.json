@@ -1,0 +1,26 @@
+{
+  "id": "wayfarer",
+  "name": "Wayfarer Glider",
+  "icon": "🪁",
+  "desc": "Canvas on an ash frame. Forgiving, slow to sink, and enough to get you off any cliff in one piece.",
+  "span": 5.2,
+  "cruiseSpeed": 13,
+  "diveSpeed": 21,
+  "flareSpeed": 8.5,
+  "sink": 2.3,
+  "diveSink": 7.5,
+  "flareSink": 1.1,
+  "stallSpeed": 6.5,
+  "turnRate": 1.6,
+  "speedEase": 1.4,
+  "zoomLift": 0.55,
+  "minHeight": 2.5,
+  "gust": {
+    "speed": 3.5,
+    "lift": 4.5,
+    "cooldownSeconds": 30
+  },
+  "look": {
+    "body": "wayfarer"
+  }
+}

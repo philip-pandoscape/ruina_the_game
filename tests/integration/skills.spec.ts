@@ -1,0 +1,461 @@
+import { expect, test, type Page } from '@playwright/test';
+import {
+  ABILITIES,
+  abilityIndex,
+  comboFor,
+  emptyMovement,
+  HOTBAR_SLOTS,
+  movementIndex,
+  NO_ABILITY,
+  SLIDE_SKILL,
+  type Build,
+  WEAPONS,
+  weaponIndex,
+} from '../../src/content/tuning';
+import { LEVEL_XP, NODES, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
+import { resolveSkills } from '../../src/engine/rules';
+import type { Command } from '../../src/engine/life';
+import { gameReady } from '../support/game';
+// The engine, for the numbers a build's skills make (src/engine/skills.ts), as the unit tier loads it.
+import '../support/engineSetup';
+
+// The classless skill system: the skill panel, and every weapon and ability in the yard (a developer
+// zone, which gives you the whole tree to try builds with, and a life whose skills learn from use).
+
+/** What a developer zone lets you spend: the whole tree. */
+const WHOLE_TREE = NODES.length;
+
+const SHOTS = 'screenshots';
+const skills = (...ids: string[]) => skillsFrom(...ids);
+// Weapons, abilities and movement skills by id; the rules know each by its place in its list.
+const HEAL = abilityIndex('heal');
+const METEOR = abilityIndex('meteor');
+const CLUB = weaponIndex('club');
+// The weapon in hand by id; abilities land in hotbar slots 1 and 2, the rest of the bar stays empty.
+const build = (ids: string[], weapon: string, ability1 = NO_ABILITY, ability2 = NO_ABILITY, ...move: number[]): Build => {
+  const abilities = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
+  abilities[0] = ability1;
+  abilities[1] = ability2;
+  const movement = emptyMovement();
+  move.forEach((m, i) => (movement[i] = m));
+  return { skills: skills(...ids), weapon: weaponIndex(weapon), abilities, movement };
+};
+const DODGE = movementIndex('dodgeRoll');
+const NO_MOVEMENT_SLOT = 255;
+
+const ARCHER = build(['bow'], 'bow');
+const PIERCER = build(['bow', 'rapidFire', 'piercing'], 'bow');
+const MAGE = build(['staff', 'meteor'], 'staff', METEOR);
+const HEALER = build(['club', 'heal'], 'club', HEAL);
+
+const arrowDamage = WEAPONS[weaponIndex('bow')].combo[0].damage;
+const meteorDamage = ABILITIES[METEOR].effects[0].damage!;
+
+function watchErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  page.on('pageerror', (e) => errors.push(String(e)));
+  return errors;
+}
+
+const game = (page: Page) => page.evaluate(() => window.__game.build());
+
+// ---------- The skill tree and the skill book ----------
+
+const panelState = (page: Page) => page.evaluate(() => window.__game.panel());
+
+test('skill tree: plan the way to a skill, learn it, give it back, and the build is remembered', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?offline=yard');
+  await gameReady(page);
+  const left = page.locator('#skills .st-chip b').first();
+  const note = page.locator('#skills .st-note');
+  const learn = page.locator('#skills [data-act="learn"]');
+  const node = (id: string) => page.locator(`#skills [data-n="${skillIndex(id)}"]`);
+
+  await page.keyboard.press('KeyN');
+  await expect(page.locator('#skills .st')).toBeVisible();
+  await expect(left).toHaveText(String(WHOLE_TREE - 1)); // everyone starts with Sword Training
+  // Whirlwind is two steps out: one click plans the way there, Learn spends the points.
+  await node('whirlwind').click();
+  expect((await panelState(page)).plan).toEqual(['cleave', 'whirlwind']);
+  // The planned points stand level with Learn and Undo and exactly as tall, at any UI scale: the
+  // player's own setting as it comes, at its largest and at its smallest (at 720p, 70%, 91% and 35%).
+  for (const user of [1, 1.3, 0.5]) {
+    await page.evaluate((u) => {
+      localStorage.setItem('ruina.uiScale', String(u));
+      dispatchEvent(new Event('resize'));
+    }, user);
+    const [badge, ...buttons] = await page.evaluate(() =>
+      ['.st-pending', '[data-act="learn"]', '[data-act="undo"]'].map((s) => {
+        const r = document.querySelector(`#skills .st-bottom ${s}`)!.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      }),
+    );
+    for (const b of buttons) {
+      expect(Math.abs(badge.top - b.top), `UI size ${user}: top`).toBeLessThan(0.5);
+      expect(Math.abs(badge.bottom - b.bottom), `UI size ${user}: bottom`).toBeLessThan(0.5);
+    }
+    if (user === 1.3) {
+      const r = await page.locator('#skills .st-bottom').boundingBox();
+      await page.screenshot({ path: `${SHOTS}/40-skill-tree-planned.png`, clip: { x: r!.x - 16, y: r!.y - 16, width: r!.width + 32, height: r!.height + 32 } });
+    }
+  }
+  await page.evaluate(() => {
+    localStorage.removeItem('ruina.uiScale');
+    dispatchEvent(new Event('resize'));
+  });
+  await learn.click();
+  await expect(left).toHaveText(String(WHOLE_TREE - 3));
+  // Healing Circle hangs off Club Training: planning it plans both, and it goes straight onto the bar.
+  await node('heal').click();
+  await learn.click();
+  await expect(left).toHaveText(String(WHOLE_TREE - 5));
+  await page.screenshot({ path: `${SHOTS}/40-skill-tree.png` });
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'club', 'heal'], 'sword', HEAL));
+  // Clicking a planned node takes it back out of the plan.
+  await node('swiftMending').click();
+  expect((await panelState(page)).plan).toEqual(['swiftMending']);
+  await node('swiftMending').click();
+  expect((await panelState(page)).plan).toEqual([]);
+
+  // Giving Club Training back takes Healing Circle with it, and you always keep a weapon.
+  await node('club').click({ button: 'right' });
+  await expect(left).toHaveText(String(WHOLE_TREE - 3));
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 'sword'));
+  await node('sword').click({ button: 'right' });
+  await expect(note).toContainText('Keep at least one weapon skill');
+
+  // Opened with N, Escape closes it; the build survives a reload.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#skills')).toBeHidden();
+  await page.reload();
+  await gameReady(page);
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 'sword'));
+  expect(errors).toEqual([]);
+});
+
+test('skill book: every skill with its level, equip a weapon, put an ability on the bar', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?offline=yard');
+  await gameReady(page);
+  await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club', 'heal', 'dodgeRoll'], 'sword'));
+  await page.keyboard.press('KeyT');
+  const book = page.locator('#skills .sb');
+  await expect(book).toBeVisible();
+  // Everything you can use is in it; what you haven't learned is locked.
+  await expect(page.locator('#skills .sk')).toHaveCount(10);
+  await expect(page.locator('#skills .sk.locked')).toHaveCount(5); // staff, bow, meteor, backstep, block
+  await expect(page.locator('#skills .sk .lv')).toHaveCount(5); // sword, club, heal, dodge roll, slide
+
+  // A weapon: equip it from its page.
+  await page.locator('#skills .sk', { hasText: 'Club' }).click();
+  await expect(page.locator('#skills .sd-name')).toHaveText('Club');
+  await page.click('#skills [data-act="equip"]');
+  expect((await game(page)).using.weapon).toBe(CLUB);
+  // An ability: onto the bar, then dragged to another slot.
+  await page.locator('#skills .sk', { hasText: 'Healing Circle' }).click();
+  await expect(page.locator('#skills .sd-stats')).toContainText('Heals');
+  await page.click('#skills [data-act="slot"]');
+  expect((await game(page)).using.abilities[0]).toBe(HEAL);
+  await page.dragAndDrop('#skills [data-slot="0"]', '#skills [data-slot="3"]');
+  expect((await game(page)).using.abilities.slice(0, 4)).toEqual([NO_ABILITY, NO_ABILITY, NO_ABILITY, HEAL]);
+  // A movement skill: bound to E.
+  await page.locator('#skills .sk', { hasText: 'Dodge Roll' }).click();
+  await page.click('#skills [data-act="bind1"]');
+  expect((await game(page)).using.movement).toEqual([NO_MOVEMENT_SLOT, DODGE]);
+  // A locked skill sends you to the tree, focused on it.
+  await page.locator('#skills .sk', { hasText: 'Meteor' }).click();
+  await page.click('#skills [data-act="find"]');
+  await expect(page.locator('#skills .st')).toBeVisible();
+  expect((await panelState(page)).focus).toBe('meteor');
+  await page.screenshot({ path: `${SHOTS}/41-skill-book-to-tree.png` });
+  // Back to the book from the tree, then shut it.
+  await page.click('#skills [data-act="book"]');
+  await expect(book).toBeVisible();
+  await page.keyboard.press('KeyT');
+  await expect(page.locator('#skills')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('skill book and tree with a controller: View opens the book, A equips, a bumper turns to the tree, B backs out', async ({ page }) => {
+  await page.addInitScript(() => {
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
+    const pad = {
+      id: 'Xbox Wireless Controller (STANDARD GAMEPAD)',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+      timestamp: 0,
+    };
+    (window as any).__pad = pad;
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
+  });
+  const errors = watchErrors(page);
+  await page.goto('/?offline=yard');
+  await gameReady(page);
+  await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club'], 'sword'));
+  // A press lasts at least 60 ms and two frames, so a slow frame (the first time a panel is drawn,
+  // in a software-drawn browser) can't swallow it.
+  const frames = (n: number) =>
+    page.evaluate(
+      (n) =>
+        new Promise<void>((done) => {
+          const f = () => (--n <= 0 ? done() : requestAnimationFrame(f));
+          requestAnimationFrame(f);
+        }),
+      n,
+    );
+  const set = (i: number, on: boolean) =>
+    page.evaluate(([i, on]) => Object.assign((window as any).__pad.buttons[i as number], { pressed: on, value: on ? 1 : 0 }), [i, on] as const);
+  const tap = async (button: number) => {
+    await set(button, true);
+    await page.waitForTimeout(60);
+    await frames(2);
+    await set(button, false);
+    await page.waitForTimeout(60);
+    await frames(2);
+  };
+  const [A, B, Y, RB, VIEW, RIGHT] = [0, 1, 3, 5, 8, 15];
+
+  await tap(VIEW);
+  await expect(page.locator('#skills .sb')).toBeVisible();
+  // The cursor starts on the weapon in your hands; right is Club, and A equips it.
+  await tap(RIGHT);
+  expect((await panelState(page)).selected).toBe('club');
+  await tap(A);
+  expect((await game(page)).using.weapon).toBe(CLUB);
+  // A bumper turns to the tree. A plans the way to the focused node, Y learns it.
+  await tap(RB);
+  await expect(page.locator('#skills .st')).toBeVisible();
+  await page.evaluate(() => window.__game.panelFocus({ node: 'heal' }));
+  await tap(A);
+  expect((await panelState(page)).plan).toEqual(['heal']);
+  await tap(Y);
+  expect((await game(page)).using).toEqual(build(['sword', 'club', 'heal'], 'club', HEAL));
+  // B goes back to the book (the tree was opened from it), and B again closes it.
+  await tap(B);
+  await expect(page.locator('#skills .sb')).toBeVisible();
+  await tap(B);
+  await expect(page.locator('#skills')).toBeHidden();
+  // Closing with B didn't make the fighter slide.
+  expect(await page.evaluate(() => window.__game.state().player.actionId)).not.toBe(SLIDE_SKILL);
+  expect(errors).toEqual([]);
+});
+
+// ---------- The world: points from quests, levels from use ----------
+
+test('world: the tree spends points earned from quests, and the sword levels up on slimes', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await page.goto('/?test');
+  await gameReady(page, 90_000);
+  await page.evaluate(() => window.__game.reset());
+  const skillsNow = () => page.evaluate(() => window.__game.skills());
+  const cmd = (c: Command) => page.evaluate((x) => window.__game.lifeCommand(x), c);
+  const advance = (n: number, a: Record<string, unknown> = {}) => page.evaluate(([k, x]) => window.__game.advance(k, x), [n, a] as const);
+
+  // A new character has Sword Training and one point to spend.
+  expect((await skillsNow()).budget).toBe(START_POINTS);
+  expect(await page.evaluate(() => window.__game.learnNode('cleave'))).toBe(true);
+  expect((await skillsNow()).left).toBe(0);
+  expect(await page.evaluate(() => window.__game.learnNode('club'))).toBe(false);
+  await expect(page.locator('#skills .st-note')).toContainText('needs 1 point');
+  // A whole build is held to the same points: the server would turn this one down.
+  expect(await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'cleave', 'club'], 'sword'))).toBe(false);
+  // Finishing Landfall earns another.
+  await page.evaluate(() => window.__game.skillPanel(false));
+  const hollis = (await page.evaluate(() => window.__game.zone())).npcs.find((n: { id: string }) => n.id === 'hollis');
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [
+    hollis.x + Math.sin(hollis.facing) * 2.2,
+    hollis.z + Math.cos(hollis.facing) * 2.2,
+    hollis.facing + Math.PI,
+  ] as const);
+  await advance(2);
+  await cmd({ t: 'interact' });
+  await advance(2);
+  await cmd({ t: 'complete', quest: 'landfall' });
+  await advance(2);
+  expect((await skillsNow()).budget).toBe(START_POINTS + 1);
+  await page.evaluate(() => window.__game.closeLifePanel());
+  expect(await page.evaluate(() => window.__game.learnNode('club'))).toBe(true);
+  await page.evaluate(() => window.__game.skillPanel(false));
+
+  // On the meadow, every hit the sword lands trains it, until it reaches level 2.
+  const meadow = (await page.evaluate(() => window.__game.zone())).places.find((p: { id: string }) => p.id === 'meadow');
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z, 0), [meadow.x, meadow.z] as const);
+  await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'cleave', 'club'], 'sword'));
+  await advance(30);
+  for (let round = 0; round < 150 && ((await skillsNow()).xp.sword ?? 0) < LEVEL_XP[1]; round++) {
+    await page.evaluate(() => {
+      const g = window.__game;
+      const p = g.state().player.pos;
+      const slimes = g.actors().filter((a: { alive: boolean; kind: string }) => a.alive && /slime/.test(a.kind));
+      slimes.sort((a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+      const s = slimes[0];
+      if (!s) return g.advance(30, {});
+      if (Math.hypot(s.x - p.x, s.z - p.z) > 1.6) {
+        const f = Math.atan2(s.x - p.x, s.z - p.z);
+        g.teleport(s.x - Math.sin(f) * 1.2, s.z - Math.cos(f) * 1.2, f);
+        g.advance(2, {});
+      }
+      g.advance(1, { attackPressed: true });
+      g.advance(14, {});
+    });
+  }
+  const after = await skillsNow();
+  expect(after.levels.sword).toBe(2);
+  expect(after.levels.club).toBe(1);
+  await expect(page.locator('#lui-toasts')).toContainText('Sword reached level 2');
+  // The book shows it, and the sword hits harder for it.
+  await page.evaluate(() => window.__game.selectBook('sword'));
+  await expect(page.locator('#skills .sd-lv')).toHaveText(/Level 2/i);
+  expect(errors).toEqual([]);
+});
+
+test('world: a kept build the life has not earned the points for falls back to Sword Training', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  // A build tried out in the yard (a developer zone: the whole tree), kept in this browser.
+  const tried = build(['sword', 'cleave', 'whirlwind', 'club'], 'club');
+  await page.goto('/?offline=yard');
+  await gameReady(page);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), tried)).toBe(true);
+  // A new life starts with START_POINTS, not enough for it, as the server would say on joining.
+  await page.goto('/?test');
+  await gameReady(page, 90_000);
+  const inWorld = await page.evaluate(() => window.__game.build());
+  expect(inWorld.chosen.skills).toEqual(skills('sword'));
+  expect(inWorld.using.weapon).toBe(weaponIndex('sword'));
+  expect((await page.evaluate(() => window.__game.skills())).left).toBe(START_POINTS - 1);
+  // The yard still has it.
+  await page.goto('/?offline=yard');
+  await gameReady(page);
+  expect((await game(page)).chosen.skills).toEqual(tried.skills);
+  expect(errors).toEqual([]);
+});
+
+// ---------- The yard: every weapon and ability against the dummy ----------
+
+test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the dummy', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?test=yard');
+  await gameReady(page);
+
+  const result = await page.evaluate(
+    ({ builds }) => {
+      const g = window.__game;
+      const d = g.state().dummy;
+      const out: Record<string, unknown> = {};
+      const standOff = (b: Build, dist: number) => {
+        g.setBuild(b);
+        g.reset({ x: d.x, z: d.z - dist, facing: 0, camYaw: 0 });
+      };
+      // What each skill learned since `from`.
+      const xp = () => g.skills().xp as Record<string, number>;
+      const learned = (from: Record<string, number>, ...ids: string[]) => Object.fromEntries(ids.map((id) => [id, (xp()[id] ?? 0) - (from[id] ?? 0)]));
+
+      // Bow from 12 m away: the arrow takes a moment to arrive. The sword is out by the time it
+      // lands, but the bow that loosed it is what learns from the hit.
+      standOff(builds.archer, 12);
+      const beforeShot = xp();
+      g.advance(1, { attackPressed: true });
+      let shotFrame = -1;
+      let hitFrame = -1;
+      for (let f = 1; f < 60 && hitFrame < 0; f++) {
+        g.advance(1);
+        if (shotFrame < 0 && g.spells().training.arrows > 0) {
+          shotFrame = f;
+          g.setBuild(builds.archerSword);
+        }
+        if (g.state().dummy.hp < 100) hitFrame = f;
+      }
+      out.bow = { shotFrame, hitFrame, hp: g.state().dummy.hp, learned: learned(beforeShot, 'bow', 'sword') };
+
+      // Rapid Fire draws faster.
+      standOff(builds.piercer, 12);
+      g.advance(1, { attackPressed: true });
+      let fastShot = -1;
+      for (let f = 1; f < 20 && fastShot < 0; f++) {
+        g.advance(1);
+        if (g.spells().training.arrows > 0) fastShot = f;
+      }
+      out.rapidFire = fastShot;
+
+      // Meteor at 9 m: cast, fall, blast. The cast trains Meteor; the blast trains no weapon.
+      standOff(builds.mage, 9);
+      const beforeCast = xp();
+      g.advance(1, { abilitySlot: 1 });
+      g.advance(30);
+      const casting = { mode: g.state().player.mode, circles: g.spells().circlesDrawn };
+      g.advance(60);
+      const falling = g.spells().training.meteors;
+      g.advance(30);
+      out.meteor = {
+        casting,
+        falling,
+        hp: g.state().dummy.hp,
+        cooldown: g.state().player.cooldowns[0],
+        explosions: g.events().filter((e: any) => e.type === 'explosion').length,
+        learned: learned(beforeCast, 'meteor', 'staff'),
+      };
+
+      // Healing Circle.
+      standOff(builds.healer, 6);
+      g.advance(1, { abilitySlot: 1 });
+      g.advance(40);
+      out.heal = g.events().filter((e: any) => e.type === 'heal').length;
+
+      // Whirlwind finishes the sword combo with a spin.
+      standOff(builds.whirl, 1.6);
+      for (let f = 0; f < 80; f++) g.advance(1, { attackPressed: f === 0 || f === 6 || f === 18 });
+      out.whirlwind = g
+        .events()
+        .filter((e: any) => e.type === 'hit')
+        .map((e: any) => e.damage);
+      return out;
+    },
+    {
+      builds: {
+        archer: ARCHER,
+        archerSword: build(['bow', 'sword'], 'sword'),
+        piercer: PIERCER,
+        mage: MAGE,
+        healer: HEALER,
+        whirl: build(['sword', 'cleave', 'whirlwind'], 'sword'),
+      },
+    },
+  );
+  console.log('training', JSON.stringify(result));
+  const bow = result.bow as { shotFrame: number; hitFrame: number; hp: number; learned: Record<string, number> };
+  expect(bow.shotFrame).toBe(WEAPONS[weaponIndex('bow')].combo[0].startup + 1);
+  expect(bow.hitFrame).toBeGreaterThan(bow.shotFrame + 10); // 12 m at 38 m/s
+  expect(bow.hp).toBe(100 - arrowDamage);
+  expect(bow.learned).toEqual({ bow: 1, sword: 0 });
+  expect(result.rapidFire).toBe(comboFor(3, resolveSkills(skills('bow', 'rapidFire')))[0].startup + 1);
+  const meteor = result.meteor as {
+    casting: { mode: string; circles: number };
+    falling: number;
+    hp: number;
+    cooldown: number;
+    explosions: number;
+    learned: Record<string, number>;
+  };
+  expect(meteor.casting).toEqual({ mode: 'cast', circles: 1 });
+  expect(meteor.falling).toBe(1);
+  expect(meteor.explosions).toBe(1);
+  expect(meteor.hp).toBe(100 - meteorDamage);
+  expect(meteor.cooldown).toBeGreaterThan(0);
+  expect(meteor.learned).toEqual({ meteor: 1, staff: 0 });
+  expect(result.heal).toBe(1);
+  const spin = comboFor(0, resolveSkills(skills('sword', 'cleave', 'whirlwind')));
+  expect(result.whirlwind).toEqual([spin[0].damage, spin[1].damage, spin[2].damage]);
+  expect(errors).toEqual([]);
+});
+
+// Online, the server decides: builds it takes, weapons seen, arrows, melee, Meteor, interrupted
+// casts and Healing Circle between players are in tests/integration/battlefield.spec.ts.

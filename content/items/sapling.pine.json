@@ -1,0 +1,10 @@
+{
+  "id": "sapling.pine",
+  "name": "Highland Pine Sapling",
+  "icon": "🌲",
+  "cat": "seed",
+  "stack": 20,
+  "plants": "pine",
+  "value": 25,
+  "desc": "A timber tree. Fell it when grown for a pile of lumber."
+}

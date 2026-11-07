@@ -1,4 +1,4 @@
-// Accounts and characters on the game server (server/src/accounts.rs, server/src/characters.rs).
+// Accounts and characters on the game server (crates/server/src/accounts/mod.rs, crates/server/src/accounts/characters.rs).
 // Plain same-origin requests: in development Vite forwards /api to the server (vite.config.ts), and
 // in production the server serves the game itself. The session cookie is http-only, so this file
 // never sees it; the browser sends it.
@@ -6,6 +6,8 @@
 export interface Account {
   id: number;
   username: string;
+  /** Reaches the developer pages and commands (the server's ADMIN_USERS; everyone in development). */
+  admin: boolean;
 }
 
 /** One of an account's characters, as the character select screen shows it. */
@@ -21,8 +23,8 @@ export interface CharacterInfo {
   skillPoints: number;
   questsDone: number;
   coins: number;
-  /** The weapon in their build: 0 sword, 1 club, 2 staff, 3 bow. */
-  weapon: number;
+  /** The weapon of their build, by id. */
+  weapon: string;
 }
 
 /** The server couldn't be reached or broke: worth trying again, unlike a refusal. */
@@ -91,12 +93,12 @@ export async function signOut(): Promise<void> {
 /** Your characters, oldest first, and how many an account may hold. */
 export const listCharacters = () => request('GET', '/api/characters') as Promise<{ characters: CharacterInfo[]; max: number }>;
 
-/** A new character with a fresh island. Refused if the name is taken or the account is full. */
+/** A new character with a fresh life. Refused if the name is taken or the account is full. */
 export async function createCharacter(name: string): Promise<CharacterInfo> {
   return ((await request('POST', '/api/characters', { name })) as { character: CharacterInfo }).character;
 }
 
-/** Deletes one of your characters and their island for good; `name` is their name, typed to confirm. */
+/** Deletes one of your characters and their life and land for good; `name` is their name, typed to confirm. */
 export async function deleteCharacter(id: number, name: string): Promise<void> {
   await request('DELETE', `/api/characters/${id}`, { name });
 }

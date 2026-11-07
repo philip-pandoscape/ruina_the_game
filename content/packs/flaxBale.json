@@ -1,0 +1,25 @@
+{
+  "id": "flaxBale",
+  "name": "Windspire Flax Bale",
+  "icon": "🧺",
+  "origin": "lanternwick",
+  "base": 300,
+  "labor": 25,
+  "fee": 20,
+  "inputs": [
+    {
+      "item": "flax",
+      "n": 8
+    }
+  ],
+  "look": {
+    "body": "flaxBale",
+    "model": {
+      "files": [
+        "pack_flaxBale"
+      ],
+      "yaw": 3.141592653589793
+    }
+  },
+  "kind": "trade"
+}

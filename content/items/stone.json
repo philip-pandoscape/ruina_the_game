@@ -1,0 +1,9 @@
+{
+  "id": "stone",
+  "name": "Stone",
+  "icon": "🪨",
+  "cat": "material",
+  "stack": 200,
+  "value": 6,
+  "desc": "Quarried from the pale rock outcrops at Stonebreak Quarry (F), or bought at Brenna's Quarry Stores. Ten make a Stone Block at the Stonecutter's Table."
+}

@@ -18,7 +18,9 @@ initUiScale($('#ui'));
 wireTips();
 addTipSource((tip) =>
   tip === 'demo:scarecrow'
-    ? '<h5>Scarecrow</h5><div class="ty">Placeable · Stacks to 5</div><p>Claims an 8×8 m farm plot wherever the ground is open and level. Up to three.</p><hr><div class="row"><span class="muted">Worth</span>' + money(40, 12) + '</div>'
+    ? '<h5>Scarecrow</h5><div class="ty">Placeable · Stacks to 5</div><p>Claims an 8×8 m farm plot wherever the ground is open and level. Up to three.</p><hr><div class="row"><span class="muted">Worth</span>' +
+      money(40, 12) +
+      '</div>'
     : null,
 );
 
@@ -51,18 +53,39 @@ const zones: Array<[string, string, number, number, number, number, boolean?]> =
   ['Developer Readout', 'fps, draw calls', 1.2, 92.5, 22, 6],
 ];
 $('#layoutMap').innerHTML = zones
-  .map(([name, note, x, y, w, h, win]) => `<div class="zone${win ? ' win' : ''}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"><div>${name}${note ? `<small>${note}</small>` : ''}</div></div>`)
+  .map(
+    ([name, note, x, y, w, h, win]) =>
+      `<div class="zone${win ? ' win' : ''}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"><div>${name}${note ? `<small>${note}</small>` : ''}</div></div>`,
+  )
   .join('');
 
 // ---------- Colour & type, read from the stylesheet ----------
 
 const css = getComputedStyle(document.documentElement);
 const SWATCHES: Array<[string, string]> = [
-  ['--title', 'Titles, focus'], ['--ink', 'Text'], ['--ink-2', 'Quiet text'], ['--ink-strong', 'Strong text'], ['--accent', 'Accent'],
-  ['--price', 'Prices'], ['--good', 'Good, done'], ['--bad', 'Bad, warnings'], ['--sea', 'Wind, water'], ['--seal', 'Seals'],
-  ['--btn', 'Buttons'], ['--btn-gold', 'The main action'], ['--btn-good', 'Confirm'], ['--wood', 'Frames'], ['--brass', 'Rims, rivets'],
-  ['--parchment', 'Cards'], ['--strip', 'Title strips, hints'], ['--plaque', 'Banners, ribbons'],
-  ['--hp', 'Health'], ['--mp', 'MP'], ['--stamina', 'Stamina'], ['--labor', 'Labor'], ['--cast', 'Cast bar'],
+  ['--title', 'Titles, focus'],
+  ['--ink', 'Text'],
+  ['--ink-2', 'Quiet text'],
+  ['--ink-strong', 'Strong text'],
+  ['--accent', 'Accent'],
+  ['--price', 'Prices'],
+  ['--good', 'Good, done'],
+  ['--bad', 'Bad, warnings'],
+  ['--sea', 'Wind, water'],
+  ['--seal', 'Seals'],
+  ['--btn', 'Buttons'],
+  ['--btn-gold', 'The main action'],
+  ['--btn-good', 'Confirm'],
+  ['--wood', 'Frames'],
+  ['--brass', 'Rims, rivets'],
+  ['--parchment', 'Cards'],
+  ['--strip', 'Title strips, hints'],
+  ['--plaque', 'Banners, ribbons'],
+  ['--hp', 'Health'],
+  ['--mp', 'MP'],
+  ['--stamina', 'Stamina'],
+  ['--labor', 'Labor'],
+  ['--cast', 'Cast bar'],
 ];
 $('#swatches').innerHTML = SWATCHES.filter(([v]) => css.getPropertyValue(v).trim())
   .map(([v, use]) => `<div class="swatch"><i style="background:var(${v})"></i><span><b>${use}</b><code>${v}</code></span></div>`)
@@ -73,7 +96,10 @@ $('#typeSpecimens').innerHTML = [
   ['Ruina Serif Bold', 'var(--font)', 700, 'Buttons, Labels, Numbers 1234', 'Pagella bold: buttons, labels, figures'],
   ['Ruina Serif Italic', 'var(--font)', 400, '“Plant, pack, haul - and keep your boots dry.”', 'Pagella italic: greetings and quotes', true],
 ]
-  .map(([name, font, weight, sample, use, italic]) => `<div class="rule"><div style="font:${italic ? 'italic ' : ''}${weight} 22px ${font};color:var(--ink-strong)">${sample}</div><div style="font-size:12.5px;color:var(--ink-2)">${name} · ${use}</div></div>`)
+  .map(
+    ([name, font, weight, sample, use, italic]) =>
+      `<div class="rule"><div style="font:${italic ? 'italic ' : ''}${weight} 22px ${font};color:var(--ink-strong)">${sample}</div><div style="font-size:12.5px;color:var(--ink-2)">${name} · ${use}</div></div>`,
+  )
   .join('');
 
 // ---------- Components ----------
@@ -123,7 +149,8 @@ const bars = [bar(uiIcon('heart', 24), 'var(--hp)', 0.82, '82 / 100')];
 if (css.getPropertyValue('--mp').trim()) bars.push(bar(uiIcon('mana', 22), 'var(--mp)', 0.6, '60 / 100'));
 if (css.getPropertyValue('--stamina').trim()) bars.push(bar(uiIcon('stamina', 22), 'var(--stamina)', 0.45, '45 / 100'));
 bars.push(bar(uiIcon('labor', 22), 'var(--labor)', 0.8, '800 / 1000'));
-const mark = (ready: boolean) => `<div class="lui-plate" style="position:static;transform:none"><div class="mark">${uiIcon(ready ? 'quest-done' : 'quest-new', 30)}</div></div>`;
+const mark = (ready: boolean) =>
+  `<div class="lui-plate" style="position:static;transform:none"><div class="mark">${uiIcon(ready ? 'quest-done' : 'quest-new', 30)}</div></div>`;
 $('#bits').innerHTML =
   `<div style="display:flex;flex-direction:column;gap:8px">${bars.join('')}</div>` +
   '<span class="key">F</span><span class="key">Esc</span><span class="key">Space</span>' +

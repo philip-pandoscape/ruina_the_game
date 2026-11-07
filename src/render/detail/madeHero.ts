@@ -1,36 +1,43 @@
 import * as THREE from 'three';
-import { loadGltf, loadModel, track } from '../assets';
-import { NEW_LOOK } from '../look';
+import { asset } from '../../assets/manifest';
+import { gltf, loadModel, model, track } from '../assets';
 import { toon } from '../toon';
 import type { RigDef } from '../../content/rig';
-import { HERO_RIG } from '../../content/creatures/hero';
+import { HERO_RIG } from '../creatures/heroBody';
 import { fit, hull, type Fitted } from './fit';
 import { bakeCycle, setMotion, type Move } from './mocap';
 import { bake, type Baked } from './retarget';
-import { HERO_MOVES, HERO_MOVE_SETS, WEAPON_KEYS, type MoveClip } from './moves';
+import { HERO_MOVES, HERO_MOVE_SETS, type MoveClip } from './moves';
 import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
-// The new look's hero body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy)
-// worn on the hero rig, the rig measured to it (fit.ts). Fitted once; every hero wears the same
-// one. The classic look, and a game without the file, keep the box hero.
+// The hero's body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy) worn on the
+// hero rig, the rig measured to it (fit.ts). Fitted once; every hero wears the same one. Until it
+// has loaded, and for good if it can't, the box hero stands in.
 
 const HEIGHT = 1.78;
 
-// Vite turns this into a file URL; under Node there is no glob and no made hero.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/hero*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
-const file = (name: string): string | null => Object.entries(urls).find(([k]) => k.endsWith(`/${name}.glb`))?.[1] ?? null;
+// Its files, by id in the asset manifest (src/assets/catalog.ts): part of the title screen's first
+// download, as character select shows the hero. Under Node there are no files and no made hero.
+const file = (name: string): string | null => (asset(`models/${name}`) ? `models/${name}` : null);
+const FRONT = { need: 'front' } as const;
 /** Trying another body without shipping it: ?heroModel=/path/to/model.glb (and &heroHeight=1.7). */
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
-const URL = params?.get('heroModel') ?? file('hero');
+const TRIED = params?.get('heroModel') ?? null;
+const BODY = file('hero');
 /** Its captured walk and run (Meshy's, on the same skeleton), which move its upper body. */
 const WALK = file('hero_walk');
 const RUN = file('hero_run');
 /**
- * Its moves (moves.ts): per weapon a set of clips from animation libraries, retargeted onto it, or
- * its keyframed swings. ?swordMoves=keyed|meshy|quaternius (clubMoves=, ...) plays another set.
+ * Its moves (moves.ts): per weapon (by id) a set of clips from animation libraries, retargeted onto
+ * it, or its keyframed swings. ?swordMoves=keyed|meshy|quaternius (clubMoves=, ...) plays another set.
  */
-const SETS = Object.fromEntries(WEAPON_KEYS.map((w) => [w, params?.get(`${w}Moves`) ?? HERO_MOVE_SETS[w] ?? 'keyed']));
-const MOVES = WEAPON_KEYS.flatMap((w, weapon) => (HERO_MOVES[w]?.[SETS[w]] ?? []).map((m, hit) => ({ weapon, hit, m }))).filter((x) => x.m) as Array<{ weapon: number; hit: number; m: MoveClip }>;
+const MOVES = Object.entries(HERO_MOVES)
+  .flatMap(([weapon, sets]) => (sets[params?.get(`${weapon}Moves`) ?? HERO_MOVE_SETS[weapon] ?? 'keyed'] ?? []).map((m, hit) => ({ weapon, hit, m })))
+  .filter((x) => x.m) as Array<{
+  weapon: string;
+  hit: number;
+  m: MoveClip;
+}>;
 
 export interface MadeHero {
   fitted: Fitted;
@@ -46,18 +53,19 @@ let ready: MadeHero | null = null;
 /** The made hero body, once it has loaded (null until then, and for good without one). */
 export const madeHeroNow = (): MadeHero | null => ready;
 
-/** Loads and fits the made hero body (once); null in the classic look or without a model. */
+/** Loads and fits the made hero body (once); null without a model. */
 export function madeHero(): Promise<MadeHero | null> | null {
-  if (!NEW_LOOK || !URL) return null;
-  const clips = !params?.has('heroModel') && WALK && RUN ? [track(loadGltf(WALK)), track(loadGltf(RUN))] : [];
-  const files = params?.has('heroModel') ? [] : [...new Set(MOVES.map((x) => x.m.file))];
-  const libraries = Promise.all(files.map((f) => (file(f) ? track(loadGltf(file(f)!)) : undefined)));
-  loading ??= Promise.all([track(loadModel(URL)), madeWeapons(), libraries, ...clips]).then(([scene, made, loaded, walk, run]) => {
+  if (!TRIED && !BODY) return null;
+  const clips = !TRIED && WALK && RUN ? [track(gltf(WALK, FRONT)), track(gltf(RUN, FRONT))] : [];
+  const files = TRIED ? [] : [...new Set(MOVES.map((x) => x.m.file))];
+  const libraries = Promise.all(files.map((f) => (file(f) ? track(gltf(file(f)!, FRONT)) : undefined)));
+  const body = TRIED ? loadModel(TRIED) : model(BODY!, FRONT);
+  loading ??= Promise.all([track(body), madeWeapons(), libraries, ...clips]).then(([scene, made, loaded, walk, run]) => {
     if (!scene) return null;
     const weapons = (made as MadeWeapons | null) ?? null;
     const height = Number(params?.get('heroHeight')) || HEIGHT;
     const fitted = fit(scene as THREE.Group, height, HERO_RIG);
-    // Shaded as the rest of the new look is: the painted texture, the island's soft toon light.
+    // Shaded as the rest of the world is: the painted texture in its soft light.
     const src = (Array.isArray(fitted.material) ? fitted.material[0] : fitted.material) as THREE.MeshStandardMaterial;
     fitted.material = toon(0xffffff, { map: src.map ?? null });
     const def: RigDef = { ...HERO_RIG, joints: fitted.joints, parts: hull(fitted.joints, fitted.feet.ankle), feet: fitted.feet, bow: weapons?.bow };
@@ -77,7 +85,7 @@ export function madeHero(): Promise<MadeHero | null> | null {
   return loading;
 }
 
-/** The moves' clips, baked for the made body, by weapon and combo hit ("0:1"); a clip a move shares baked once. */
+/** The moves' clips, baked for the made body, by weapon id and combo hit ("sword:1"); a clip a move shares baked once. */
 function bakeMoves(files: string[], loaded: Array<{ scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined>, fitted: Fitted): Map<string, Move> {
   const moves = new Map<string, Move>();
   const baked = new Map<string, Baked>();

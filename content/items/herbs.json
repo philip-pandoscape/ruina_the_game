@@ -1,0 +1,9 @@
+{
+  "id": "herbs",
+  "name": "Wild Herbs",
+  "icon": "🌿",
+  "cat": "material",
+  "stack": 200,
+  "value": 5,
+  "desc": "Bitter leaves the grocer brews into tonics."
+}

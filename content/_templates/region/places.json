@@ -1,0 +1,8 @@
+{
+  "id": "newPlace",
+  "name": "New Place",
+  "kind": "village",
+  "icon": "🏮",
+  "x": 0,
+  "z": -250
+}

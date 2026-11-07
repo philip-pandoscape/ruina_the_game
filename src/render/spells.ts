@@ -1,3 +1,4 @@
+import { toScene } from './origin';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon';
@@ -37,7 +38,10 @@ function colored(geo: THREE.BufferGeometry, color: number): THREE.BufferGeometry
 function arrowGeometry(): THREE.BufferGeometry {
   const shaft = new THREE.CylinderGeometry(0.02, 0.02, 0.9, 5).rotateX(Math.PI / 2).translate(0, 0, -0.1);
   const head = new THREE.ConeGeometry(0.05, 0.16, 5).rotateX(Math.PI / 2).translate(0, 0, 0.42);
-  const fin1 = new THREE.PlaneGeometry(0.12, 0.18).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).translate(0, 0, -0.48);
+  const fin1 = new THREE.PlaneGeometry(0.12, 0.18)
+    .rotateX(Math.PI / 2)
+    .rotateZ(Math.PI / 2)
+    .translate(0, 0, -0.48);
   const fin2 = new THREE.PlaneGeometry(0.12, 0.18).rotateX(Math.PI / 2).translate(0, 0, -0.48);
   const parts = [colored(shaft, 0xd9c39a), colored(head, 0xdfe6ee), colored(fin1, 0xf4f1e8), colored(fin2, 0xf4f1e8)];
   return mergeGeometries(parts.map((g) => g.toNonIndexed()))!;
@@ -46,7 +50,10 @@ function arrowGeometry(): THREE.BufferGeometry {
 // A fading light streak trailing behind an arrow (two crossed strips along -Z).
 function streakGeometry(): THREE.BufferGeometry {
   const strips = [0, Math.PI / 2].map((rot) => {
-    const g = new THREE.PlaneGeometry(0.07, 2.4, 1, 6).rotateX(Math.PI / 2).rotateZ(rot).translate(0, 0, -1.3);
+    const g = new THREE.PlaneGeometry(0.07, 2.4, 1, 6)
+      .rotateX(Math.PI / 2)
+      .rotateZ(rot)
+      .translate(0, 0, -1.3);
     const pos = g.getAttribute('position');
     const colors = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
@@ -62,7 +69,7 @@ function streakGeometry(): THREE.BufferGeometry {
 /**
  * What ground circles lie on in an open world: its height anywhere, and the grid the terrain's
  * heights are kept on. A circle's mesh is cut along the same lines and split the same way as the
- * terrain's triangles (src/sim/terrain.ts height()), so on open ground it lies exactly on the drawn
+ * terrain's triangles (src/engine/world/terrain.ts height()), so on open ground it lies exactly on the drawn
  * surface, however steep the hill.
  */
 export interface CircleGround {
@@ -226,7 +233,10 @@ export class SpellView {
   /** The ground in an open world, for circles to lie on and meteors to come down to; null on flat ground at 0. */
   ground: CircleGround | null = null;
 
-  constructor(scene: THREE.Scene, private vfx: Vfx) {
+  constructor(
+    scene: THREE.Scene,
+    private vfx: Vfx,
+  ) {
     const arrowMat = toon(0xffffff);
     arrowMat.vertexColors = true;
     this.arrows = new THREE.InstancedMesh(arrowGeometry(), arrowMat, MAX_ARROWS);
@@ -345,7 +355,7 @@ export class SpellView {
 
   /** Testing: the height of the highest circle drawn over (x, z), inside its ring, or null. */
   heightAt(x: number, z: number): number | null {
-    const ray = new THREE.Raycaster(new THREE.Vector3(x, 1e4, z), new THREE.Vector3(0, -1, 0), 0, 2e4);
+    const ray = new THREE.Raycaster(toScene(new THREE.Vector3(x, 1e4, z)), new THREE.Vector3(0, -1, 0), 0, 2e4);
     let best: number | null = null;
     for (let i = 0; i < this.circleCount; i++) {
       const c = this.circles[i];

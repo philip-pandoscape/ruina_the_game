@@ -2,7 +2,21 @@ import data from '../../shared/items.json' with { type: 'json' };
 
 // Bag items, vendors and workbench recipes (shared/items.json).
 
+/** What using an item does is the rules' for its category (src/engine/life/interact.ts useItem): a new one is new code. */
 export type ItemCat = 'seed' | 'produce' | 'material' | 'consumable' | 'placeable' | 'glider' | 'deed' | 'mount';
+
+/** What a category of item is called: in a tooltip, as a heading, and using one in the bag (none: it isn't used). */
+export interface ItemCategory {
+  name: string;
+  group: string;
+  verb?: string;
+}
+
+/**
+ * Where a placeable is placed: anywhere on open, level ground (a farm plot's scarecrow), on an empty
+ * house plot (a house blueprint), or at a slipway (a ship design).
+ */
+export type PlaceOn = 'ground' | 'plot' | 'slipway';
 
 export interface ItemDef {
   id: string;
@@ -16,7 +30,10 @@ export interface ItemDef {
   plants?: string;
   /** Livestock: the animal this young one grows into. */
   raises?: string;
+  /** A placeable: what it places (a house blueprint, a ship design, a scarecrow), where (`placeOn`), and what using it tells you (`hint`). */
   places?: string;
+  placeOn?: PlaceOn;
+  hint?: string;
   glider?: string;
   vehicle?: string;
   mount?: string;
@@ -42,6 +59,7 @@ export interface RecipeDef {
 }
 
 export const BAG_SLOTS = data.bagSlots;
+export const CATEGORIES = data.categories as Record<ItemCat, ItemCategory>;
 export const ITEMS = data.items as unknown as ItemDef[];
 export const VENDORS = data.vendors as unknown as VendorDef[];
 export const RECIPES = data.recipes as unknown as RecipeDef[];
@@ -54,7 +72,12 @@ export function itemDef(id: string): ItemDef {
   return d;
 }
 
-export const hasItemDef = (id: string): boolean => BY_ID.has(id);
+/** Whether an item claims a house plot (a house blueprint); false for one that isn't there. */
+export const claimsPlot = (id: string): boolean => BY_ID.get(id)?.placeOn === 'plot';
+
+/** The structure the item set down on open ground places: a farm plot's scarecrow, at its corner. */
+export const groundPlaced = (): string | undefined => ITEMS.find((i) => i.placeOn === 'ground')?.places;
+
 export const vendorFor = (npc: string): VendorDef | undefined => VENDORS.find((v) => v.npc === npc);
 export const recipesAt = (bench: string): RecipeDef[] => RECIPES.filter((r) => r.bench === bench);
 export const recipe = (id: string): RecipeDef | undefined => RECIPES.find((r) => r.id === id);

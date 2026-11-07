@@ -14,7 +14,7 @@ first turned to point the way its source bone points at rest, and then it takes 
 turn away from rest at every moment. The body follows the point between the source's hip joints,
 sized by leg length; the clip's own travel is taken off, so the rules carry the body and the feet
 the clip plants are held on the ground (`character.ts` holdFeet). Done right, every bone points
-within a tenth of a degree of its source's: `tests/retarget.spec.ts` holds every move to that.
+within a tenth of a degree of its source's: `tests/integration/retarget.spec.ts` holds every move to that.
 
 If arguments were given (`$ARGUMENTS`), that is the move or clip to bring in.
 
@@ -83,16 +83,24 @@ humanoid's.
 
 ## 5. Check it
 
-1. `/retarget.html?look=new&file=hero_<name>&clip=A~B` (add `&mesh=/scratch/<skinned source>.glb` to
-   show the source skinned rather than as bones): the hero as the game bakes and poses it, beside the
-   source. `window.__retarget.seek(t)` gives each moment's error.
-2. `npx playwright test tests/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
+1. The content library's retargeting check, `/dev/library.html#/retarget/hero_<name>:A~B` (add
+   `?mesh=/scratch/<skinned source>.glb` to show the source skinned rather than as bones, or
+   `?url=/scratch/<file>.glb` for a file not in the game yet): the hero as the game bakes and poses
+   it, beside the source, each frame's error under the picture, to scrub, step and leave notes on.
+   `window.__library.take().measureAt(t)` gives each moment's error.
+2. `npx playwright test tests/integration/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
    on average and 1° at worst, ankles no more than 2.5 cm under where they stand. `RECORD=1` keeps
    the frames under `test-results/retarget/` for a GIF.
-3. `/animations.html?look=new` (`&swordMoves=keyed|meshy|quaternius` to compare sets): the move in the
-   game's timing, with the trail, the feet held and the fingers round the weapon. Step it with
-   `window.__anims.sheet(id, { frames: [f] })` and screenshot each frame for a GIF.
-4. `npx playwright test tests/animation.spec.ts` (and the game and combat suites).
+3. The hero's films in the content library, `/dev/library.html#/hero/<film>?weapon=0`
+   (`/dev/library.html?swordMoves=keyed|meshy|quaternius#/hero/sword` to compare sets): the move in
+   the game's timing, with the trail, the feet held and the fingers round the weapon. Step it a frame
+   at a time (`window.__library.seek(f)`) and screenshot the picture
+   (`page.locator('.viewport').screenshot()`) for a GIF; `window.__library.sheet({ frames: [...] })`
+   lays frames out side by side in one picture (H).
+4. `npx vitest run tests/unit/animation.test.ts` (the films measured: feet, floor, joints, trails,
+   grips; on the box hero, as in Node the made body doesn't load; `window.__library.measure` has the
+   same measurements on the made body), `npx playwright test tests/integration/animation.spec.ts`
+   (the hands on the oars in the game), and the game and combat suites.
 
 Show the user the clip against its source and in the game, side by side with what it replaces,
 before you call it done.

@@ -1,12 +1,26 @@
-import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
+import {
+  ABILITIES,
+  ATTACK,
+  abilityIndex,
+  COMBAT,
+  JUMP,
+  MOVE,
+  MOVEMENT_SKILLS,
+  comboShape,
+  movementIndex,
+  weaponIndex,
+  type AttackStep,
+} from '../../content/tuning';
 import type { PoseInput } from '../../content/pose';
 import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
+import { TAU } from '../../util/math';
 
-// Little films of the hero, for the animation gallery (animations.html) and the tests that check
-// the motion. Each one is what the rules would report frame by frame - running speed, which way
-// you're going, a jump's rise and fall, which swing of a combo is on which frame - so the gallery
-// plays the poses the way the game does, transitions and all, without a game running.
+// Little films of the hero, for the content library (/dev/library.html#/hero, src/dev/library/subjects/
+// film.ts) and the tests that check the motion. Each one is what the rules would report frame by
+// frame - running speed, which way you're going, a jump's rise and fall, which swing of a combo is
+// on which frame - so the library plays the poses the way the game does, transitions and all,
+// without a game running.
 
 export interface Moment {
   input: Partial<PoseInput>;
@@ -18,7 +32,7 @@ export interface Moment {
   facing?: number;
   /**
    * What the vehicle's controls are doing (throttle and steering, -1..1, as the rules have them in
-   * src/sim/life/vehicles.ts): what its model moves to (the oars' stroke, the wheel). Left out, the
+   * src/engine/life/vehicles.ts): what its model moves to (the oars' stroke, the wheel). Left out, the
    * effort and the bank stand in for them.
    */
   controls?: { throttle: number; steer: number };
@@ -30,6 +44,7 @@ export interface Scenario {
   label: string;
   /** Loop length in sim frames (60 a second). */
   frames: number;
+  /** The weapon it holds whatever is picked, by its place in WEAPONS. */
   weapon?: number;
   /** A model to show with it: what is ridden, flown or sat in. */
   prop?: 'glider' | 'horse' | 'cart' | 'roadster' | 'hauler' | 'rowboat' | 'sloop';
@@ -39,10 +54,14 @@ export interface Scenario {
 }
 
 const HZ = 60;
-const TAU = Math.PI * 2;
 const RUN = MOVE.runSpeed;
 const WALK = MOVE.walkSpeed;
 const DEG = Math.PI / 180;
+/** The weapons the films hold, by id: where each stands in the list is the content's to say. */
+const SWORD = weaponIndex('sword');
+const CLUB = weaponIndex('club');
+const STAFF = weaponIndex('staff');
+const BOW = weaponIndex('bow');
 
 /** A run of segments, each lasting `frames`, played back to back. */
 interface Segment {
@@ -264,7 +283,7 @@ function knocked(pushDeg: number, knock = 3): Segment {
  * fall eases while the swing strikes (ATTACK.airGravityScale), and a swing still going when the
  * feet touch down carries on to its end on the ground.
  */
-function jumpAttack(at: number, settle = 24, weapon = 0, index = 0): Segment {
+function jumpAttack(at: number, settle = 24, weapon = SWORD, index = 0): Segment {
   const combo = comboShape(weapon, 0);
   const step = combo[index];
   const total = step.startup + step.active + step.recovery;
@@ -320,7 +339,7 @@ function combo(weapon: number, variants = 0): Segment[] {
 
 /** A movement skill (roll, backstep, guard, slide) by id, moving at its own speed. */
 function action(id: string, runIn = 0, heading = 0): Segment {
-  const index = MOVEMENT_SKILLS.findIndex((m) => m.id === id);
+  const index = movementIndex(id);
   const def = MOVEMENT_SKILLS[index].action;
   const total = def.startup + def.active + def.recovery;
   const dir = def.direction === 'backward' ? Math.PI : heading;
@@ -349,7 +368,7 @@ const travel = (frames: number, mode: string, at: (t: number) => Partial<PoseInp
 /** How hard the stroke goes at a speed, as the close-up hero reads it (character.ts inputFromPlayer). */
 const effortAt = (speed: number): number => Math.min(1, Math.abs(speed) / 6);
 
-/** Swimming, speeding up or slowing down at the rules' rate (src/sim/player/traverse.ts updateSwim). */
+/** Swimming, speeding up or slowing down at the rules' rate (src/engine/world/ground.ts updateSwim). */
 const swimRamp = (from: number, to: number): Segment => {
   const frames = Math.max(1, Math.ceil((Math.abs(to - from) / SWIM.accel) * HZ));
   return {
@@ -363,7 +382,7 @@ const swimRamp = (from: number, to: number): Segment => {
 
 /**
  * At the oars, with the boat's controls going where `legs` say (throttle, steering, frames), eased
- * the way the rules ease them (src/sim/life/vehicles.ts stepBoat): rowing ahead, turning, backing
+ * the way the rules ease them (src/engine/life/vehicles.ts stepBoat): rowing ahead, turning, backing
  * water, turning on the spot, starting and stopping.
  */
 function rowing(legs: Array<[throttle: number, steer: number, frames: number]>): Segment {
@@ -397,13 +416,22 @@ export const SCENARIOS: Scenario[] = [
     label: 'Start, run, stop',
     ...sequence([stand(50), ramp(0, RUN, MOVE.groundAccel), move(70, RUN), ramp(RUN, 0, MOVE.groundDecel), stand(50)]),
   },
-  { id: 'crouch', group: 'Moving', label: 'Crouch', ...sequence([stand(40), { frames: 200, at: (f) => ({ input: { crouch: Math.min(1, f / MOVE.crouchEnterFrames) }, speed: 0 }) }]) },
+  {
+    id: 'crouch',
+    group: 'Moving',
+    label: 'Crouch',
+    ...sequence([stand(40), { frames: 200, at: (f) => ({ input: { crouch: Math.min(1, f / MOVE.crouchEnterFrames) }, speed: 0 }) }]),
+  },
   { id: 'sneak', group: 'Moving', label: 'Crouch walk', ...sequence([move(240, MOVE.crouchSpeed, { crouch: 1 })]) },
   {
     id: 'carry',
     group: 'Moving',
     label: 'Carrying a pack',
-    ...sequence([stand(60, { carry: true, stow: 1 }), ramp(0, RUN * 0.55, MOVE.groundAccel, { carry: true, stow: 1 }), move(180, RUN * 0.55, { carry: true, stow: 1 })]),
+    ...sequence([
+      stand(60, { carry: true, stow: 1 }),
+      ramp(0, RUN * 0.55, MOVE.groundAccel, { carry: true, stow: 1 }),
+      move(180, RUN * 0.55, { carry: true, stow: 1 }),
+    ]),
   },
   { id: 'turn', group: 'Moving', label: 'Running turns', ...sequence([move(90, RUN, { lean: 0.8 }), move(90, RUN, { lean: -0.8 })]) },
   {
@@ -412,9 +440,9 @@ export const SCENARIOS: Scenario[] = [
     label: 'Turning on the spot',
     ...sequence([standFacing(30, 0), pivot(0, 90, 3), standFacing(45, 90), pivot(90, -90, 5), standFacing(45, -90), pivot(-90, 0, 3), standFacing(45, 0)]),
   },
-  { id: 'bowRun', group: 'Moving', label: 'Run with a bow', weapon: 3, ...sequence([stand(60, { weapon: 3 }), move(180, RUN, { weapon: 3 })]) },
-  { id: 'staffRun', group: 'Moving', label: 'Run with a staff', weapon: 2, ...sequence([stand(60, { weapon: 2 }), move(180, RUN, { weapon: 2 })]) },
-  { id: 'clubRun', group: 'Moving', label: 'Run with a club', weapon: 1, ...sequence([stand(60, { weapon: 1 }), move(180, RUN, { weapon: 1 })]) },
+  { id: 'bowRun', group: 'Moving', label: 'Run with a bow', weapon: BOW, ...sequence([stand(60, { weapon: BOW }), move(180, RUN, { weapon: BOW })]) },
+  { id: 'staffRun', group: 'Moving', label: 'Run with a staff', weapon: STAFF, ...sequence([stand(60, { weapon: STAFF }), move(180, RUN, { weapon: STAFF })]) },
+  { id: 'clubRun', group: 'Moving', label: 'Run with a club', weapon: CLUB, ...sequence([stand(60, { weapon: CLUB }), move(180, RUN, { weapon: CLUB })]) },
 
   // ---- Strafing: facing a fight, moving every other way ----
   { id: 'strafeL', group: 'Strafing', label: 'Strafe left', ...sequence([move(240, RUN * MOVE.strafeSpeed, { heading: Math.PI / 2 })]) },
@@ -422,10 +450,30 @@ export const SCENARIOS: Scenario[] = [
   { id: 'backpedal', group: 'Strafing', label: 'Back off', ...sequence([move(240, RUN * MOVE.backSpeed, { heading: Math.PI })]) },
   { id: 'backL', group: 'Strafing', label: 'Back off, diagonal', ...sequence([move(240, RUN * stanceShare(135 * DEG), { heading: 135 * DEG })]) },
   { id: 'aheadL', group: 'Strafing', label: 'Ahead, diagonal', ...sequence([move(240, RUN * stanceShare(45 * DEG), { heading: 45 * DEG })]) },
-  { id: 'strafeWalk', group: 'Strafing', label: 'Side-step at walking pace', ...sequence([course([[90, 120], [-90, 120]], WALK * 0.7)]) },
+  {
+    id: 'strafeWalk',
+    group: 'Strafing',
+    label: 'Side-step at walking pace',
+    ...sequence([
+      course(
+        [
+          [90, 120],
+          [-90, 120],
+        ],
+        WALK * 0.7,
+      ),
+    ]),
+  },
   { id: 'eight', group: 'Strafing', label: 'All eight ways', ...sequence([course([...EIGHT.map((d) => [d, 55] as [number, number]), [999, 40]])]) },
   { id: 'dodge8', group: 'Strafing', label: 'Dodge, eight ways', ...sequence(EIGHT.flatMap((d) => [stand(16), action('dodgeRoll', 0, d * DEG)])) },
-  { id: 'jump8', group: 'Strafing', label: 'Jump, four ways', ...sequence([0, 90, 180, -90].flatMap((d) => [move(20, RUN * stanceShare(d * DEG), { heading: d * DEG }), jump(RUN * stanceShare(d * DEG), -1, 20, d * DEG)])) },
+  {
+    id: 'jump8',
+    group: 'Strafing',
+    label: 'Jump, four ways',
+    ...sequence(
+      [0, 90, 180, -90].flatMap((d) => [move(20, RUN * stanceShare(d * DEG), { heading: d * DEG }), jump(RUN * stanceShare(d * DEG), -1, 20, d * DEG)]),
+    ),
+  },
   { id: 'flip8', group: 'Strafing', label: 'Double jump, four ways', ...sequence([0, 90, 180, -90].flatMap((d) => [stand(20), jump(0, 16, 24, 0, d * DEG)])) },
 
   // ---- In the air ----
@@ -434,21 +482,51 @@ export const SCENARIOS: Scenario[] = [
   { id: 'doubleJump', group: 'In the air', label: 'Double jump (flip)', ...sequence([move(30, RUN), jump(RUN, 22), move(30, RUN)]) },
 
   // ---- Fighting ----
-  { id: 'sword', group: 'Fighting', label: 'Sword combo', weapon: 0, ...sequence([stand(30), ...combo(0), stand(40)]) },
-  { id: 'swordSlow', group: 'Fighting', label: 'Sword, each swing to the end', weapon: 0, ...sequence([stand(20), swing(0, 0, false), stand(12), swing(0, 1, false), stand(12), swing(0, 2, false), stand(30)]) },
-  { id: 'whirlwind', group: 'Fighting', label: 'Whirlwind', weapon: 0, ...sequence([stand(30), ...combo(0, 1), stand(40)]) },
-  { id: 'club', group: 'Fighting', label: 'Club combo', weapon: 1, ...sequence([stand(30, { weapon: 1 }), ...combo(1), stand(40, { weapon: 1 })]) },
-  { id: 'staff', group: 'Fighting', label: 'Staff swing', weapon: 2, ...sequence([stand(30, { weapon: 2 }), swing(2, 0, false), stand(20, { weapon: 2 }), swing(2, 0, false), stand(30, { weapon: 2 })]) },
-  { id: 'bow', group: 'Fighting', label: 'Bow shots', weapon: 3, ...sequence([stand(30, { weapon: 3 }), swing(3, 0, false), swing(3, 0, false), swing(3, 0, false), stand(40, { weapon: 3 })]) },
-  { id: 'heal', group: 'Fighting', label: 'Cast: Healing Circle', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: 2 })]) },
-  { id: 'meteor', group: 'Fighting', label: 'Cast: Meteor', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: 2 })]) },
+  { id: 'sword', group: 'Fighting', label: 'Sword combo', weapon: SWORD, ...sequence([stand(30), ...combo(SWORD), stand(40)]) },
+  {
+    id: 'swordSlow',
+    group: 'Fighting',
+    label: 'Sword, each swing to the end',
+    weapon: SWORD,
+    ...sequence([stand(20), swing(SWORD, 0, false), stand(12), swing(SWORD, 1, false), stand(12), swing(SWORD, 2, false), stand(30)]),
+  },
+  { id: 'whirlwind', group: 'Fighting', label: 'Whirlwind', weapon: SWORD, ...sequence([stand(30), ...combo(SWORD, 1), stand(40)]) },
+  { id: 'club', group: 'Fighting', label: 'Club combo', weapon: CLUB, ...sequence([stand(30, { weapon: CLUB }), ...combo(CLUB), stand(40, { weapon: CLUB })]) },
+  {
+    id: 'staff',
+    group: 'Fighting',
+    label: 'Staff swing',
+    weapon: STAFF,
+    ...sequence([stand(30, { weapon: STAFF }), swing(STAFF, 0, false), stand(20, { weapon: STAFF }), swing(STAFF, 0, false), stand(30, { weapon: STAFF })]),
+  },
+  {
+    id: 'bow',
+    group: 'Fighting',
+    label: 'Bow shots',
+    weapon: BOW,
+    ...sequence([stand(30, { weapon: BOW }), swing(BOW, 0, false), swing(BOW, 0, false), swing(BOW, 0, false), stand(40, { weapon: BOW })]),
+  },
+  {
+    id: 'heal',
+    group: 'Fighting',
+    label: 'Cast: Healing Circle',
+    weapon: STAFF,
+    ...sequence([stand(30, { weapon: STAFF }), cast(abilityIndex('heal')), stand(40, { weapon: STAFF })]),
+  },
+  {
+    id: 'meteor',
+    group: 'Fighting',
+    label: 'Cast: Meteor',
+    weapon: STAFF,
+    ...sequence([stand(30, { weapon: STAFF }), cast(abilityIndex('meteor')), stand(40, { weapon: STAFF })]),
+  },
   { id: 'block', group: 'Fighting', label: 'Block', ...sequence([stand(30), action('block'), stand(40)]) },
   { id: 'sheathe', group: 'Fighting', label: 'Put away and draw', ...sequence([stand(30), stowing(0, 1), stand(40, { stow: 1 }), stowing(1, 0), stand(30)]) },
   {
     id: 'carrySwing',
     group: 'Fighting',
     label: 'A swing with a pack on',
-    ...sequence([stand(40, { carry: true, stow: 1 }), packed(swing(0, 0, false)), stand(50, { carry: true, stow: 1 })]),
+    ...sequence([stand(40, { carry: true, stow: 1 }), packed(swing(SWORD, 0, false)), stand(50, { carry: true, stow: 1 })]),
   },
   {
     id: 'sheatheRun',
@@ -459,8 +537,8 @@ export const SCENARIOS: Scenario[] = [
   { id: 'roll', group: 'Fighting', label: 'Dodge roll', ...sequence([move(30, RUN), action('dodgeRoll', RUN), move(40, RUN)]) },
   { id: 'backstep', group: 'Fighting', label: 'Backstep', ...sequence([stand(30), action('backstep'), stand(40)]) },
   { id: 'slide', group: 'Fighting', label: 'Slide', ...sequence([move(40, RUN), action('slide', RUN), move(40, RUN)]) },
-  { id: 'airSlash', group: 'Fighting', label: 'Jump attack: overhead chop', weapon: 0, ...sequence([stand(20), jumpAttack(14, 30), stand(20)]) },
-  { id: 'airSlashLand', group: 'Fighting', label: 'Jump attack, landing mid-swing', weapon: 0, ...sequence([stand(20), jumpAttack(30, 20), stand(20)]) },
+  { id: 'airSlash', group: 'Fighting', label: 'Jump attack: overhead chop', weapon: SWORD, ...sequence([stand(20), jumpAttack(14, 30), stand(20)]) },
+  { id: 'airSlashLand', group: 'Fighting', label: 'Jump attack, landing mid-swing', weapon: SWORD, ...sequence([stand(20), jumpAttack(30, 20), stand(20)]) },
 
   // ---- Hurt ----
   { id: 'hit', group: 'Hurt', label: 'Hit', ...sequence([stand(30), knocked(180), stand(40)]) },
@@ -475,7 +553,12 @@ export const SCENARIOS: Scenario[] = [
 
   // ---- Travel ----
   { id: 'swim', group: 'Travel', label: 'Swim', ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.speed) }), SWIM.speed)]) },
-  { id: 'swimSprint', group: 'Travel', label: 'Swim, sprinting', ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.sprintSpeed) }), SWIM.sprintSpeed)]) },
+  {
+    id: 'swimSprint',
+    group: 'Travel',
+    label: 'Swim, sprinting',
+    ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.sprintSpeed) }), SWIM.sprintSpeed)]),
+  },
   {
     id: 'swimStart',
     group: 'Travel',
@@ -491,20 +574,64 @@ export const SCENARIOS: Scenario[] = [
     ]),
   },
   { id: 'tread', group: 'Travel', label: 'Tread water', ...sequence([travel(240, 'swim', () => ({ effort: 0 }))]) },
-  { id: 'glide', group: 'Travel', label: 'Glide', prop: 'glider', ...sequence([travel(360, 'glide', (t) => ({ bank: Math.sin(t * 1.2) * 0.9, rise: -0.15 }), 12)]) },
-  { id: 'ride', group: 'Travel', label: 'Ride', prop: 'horse', start: 1200, ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]) },
+  {
+    id: 'glide',
+    group: 'Travel',
+    label: 'Glide',
+    prop: 'glider',
+    ...sequence([travel(360, 'glide', (t) => ({ bank: Math.sin(t * 1.2) * 0.9, rise: -0.15 }), 12)]),
+  },
+  {
+    id: 'ride',
+    group: 'Travel',
+    label: 'Ride',
+    prop: 'horse',
+    start: 1200,
+    ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]),
+  },
   { id: 'drive', group: 'Travel', label: 'Drive', prop: 'cart', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 6)]) },
-  { id: 'driveRoadster', group: 'Travel', label: 'Drive the roadster', prop: 'roadster', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]) },
-  { id: 'driveHauler', group: 'Travel', label: 'Drive the hauler', prop: 'hauler', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]) },
+  {
+    id: 'driveRoadster',
+    group: 'Travel',
+    label: 'Drive the roadster',
+    prop: 'roadster',
+    ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]),
+  },
+  {
+    id: 'driveHauler',
+    group: 'Travel',
+    label: 'Drive the hauler',
+    prop: 'hauler',
+    ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]),
+  },
   { id: 'row', group: 'Travel', label: 'Row', prop: 'rowboat', ...sequence([travel(240, 'row', () => ({ effort: 1 }), 3)]) },
   {
     id: 'rowTurns',
     group: 'Travel',
     label: 'Row: turn, back water, spin, stop',
     prop: 'rowboat',
-    ...sequence([rowing([[0, 0, 40], [1, 0, 150], [1, 1, 150], [1, -1, 150], [0, 0, 100], [-1, 0, 150], [0, 1, 120], [0, -1, 120], [0.4, 0, 180], [0, 0, 90]])]),
+    ...sequence([
+      rowing([
+        [0, 0, 40],
+        [1, 0, 150],
+        [1, 1, 150],
+        [1, -1, 150],
+        [0, 0, 100],
+        [-1, 0, 150],
+        [0, 1, 120],
+        [0, -1, 120],
+        [0.4, 0, 180],
+        [0, 0, 90],
+      ]),
+    ]),
   },
-  { id: 'helm', group: 'Travel', label: 'At the helm', prop: 'sloop', ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]) },
+  {
+    id: 'helm',
+    group: 'Travel',
+    label: 'At the helm',
+    prop: 'sloop',
+    ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]),
+  },
   { id: 'sit', group: 'Travel', label: 'Passenger', prop: 'cart', ...sequence([travel(240, 'sit', () => ({ effort: 0.3 }), 6)]) },
 ];
 

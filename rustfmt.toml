@@ -1,0 +1,6 @@
+# The Rust code's one format (cargo fmt; CI checks it). Wide lines, as the code was written, with
+# rustfmt's "Max" heuristics so short calls and literals stay on one line. Comments are wrapped by
+# hand at 100.
+edition = "2024"
+max_width = 160
+use_small_heuristics = "Max"

@@ -2,10 +2,9 @@
 // names by emoji (items, packs, vehicles, skills, places), the HUD's own by name (hearts, menu
 // buttons, quest marks), and money drawn as gold, silver and copper coins.
 import { EMOJI_ICONS, ICON_URLS, ITEM_ICONS, type IconName } from './icons.gen';
+import { esc } from '../../util/html';
 
 export type { IconName };
-
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** The painted icon for an emoji (or an item, for those with a picture of their own), if there is one. */
 export function iconUrl(emoji: string, itemId?: string): string | null {
@@ -18,6 +17,12 @@ export function iconHtml(emoji: string, itemId?: string, px = 32): string {
   const url = iconUrl(emoji, itemId);
   return url ? `<img class="ico" src="${url}" width="${px}" height="${px}" alt="" draggable="false">` : `<span class="emoji">${esc(emoji)}</span>`;
 }
+
+/** An emoji: a pictograph, with the variation selectors and joiners that make one out of several. */
+const EMOJI = /\p{Extended_Pictographic}(?:\u{FE0F}|\u{200D}\p{Extended_Pictographic}\u{FE0F}?)*/gu;
+
+/** Text with its emoji drawn as painted icons where there are any. */
+export const withIcons = (text: string, px = 16): string => esc(text).replace(EMOJI, (e) => (iconUrl(e) ? iconHtml(e, undefined, px) : e));
 
 /** One of the HUD's own icons, `px` wide. */
 export function uiIcon(name: IconName, px = 24): string {

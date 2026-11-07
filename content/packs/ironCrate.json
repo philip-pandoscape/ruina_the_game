@@ -1,0 +1,25 @@
+{
+  "id": "ironCrate",
+  "name": "Iron Fittings Crate",
+  "icon": "🔩",
+  "kind": "material",
+  "origin": "quarry",
+  "base": 0,
+  "labor": 10,
+  "fee": 0,
+  "inputs": [
+    {
+      "item": "ironOre",
+      "n": 6
+    }
+  ],
+  "look": {
+    "body": "ironCrate",
+    "model": {
+      "files": [
+        "pack_ironCrate"
+      ],
+      "yaw": -1.5707963267948966
+    }
+  }
+}

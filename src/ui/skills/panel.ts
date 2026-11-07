@@ -1,6 +1,6 @@
 import type { MenuPress } from '../../input/input';
-import { BOOK, NODES } from '../../skills';
-import type { Build } from '../../tuning';
+import { BOOK, NODES } from '../../content/skills';
+import type { Build } from '../../content/tuning';
 import { addTipSource, hideTip, wireTips } from '../theme/tooltip';
 import { SkillBook } from './book';
 import { esc, type SkillsContext } from './context';
@@ -36,7 +36,11 @@ export class SkillsPanel {
       },
     };
     this.book = new SkillBook(full, { openTree: (node) => this.open('tree', node), close: () => this.close() });
-    this.tree = new SkillTreeView(full, { book: () => this.open('book'), back: () => (this.treeFromBook ? this.open('book') : this.close()), close: () => this.close() });
+    this.tree = new SkillTreeView(full, {
+      book: () => this.open('book'),
+      back: () => (this.treeFromBook ? this.open('book') : this.close()),
+      close: () => this.close(),
+    });
     this.root.innerHTML = '';
     this.root.append(this.book.el, this.tree.el);
     wireTips();

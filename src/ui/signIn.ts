@@ -1,8 +1,33 @@
-import { register, signIn, Refused, type Account } from '../net/account';
-import type { LinkStatus } from '../net/worldLink';
 import { uiRoot } from './theme/scale';
 import { splash } from './splash';
 import './theme/front.css';
+
+/** Who is signed in. */
+export interface Account {
+  id: number;
+  username: string;
+  /** Reaches the developer pages and commands (the server's ADMIN_USERS; everyone in development). */
+  admin: boolean;
+}
+
+/** What signing in asks of the account API. The app hands it the API (src/net/account.ts), which the screen doesn't import. */
+export interface SignInApi {
+  signIn(username: string, password: string): Promise<Account>;
+  register(username: string, password: string): Promise<Account>;
+}
+
+/**
+ * online: connected. updating: the server is being updated (it said so, or hung up as a service
+ * restart); reconnecting: the connection dropped. Either way the world waits until it's back.
+ * kicked: another window took this character over. signed-out: the sign-in ended meanwhile.
+ */
+export type LinkStatus = 'online' | 'updating' | 'reconnecting' | 'kicked' | 'signed-out';
+
+/** The account API turned the request down with this status (401: the name or password is wrong). */
+const refusedWith = (err: unknown): number | null => {
+  const status = (err as { status?: unknown } | null)?.status;
+  return typeof status === 'number' ? status : null;
+};
 
 // What you see of the game server: the sign-in screen on the title screen before Emberholm loads,
 // the badge in the corner while you play (who you are, whether the server is there, Characters and
@@ -11,7 +36,11 @@ import './theme/front.css';
 //
 // The look is in src/ui/theme/front.css (and the badge's in theme.css).
 
-export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...children: Array<Node | string>): HTMLElementTagNameMap[K] {
+export function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Partial<HTMLElementTagNameMap[K]> = {},
+  ...children: Array<Node | string>
+): HTMLElementTagNameMap[K] {
   const e = Object.assign(document.createElement(tag), props);
   e.append(...children);
   return e;
@@ -40,7 +69,7 @@ export class SignInScreen {
   /** The server isn't answering: its card stays up while it's tried again. */
   private troubled = false;
 
-  constructor() {
+  constructor(private readonly api: SignInApi) {
     frontLayer().append(this.root);
   }
 
@@ -74,7 +103,12 @@ export class SignInScreen {
         resolve();
       };
       splash?.say('');
-      const c = card('The Game Server Is Not Answering', el('p', { textContent: text }), el('p', { className: 'fd-hint', textContent: 'Trying again by itself every few seconds.' }), again);
+      const c = card(
+        'The Game Server Is Not Answering',
+        el('p', { textContent: text }),
+        el('p', { className: 'fd-hint', textContent: 'Trying again by itself every few seconds.' }),
+        again,
+      );
       // Still not answering: the same card, without coming in again.
       if (this.troubled) c.classList.remove('fd-in');
       this.troubled = true;
@@ -111,7 +145,12 @@ export class SignInScreen {
       {},
       el('label', {}, 'Name', name),
       el('label', {}, 'Password', password),
-      ...(making ? [el('label', {}, 'Confirm Password', again), el('div', { className: 'fd-hint', textContent: 'Names are 3 to 20 letters, digits, - or _. Passwords need 8 or more characters.' })] : []),
+      ...(making
+        ? [
+            el('label', {}, 'Confirm Password', again),
+            el('div', { className: 'fd-hint', textContent: 'Names are 3 to 20 letters, digits, - or _. Passwords need 8 or more characters.' }),
+          ]
+        : []),
       error,
       submit,
     );
@@ -124,11 +163,12 @@ export class SignInScreen {
       submit.disabled = true;
       error.textContent = '';
       try {
-        done(await (making ? register : signIn)(name.value.trim(), password.value));
+        const { api } = this;
+        done(await (making ? api.register(name.value.trim(), password.value) : api.signIn(name.value.trim(), password.value)));
       } catch (err) {
         error.textContent = err instanceof Error ? err.message : String(err);
         submit.disabled = false;
-        if (err instanceof Refused && err.status === 401) password.select();
+        if (refusedWith(err) === 401) password.select();
       }
     };
     this.root.replaceChildren(
@@ -173,7 +213,7 @@ export class OnlineBadge {
     this.status = status;
     this.root.className = status === 'online' ? '' : status === 'reconnecting' || status === 'updating' ? 'reconnecting' : 'stopped';
     this.label.textContent = status === 'reconnecting' ? `${this.name} · Reconnecting` : status === 'updating' ? `${this.name} · Updating` : this.name;
-    this.root.title = status === 'online' ? 'Connected to the game server; your island is saved there' : '';
+    this.root.title = status === 'online' ? 'Connected to the game server; your life is saved there' : '';
   }
 }
 
@@ -198,11 +238,15 @@ export class NetOverlay {
     const [title, text] =
       kind === 'updating'
         ? ['Ruina Is Being Updated', "Hold tight: you'll be right back where you were."]
-        : ['Connection Lost', 'Your island is safe on the server. The game picks up where you were as soon as it is back.'];
+        : ['Connection Lost', 'Your life is safe on the server. The game picks up where you were as soon as it is back.'];
     this.status.textContent = kind === 'updating' ? 'Waiting for the New Server…' : 'Reconnecting…';
     const reload = el('button', { className: 'lui-btn small fd-quiet', type: 'button', textContent: 'Reload Now', hidden: true });
     reload.onclick = () => location.reload();
-    this.root = el('div', { id: 'ruina-net', className: kind }, card(title, el('div', { className: 'net-spin' }), el('p', { textContent: text }), this.status, reload));
+    this.root = el(
+      'div',
+      { id: 'ruina-net', className: kind },
+      card(title, el('div', { className: 'net-spin' }), el('p', { textContent: text }), this.status, reload),
+    );
     this.root.setAttribute('role', 'alertdialog');
     uiRoot().append(this.root);
     clearInterval(this.timer);
@@ -229,7 +273,7 @@ export function showStopped(why: 'kicked' | 'signed-out'): void {
   go.onclick = () => location.reload();
   const [title, text] =
     why === 'kicked'
-      ? ['Playing in Another Window', 'This character is now playing somewhere else. A character plays in one window at a time; your island was saved there.']
+      ? ['Playing in Another Window', 'This character is now playing somewhere else. A character plays in one window at a time; your life was saved there.']
       : ['Signed Out', 'Your sign-in has ended. Sign in again to carry on.'];
   const root = el('div', { id: 'ruina-net', className: 'stopped' }, card(title, el('p', { textContent: text }), go));
   uiRoot().append(root);

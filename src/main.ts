@@ -1,71 +1,64 @@
 import * as THREE from 'three';
-import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
-import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
-import { CrowdView, type CrowdSource } from './crowd/crowdView';
+import { defaultBuild, parseBuild, swapSlots, validBuild } from './content/build';
+import { loadBuild, saveBuild } from './app/savedBuild';
 import { crouchKeySlides, Input } from './input/input';
-import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
+import { WorldFeed, type NetActor } from './net/worldFeed';
 import { NetMonsters } from './net/netMonsters';
-import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
-import { NetSpells } from './net/netSpells';
-import { assetsReady } from './render/assets';
-import { isPine } from './render/open/foliage';
+import { Prediction } from './net/netPlayer';
+import { CAUSE_ABILITY, CAUSE_MONSTER, CAUSE_WEAPON, causeOf, NetSpells } from './net/netSpells';
 import { FollowCamera } from './render/camera';
-import { Hero, type WeaponAt } from './render/character';
+import { GRAPHICS } from './render/look';
+import { Hero } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
-import { actorKindAt, actorKindIds, findKind, kindName } from './content/actors';
-import { isAlive, type Actor } from './sim/actor';
-import { behaviour, startBrain, stateName, stateProgress } from './sim/ai/brain';
-import { targetOf } from './sim/combat/hit';
-import { createTargeting } from './app/targeting';
-import { Hud } from './render/hud';
-import { BATTLEFIELD_STAGE, Stage, TRAINING_STAGE } from './render/scene';
-import { CIRCLE, SpellView } from './render/spells';
+import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/actors';
+import { isAlive, behaviour, stateProgress } from './engine/creatures';
+import { type Actions, angleDiff, resolveSkills } from './engine/rules';
+import { dungeonDef, groundAt } from './engine/zone';
+import { ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/life';
+import { Aiming } from './app/aiming';
+import { Hud } from './ui/hud';
+import { SpellView } from './render/spells';
 import { Vfx } from './render/vfx';
-import { Sim } from './sim/sim';
-import { TrainingRange } from './sim/training';
-import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
-import { bandAround, makeBattlefield, makeWorld } from './sim/world';
 import { MissileView } from './render/missiles';
-import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
-import { groundAt, inRect } from './sim/zone/colliders';
-import type { BoxCollider, Deck } from './sim/zone/types';
-import { Life, type Command } from './sim/life/life';
-import { runCommand, type FocusAction } from './sim/life/interact';
-import type { LifeState } from './sim/life/state';
-import { LifeView, sitIn } from './render/open/life';
-import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife, saveData, saveLife } from './app/save';
+import { Engine } from './engine/engine';
+import { LandView } from './render/open/land';
+import { LifeUI, type LifePress } from './ui/life/lifeUI';
+import { clearLife, savedLife } from './app/save';
 import { goOnline } from './app/online';
-import { leaveFor, plainUrl } from './app/resume';
-import { signOut } from './net/account';
-import { NetOverlay, OnlineBadge, showStopped } from './ui/signIn';
+import { readOptions } from './app/options';
+import { makeTestApi } from './app/testApi';
+import { startEngine, useContent } from './engine/load';
+import { fixtureWorld } from './app/fixture';
+import { type GrowerPort, RegionGrower } from './app/grower';
+import { Regions } from './app/regions';
+import { rigCamera } from './app/cameraRig';
+import { makeStep } from './app/step';
+import { startLoop } from './app/loop';
+import { makeDrawing } from './app/drawing';
+import { wireOnline } from './app/onlineWiring';
+import { wireBugReports } from './app/bugWiring';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
+import { PeersView } from './render/open/peersView';
 import { MinigamesUI } from './ui/minigames/minigames';
+import { ChannelsUI } from './ui/channels/channelsUI';
 import { PartyUI } from './ui/party/partyUI';
 import { uiIcon } from './ui/theme/icons';
-import { GameTables, seatedState } from './render/open/gameTables';
-import type { SpaceView, WorldTick, YouState } from './net/worldLink';
-import { addHouseColliders } from './sim/life/housing';
-import { addScarecrowCollider } from './sim/life/farming';
+import { GameTables } from './render/open/gameTables';
+import type { SpaceView } from './net/worldLink';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
-import { dismount, ridden } from './sim/life/vehicles';
-import { AutoWalk } from './app/autoWalk';
+import { AutoWalk } from './input/autoWalk';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
-import { angleDiff } from './sim/math';
-import { hourAt, hourOfDay } from './sim/life/weather';
-import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
-import type { MarkerKind } from './render/hud';
-import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
+import { ABILITY_ICONS, WEAPON_ICONS } from './ui/icons';
+import type { MarkerKind } from './ui/hud';
+import { NODES } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
-import { skillBudget, trainedBy } from './sim/life/progress';
-import { ABILITIES, abilityMpFor, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, meleeTargets, movementCooldownFor, movementStaminaFor, MP, NO_ABILITY, STAMINA, STEP, type Build } from './tuning';
-import { heightAboveGround } from './sim/player/traverse';
+import { type Build } from './content/tuning';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
 import './ui/theme/windows.css';
@@ -74,114 +67,107 @@ import { initUiScale } from './ui/theme/scale';
 import { Portraits } from './render/portrait';
 import { Studio } from './render/studio';
 import { DungeonVisit } from './app/dungeonVisit';
+import { Perf } from './app/perf';
+import { migrateStorage } from './app/storage';
+
+// What this browser kept under the game's old name moves to its new one, before anything reads it.
+migrateStorage(localStorage);
 
 // The UI is laid out on a virtual screen and scaled to the window; start that before anything
 // builds UI.
 initUiScale(document.getElementById('ui') as HTMLElement);
 
-// URL options:
-//   ?test          start paused so automated tests can step the game frame by frame
-//   ?raid=10000    raid stress test: two armies of fighters on a big battlefield
-//   &outline=0     raid without character outlines (to compare speed)
-//   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (server/)
-//     &team=0|1    which side to join (default: whichever the server picks)
-//     &play=0      just watch instead of joining
-//     &lag=150     testing: ask the server to delay this connection by 150 ms each way
-//   &softlock=0    turn off the automatic target pick; Tab still works
-//   (none)         the open world: Emberholm, the starter isle, played on the game server: sign in
-//                  and choose a character first, on the title screen; the server runs the island
-//                  and keeps it (src/app/online.ts)
-//     &as=name     development servers: sign straight in as name (a new account if it's new) and
-//                  play the character it played last
-//     &fresh       start your island over
-//   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
-//     &goblins=6   a war-band of goblins in the yard's far corner (design/goblins.md)
-//   ?world&test    the open world, offline and paused for automated tests (&load: the island
-//                  kept in this browser, for bug-report replays)
-//   &look=classic  the open world in its old bright toon look; &look=new forces the new one, which is
-//                  the default unless WebGL is drawn in software (src/render/look.ts); &lookdebug=ao
-//                  shows the new look's ambient occlusion alone
-//   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
-//   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
+// The address's options (?test, ?offline, ?as=name and the rest) are listed in src/app/options.ts.
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
-const params = new URLSearchParams(location.search);
-const testMode = params.has('test');
-const serverUrl = params.get('server');
-const raidCount = !serverUrl && params.has('raid') ? Math.max(100, Math.min(50000, Number(params.get('raid')) || 10000)) : 0;
-const battlefield = raidCount > 0 || !!serverUrl;
-const yardMode = params.has('yard') || (testMode && !params.has('world'));
-const openWorld = !battlefield && !yardMode;
-const team = params.has('team') ? Number(params.get('team')) & 1 : 255;
-const lagMs = Math.max(0, Math.min(2000, Number(params.get('lag')) || 0));
+const opt = readOptions();
+// The engine's WebAssembly (the rules the server runs, src/engine/load.ts), fetched while the rest starts.
+const engineLoading = startEngine();
+const { test: testMode, lag: lagMs } = opt;
 
-// The island's models load from the start (online, while you sign in and choose a character).
-const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
+// The world's models load from the start (online, while you sign in and choose a character).
+const modelsLoading = loadModels().then((m) => (splash?.step('models'), m));
 
 // Emberholm is played on the game server: sign in and choose a character, and it hands over their
-// island and build, and keeps them from then on. Automated tests and the training yard stay
-// offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island
-// being built and then fades into the game.
-const online = openWorld && !testMode ? await goOnline(params) : null;
+// life and build, and keeps them from then on. Automated tests (?test) and ?offline stay offline.
+// Online, all of it happens on the title screen (src/ui/splash.ts), which shows the world being
+// built and then fades into the game.
+const online = !testMode && !opt.offline ? await goOnline(opt) : null;
 if (splash) {
-  splash.say('Raising the Island…');
+  splash.say('Raising the World…');
   splash.toward('world', 3);
   await splash.paint();
 }
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
-// A war-band to fight in the yard, if asked for.
-const yardGoblins = yardMode ? Math.max(0, Math.min(24, Math.floor(Number(params.get('goblins')) || 0))) : 0;
-if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
-const terrain = world.terrain ?? null;
-/** Ground height under a point: the island's terrain, or 0 on the flat training grounds. */
-const groundY = (x: number, z: number): number => (terrain ? terrain.height(x, z) : 0);
-// Online (the battlefield, or Emberholm on the game server) the server decides hits, so the local
-// rules run without the training dummy and hit pause, and only predict your own moves.
-const serverRules = !!serverUrl || !!online;
-const sim = new Sim(world, { training: !serverRules });
 // Your skills and loadout, kept between visits: with your character on the game server in the open
-// world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
-// The welcome's is the build the server applied, already held to the points your island has earned
-// (which this page doesn't know until the island arrives), so it's only checked for shape here.
+// world, in this browser elsewhere. The welcome's is the build the server applied, already held to
+// the points your life has earned (which this page doesn't know until your life arrives), so
+// it's only checked for shape here.
 let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defaultBuild()) : loadBuild();
-sim.setBuild(build);
-if (terrain && !serverRules) {
-  // Offline on the island, start standing on the ground at the spawn rather than inside the hill
-  // (online the server puts you there, the same way).
-  const p = sim.player;
-  p.pos.y = groundAt(terrain, world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
-  p.prevPos = { ...p.pos };
-}
-const range = serverRules ? null : new TrainingRange(sim);
+// The rules, reached only through the engine (src/engine/): the world (or a copy of an instance, gone
+// into below), you in it, and offline the creatures and your arrows and meteors. Online (Emberholm on
+// the game server, and its instances) the server decides hits, so the rules here run without the
+// creatures and only predict your own moves.
+await engineLoading;
+// Offline, a fixture world of the tests' in place of the shipped one (?fixture=world), given to the
+// page's engine (and to its region grower below) before either reads anything.
+const fixture = opt.fixture && !online ? await fixtureWorld(opt.fixture) : null;
+if (fixture) useContent(fixture);
+const engine = new Engine({ online: !!online, build });
+// The world's regions grow in a worker as you travel (src/app/grower.ts, regions.ts): an engine of
+// its own, given the same content.
+// A world of one region (Emberholm alone, as shipped) has nothing to grow: no worker.
+const grower =
+  engine.layout && engine.layout.regions.length > 1 && typeof Worker === 'function'
+    ? new RegionGrower(new Worker(new URL('./app/grower.worker.ts', import.meta.url), { type: 'module' }) as unknown as GrowerPort, fixture)
+    : null;
+const { world, sim, range } = engine;
+/** The world's ground at the start. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
+const terrain = engine.terrain;
+
+// Online, what the server says of the world (you, monsters, arrows, meteors, effects), timed to be
+// drawn; inputs go out over the world link.
+const net = online ? new WorldFeed((seq, view, raw, stick) => online.link.sendInput(seq, view, [...raw, ...stick])) : null;
+const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
+// Online play: your hero is predicted here and corrected by the server; other players are drawn
+// from the server's updates (WorldPeers, with their vehicles and gliders).
+const prediction = net ? new Prediction(engine, net) : null;
+/**
+ * Online, while the server is away (being updated, or the connection dropped): no rules steps,
+ * nothing pressed counts, and the last frame stays up under the screen that says so.
+ */
+let frozen = false;
+const serverRules = engine.online;
+/** Ground height under a point: a copy's floor where you're in one, else the ground of the space you're in. */
+const groundY = (x: number, z: number): number => engine.groundY(x, z);
 if (splash) {
   splash.step('world');
   splash.say(splash.has('models') ? 'Planting the Forests…' : 'Loading Models…');
 }
-const models = modelsLoading ? await modelsLoading : {};
+const models = await modelsLoading;
 if (splash) {
   splash.say('Planting the Forests…');
   splash.toward('stage', 4);
   await splash.paint();
 }
-const openStage = openWorld ? new OpenStage(canvas, world, models) : null;
+if (!engine.home || !engine.layout) throw new Error('the engine started with no world in it');
+const openStage = new OpenStage(canvas, world, models, engine.home, engine.layout);
 if (splash) {
   splash.step('stage');
   splash.say('Waking the Townsfolk…');
   splash.toward('ready', 5);
   await splash.paint();
 }
-const stage: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; follow(x: number, z: number, y?: number): void; resize(w: number, h: number): void } =
-  openStage ?? new Stage(canvas, world, battlefield ? BATTLEFIELD_STAGE : TRAINING_STAGE);
+const stage = openStage;
 const hero = new Hero();
 stage.scene.add(hero.root);
-const dummy = new TrainingDummy(world.dummy.x, world.dummy.z);
-dummy.root.position.y = groundY(world.dummy.x, world.dummy.z);
-// Training only: online the server owns what lives in the world.
+// The training dummy's body, drawn where a dummy is: the rules' own offline, the server's online.
+const dummy = new TrainingDummy();
 const actorView = new ActorView(actorKindIds(), 64, terrain ? groundY : null);
 const dummyActor = () => sim.actorOfKind('dummy');
-dummy.root.visible = !serverRules;
+dummy.root.visible = false;
+const DUMMY_KIND = actorKindIndex('dummy');
 stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
 // What creatures throw, in flight. Offline only for now: online the server flies them.
@@ -193,102 +179,28 @@ const spells = new SpellView(stage.scene, vfx);
  * The terrain's height at (x, z) and above it whatever is drawn over it within `pad` metres (farm soil
  * and furrows: yours and everyone else's here), for what lies on the ground to lie on top of.
  */
-const drawnGround = (x: number, z: number, pad: number): number =>
-  terrain ? terrain.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peers?.raisedAt(x, z, pad) ?? 0) : 0;
-// Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
+const drawnGround = (x: number, z: number, pad: number): number => {
+  const ground = engine.terrain;
+  return ground ? ground.height(x, z) + Math.max(landView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
+};
+// Warning circles lie on the world's hills and farms (and on a deck or roof under whoever they're
 // about), floating on the sea rather than sinking under it.
 if (terrain) {
+  // Every region's grid is on one lattice (a whole number of cells to a chunk), the first region's.
+  const grid = world.zone!.gen.terrain;
   spells.ground = {
-    cell: terrain.cell,
-    origin: terrain.min,
-    height: (x, z, near, pad) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
+    cell: grid.cell,
+    origin: grid.minX,
+    height: (x, z, near, pad) => {
+      const ground = engine.terrain ?? terrain;
+      return Math.max(ground.water, Number.isFinite(near) ? groundAt(ground, world.index, x, z, near, 0.5) : ground.height(x, z), drawnGround(x, z, pad));
+    },
   };
 }
-const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
-// Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
-// rather than looking through a wall.
-if (terrain)
-  follow.groundAt = (x, z) => {
-    // Indoors, not below the floor of the storey you are on.
-    const inside = openStage?.village.indoors;
-    let floor = -Infinity;
-    if (inside) {
-      const b = inside.building;
-      const c = Math.cos(b.rot);
-      const s = Math.sin(b.rot);
-      const lx = (x - b.x) * c - (z - b.z) * s;
-      const lz = (x - b.x) * s + (z - b.z) * c;
-      if (Math.abs(lx) < b.plan.w / 2 && Math.abs(lz) < b.plan.d / 2) floor = inside.floor + 0.45;
-    }
-    return Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45, floor);
-  };
-// Goblin's Dread: under the hood of rock over the ledge behind the Windspire's falls the ground
-// behind you is the cliff above the hood, so the eye stays under the hood instead (camera.ts).
-if (terrain && world.index) {
-  const idx = world.index;
-  follow.terrainAt = (x, z) => terrain.height(x, z);
-  follow.ceiling = (x, y, z) => {
-    const found: { d: Deck | null } = { d: null };
-    idx.eachDeck(x, z, 0.5, (d) => {
-      if (d.top > y + 1 && d.top < y + 12 && inRect(d, x, z) && (!found.d || d.top < found.d.top)) found.d = d;
-    });
-    const hood = found.d;
-    if (!hood) return null;
-    const eye = hood.top - 2.1;
-    // Only a hood with room for the eye under it, above the ground and the sea (not a pier over a swimmer).
-    if (eye < Math.max(terrain.water, terrain.height(x, z)) + 1.2) return null;
-    return { eye, under: (px, pz) => inRect(hood, px, pz, 0.6) };
-  };
-}
-if (world.index) {
-  const idx = world.index;
-  follow.blocker = (fx, fy, fz, cx, cy, cz) => {
-    let best = 1;
-    const mx = (fx + cx) / 2;
-    const mz = (fz + cz) / 2;
-    const reach = Math.hypot(cx - fx, cz - fz) / 2 + 1;
-    const village = openStage?.village ?? null;
-    const indoors = village?.indoors ?? null;
-    /** Where along the segment it first meets a box (padded), unless it passes over the box's top. */
-    const meet = (b: BoxCollider, top: number, pad: number) => {
-      // The segment in the box's own frame, clipped against its padded footprint.
-      const ax = fx - b.x;
-      const az = fz - b.z;
-      const bx = cx - b.x;
-      const bz = cz - b.z;
-      const la = [ax * b.cos - az * b.sin, ax * b.sin + az * b.cos];
-      const lb = [bx * b.cos - bz * b.sin, bx * b.sin + bz * b.cos];
-      const half = [b.hw + pad, b.hd + pad];
-      let t0 = 0;
-      let t1 = 1;
-      for (let k = 0; k < 2; k++) {
-        const d = lb[k] - la[k];
-        if (Math.abs(d) < 1e-9) {
-          if (Math.abs(la[k]) > half[k]) return;
-          continue;
-        }
-        const ta = (-half[k] - la[k]) / d;
-        const tb = (half[k] - la[k]) / d;
-        t0 = Math.max(t0, Math.min(ta, tb));
-        t1 = Math.min(t1, Math.max(ta, tb));
-        if (t0 > t1) return;
-      }
-      // Passing over the roof is fine.
-      if (fy + (cy - fy) * t0 > top) return;
-      best = Math.min(best, t0);
-    };
-    idx.eachBox(mx, mz, reach, (b) => {
-      if (b.top < -1e8) return;
-      // The building you are in holds the camera with its whole walls, below (indoors.shell).
-      if (indoors && village?.inIndoors(b.x, b.z)) return;
-      meet(b, b.top, 0.25);
-    });
-    // Every building's walls, doorways and all: the camera never slips into one through its door, and
-    // indoors the room keeps it in up to where the house is cut open.
-    village?.eachShell(mx, mz, reach, (w, top) => meet(w, top, 0.2));
-    return Math.max(0.12, best - 0.03);
-  };
-}
+const follow = new FollowCamera(innerWidth / innerHeight, GRAPHICS.viewDistance, 40);
+// The camera is the scene's, so it moves with the scene's origin (src/render/origin.ts) as all else does.
+stage.scene.add(follow.camera);
+rigCamera(follow, engine, openStage);
 follow.reset(world.spawn.facing);
 const input = new Input(canvas);
 // C slides you on the run; standing still it only crouches, and in the air it only flares the glider.
@@ -300,41 +212,56 @@ hud.setDevice(input.lastDevice);
 let bugs: BugReporter | null = null;
 
 // ---------- The open world's life systems: trade, farming, housing, vehicles, quests ----------
-const life = openWorld && world.zone ? new Life(world.zone) : null;
-if (life) sim.life = life;
-if (life) {
-  // Every command the island is given goes into a bug report's event log.
-  const command = life.command.bind(life);
-  life.command = (c) => {
-    const { t, ...rest } = c;
-    bugs?.note('command', { type: t, ...rest });
-    command(c);
-  };
+const life = engine.life;
+/** Gives your life a command, noted in a bug report's event log: the windows' commands come through here. */
+function lifeCommand(c: Command): void {
+  const { t, ...rest } = c;
+  bugs?.note('command', { type: t, ...rest });
+  engine.command(c);
 }
 input.worldMode = !!life;
 if (terrain) {
   vfx.ground = groundY;
-  vfx.raised = (x, z, r) => drawnGround(x, z, r) - terrain.height(x, z);
+  vfx.raised = (x, z, r) => drawnGround(x, z, r) - (engine.terrain ?? terrain).height(x, z);
 }
-const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
-if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
+const landView = life && models ? new LandView(stage.scene, life, models, hero) : null;
+if (landView && openStage) landView.onGroundChanged = () => openStage.foliage.invalidate();
 // Your houses are drawn by the village, from its kit, as far as each is built.
-if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
+if (landView && openStage) landView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
 const walker = life ? new AutoWalk({ sim, world, life }) : null;
-const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined }) : null;
+const lifeUI = life
+  ? new LifeUI({
+      life,
+      command: lifeCommand,
+      sim,
+      world,
+      camera: () => follow.camera,
+      yaw: () => follow.yaw,
+      device: () => input.lastDevice,
+      walk: walker ?? undefined,
+      layout: engine.layout,
+    })
+  : null;
+// The regions round you: grown ahead of you in the worker, adopted, drawn and mapped as they come,
+// let go behind you.
+const regions = grower ? new Regions({ engine, stage: openStage, pictures: lifeUI?.pictures ?? null, grower, frame: () => sim.frame }) : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
-const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
+const peers = online && life && world.zone ? new WorldPeers(world.zone, engine, life, online.welcome.character.id, online.link) : null;
+// ...and drawn: a body and a name each, and what of theirs everyone sees (src/render/open/peersView.ts).
+const peersView = online && peers && models ? new PeersView(stage.scene, models, peers, online.welcome.character.id) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
-if (peers && openStage) peers.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
-if (peers) peers.mineView = lifeView;
-if (peers && life) life.othersVehicles = () => peers.vehicles(sim.player);
+if (peersView && openStage) peersView.onGroundChanged = () => openStage.foliage.invalidate();
+if (peersView && openStage) peersView.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
+if (peersView) peersView.mineView = landView;
+if (peers && life) engine.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
   const me = online.welcome.character.name;
-  life.plotOwner = (plot) => {
-    const holder = online.link.claims[plot];
-    return holder && holder !== me ? holder : null;
+  engine.plotOwners = () => {
+    const held: Record<string, string> = {};
+    for (const [plot, holder] of Object.entries(online.link.claims)) if (holder && holder !== me) held[plot] = holder;
+    return held;
   };
 }
 // Online: mini-games with the other players here (src/ui/minigames), at tables everyone in the
@@ -343,7 +270,12 @@ if (online && life) {
 const gameTables = online ? new GameTables(stage.scene) : null;
 const minigames =
   online && life && lifeUI
-    ? new MinigamesUI({ link: online.link, life, openPanel: () => lifeUI.openPanel, freeMouse: () => document.pointerLockElement && document.exitPointerLock() })
+    ? new MinigamesUI({
+        link: online.link,
+        life,
+        openPanel: () => lifeUI.openPanel,
+        freeMouse: () => document.pointerLockElement && document.exitPointerLock(),
+      })
     : null;
 // Online: parties (src/ui/party): invite someone by name or from the players near you (O), and go
 // into a dungeon's copy together.
@@ -358,42 +290,55 @@ const party =
           const p = sim.player.pos;
           return peers
             .list()
-            .filter((o) => o.online)
+            .filter((o) => o.online && !o.bot)
             .map((o) => ({ id: o.id, name: o.name, dist: Math.hypot(o.x - p.x, o.z - p.z) }))
             .sort((a, b) => a.dist - b.dist);
         },
       })
     : null;
 if (party && lifeUI) lifeUI.addMenuButton('party', uiIcon('party', 34), 'Party', 'O');
-if (lifeUI && (minigames || party)) lifeUI.intercept = (k) => !!minigames?.intercept(k) || !!party?.intercept(k);
+// Online: channels (src/ui/channels): your region's channels, a way to another or to your party's,
+// and a notice while yours closes. It docks where the Party window does: one closes the other.
+const channels =
+  online && lifeUI
+    ? new ChannelsUI({
+        link: online.link,
+        regionName: (id) => (world.zone?.recipe.id === id ? world.zone.recipe.name : id),
+        freeMouse: () => document.pointerLockElement && document.exitPointerLock(),
+        onOpen: () => party?.close(),
+      })
+    : null;
+if (party && channels) party.onOpen = () => channels.close();
+if (channels && lifeUI) lifeUI.addMenuButton('channels', uiIcon('portal', 34), 'Channels', '');
+// The Admin menu, for admins only (the server says who): Developer Tools, the developer zones and pages.
+if (online?.welcome.dev && lifeUI) lifeUI.addMenuButton('admin', uiIcon('mallet', 34), 'Admin', '');
 // ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
 const visit = life
   ? new DungeonVisit({
-      sim,
-      life,
+      engine,
       stage: openStage,
       place: (x, y, z, facing) => {
         // Online the server moves you; this puts you there at once, as it says you've gone, rather
         // than a moment later with its next tick.
         if (!terrain) return;
         walker?.stop();
-        if (sim.player.mode === 'ride') dismount(life, sim);
-        const p = sim.player;
-        const gy = groundAt(terrain, world.index, x, z, y + 1.2, 1.2);
-        p.pos = { x, y: gy, z };
-        p.prevPos = { x, y: gy, z };
-        p.vel = { x: 0, y: 0, z: 0 };
-        p.facing = facing;
-        p.prevFacing = facing;
-        if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
-        p.grounded = true;
+        engine.place(x, z, facing, y);
         follow.reset(facing);
       },
       indoors: (inside) => {
-        if (lifeView) lifeView.indoors = inside;
+        if (landView) landView.indoors = inside;
       },
     })
   : null;
+// Offline, the address can start you in a copy of an instance (?test=yard, ?offline=goblinCamp),
+// as if you had come through its door.
+if (!online && opt.space) visit?.enterDungeonHere(opt.space, true);
+// Offline, fallen out of the bottom of a copy, the rules put you back where it's entered: the
+// camera and auto-run follow.
+engine.onPlaced = (facing) => {
+  walker?.stop();
+  follow.reset(facing);
+};
 /**
  * F at a dungeon's portal (its prompt: interact.ts enterDungeon / leaveDungeon). Offline the browser
  * takes you through itself; online the server takes you, with your party, into your copy.
@@ -407,27 +352,27 @@ function onPortal(enter: boolean, dungeon: string): void {
   if (enter) visit.enterDungeonHere(dungeon, true);
   else visit.leaveDungeonHere(true);
 }
-if (lifeUI && life) {
-  const before = lifeUI.intercept;
-  lifeUI.intercept = (k) => {
-    const f = life.focus;
-    if (k === 'interact' && (f?.action === 'enterDungeon' || f?.action === 'leaveDungeon')) {
-      if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
-      return true;
-    }
-    return before?.(k) ?? false;
-  };
+/** F at a dungeon's portal or its way out: through it (online, the server takes you). */
+function portalPress(k: LifePress): boolean {
+  const f = life?.focus;
+  if (k !== 'interact' || (f?.action !== 'enterDungeon' && f?.action !== 'leaveDungeon')) return false;
+  if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
+  return true;
 }
+// A key the life's windows would take goes first to a dungeon's portal, then a mini-game, then the
+// party window, then the channels'.
+if (lifeUI) lifeUI.intercept = (k) => portalPress(k) || !!minigames?.intercept(k) || !!party?.intercept(k) || !!channels?.intercept(k);
 // ---------- end Goblin's Dread ----------
-if (peers && gameTables) peers.stoolFor = (id) => gameTables.seatOf(id);
+if (peersView && gameTables) peersView.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
-  life.othersAround = () => {
+  engine.othersAround = () => {
     if (minigames.seated) return [];
     const playing = new Set((online.link.latest?.tables ?? []).flatMap((t) => t.seats.map((s) => s.id)));
-    const busy = (id: number, mode: string) => (playing.has(id) ? 'At a Table' : mode === 'ride' ? 'Riding' : mode === 'glide' ? 'In the Air' : mode === 'swim' ? 'Swimming' : null);
+    const busy = (id: number, mode: string) =>
+      playing.has(id) ? 'At a Table' : mode === 'ride' ? 'Riding' : mode === 'glide' ? 'In the Air' : mode === 'swim' ? 'Swimming' : null;
     return peers
       .list()
-      .filter((p) => p.online)
+      .filter((p) => p.online && !p.bot)
       .map((p) => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, busy: busy(p.id, p.mode) }));
   };
 }
@@ -436,14 +381,14 @@ if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
 if (online && lifeUI) lifeUI.playerName = online.welcome.character.name;
 /**
  * The hour of the day the sky shows. Online it is the world's, from the server's clock, so everyone
- * in Emberholm sees the same sky at the same moment (each island's own clock ran on by itself while
- * its player was away); offline it is the island's.
+ * in Emberholm sees the same sky at the same moment (each life's own clock ran on by itself while
+ * its player was away); offline it is the life's.
  */
-const skyHour = (): number => (!life ? 12 : online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
+const skyHour = (): number => (online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
 if (online && lifeUI) lifeUI.skyHour = skyHour;
 // The rain and the wind run on the world's clock too (the server decides the rain; the wind you sail
 // on is worked out here between its updates from the same clock).
-if (online && life) life.worldClock = () => online.link.serverNow() / 1000;
+if (online && life) engine.worldClock = () => online.link.serverNow() / 1000;
 // Faces for the UI. Yours (beside your health, in the skill tree) and all of you (the character
 // window) come from a studio of their own: you as you look, whatever you're doing, wherever you are,
 // at any hour (src/render/studio.ts). The person you're talking to is taken from the scene, kept a
@@ -455,13 +400,17 @@ const NPC_LAYER = 2;
 /** A picture for the UI: 'player' (your face) or 'body' (all of you) from the studio, or an NPC's id. */
 function portraitOf(who: string): string | null {
   if (who === 'player' || who === 'body') {
-    return studio.shot(who === 'player' ? 'face' : 'body', { weapon: sim.player.weapon, team: serverUrl ? sim.player.team : 0, who: String(online?.welcome.character.id ?? '') });
+    return studio.shot(who === 'player' ? 'face' : 'body', {
+      weapon: sim.player.weapon,
+      team: sim.player.team,
+      who: String(online?.welcome.character.id ?? ''),
+    });
   }
   const shot = portraits.get(who);
   if (!shot || shot.age > 1500) {
     // Just them, framed from in front of their face. You stand right beside whoever you talk to, so
     // with everything drawn your own head would fill the picture.
-    const body = lifeView?.villager(who);
+    const body = landView?.villager(who);
     if (body) {
       body.traverse((c) => c.layers.enable(NPC_LAYER));
       stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(NPC_LAYER));
@@ -475,52 +424,40 @@ function portraitOf(who: string): string | null {
 }
 if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
-// Online the game server runs your island and keeps it (server/src/world_game.rs): your commands go
-// to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
-// over. Automated tests run the island here instead, starting fresh every time unless they ask for
-// the one kept in this browser (?world&test&load, which is how bug reports are replayed).
+// Online the game server runs your life and keeps it (crates/server/src/sim/mod.rs): your commands go
+// to it, and what it says your life holds replaces this copy as it arrives. ?fresh starts it
+// over. Automated tests run your life here instead, starting fresh every time unless they ask for
+// the one kept in this browser (?test&load, which is how bug reports are replayed).
 if (life && online) {
-  // Starting over: the old island must be gone before this page shows one.
-  if (params.has('fresh')) await online.link.reset();
-  life.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
+  // Starting over: the old life must be gone before this page shows one.
+  if (opt.fresh) await online.link.reset();
+  engine.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
   // ?lag=ms plays a local server as one far away would feel.
   online.link.lag = lagMs;
 }
-if (life && testMode && params.has('load')) loadLife(life, sim);
-// The island's skill points hold your build to what you've earned, as the server does on joining:
-// a build they can't cover falls back to Sword Training. Online the welcome already says what the
-// server chose, except when ?fresh has just started the island, and its points, over.
-if (life && (!online || params.has('fresh')) && !validBuild(build, skillBudget(life.state))) {
-  build = defaultBuild();
-  sim.setBuild(build);
+if (life && testMode && opt.load) {
+  const saved = savedLife();
+  if (saved) engine.loadLife(saved);
 }
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
-function teleport(x: number, z: number, facing = sim.player.facing): void {
+function teleport(x: number, z: number, facing = engine.player.facing): void {
   if (!terrain) return;
   // Somewhere else entirely: whatever was walking you there has nothing left to follow.
   walker?.stop();
   // Online only the server can move you.
   if (online) {
-    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<Life['command']>[0]);
+    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing });
     return;
   }
-  if (life && sim.player.mode === 'ride') dismount(life, sim);
-  const p = sim.player;
-  // Inside a dungeon the floor is its own, far over the island's ground.
-  const floor = visit?.floorHere() ?? terrain.height(x, z);
-  const y = groundAt(terrain, world.index, x, z, floor + 1.2, 1.2);
-  p.pos = { x, y, z };
-  p.prevPos = { x, y, z };
-  p.vel = { x: 0, y: 0, z: 0 };
-  p.facing = facing;
-  p.prevFacing = facing;
-  if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
-  p.grounded = true;
+  // Inside a dungeon its floors are all there is, over nothing.
+  engine.place(x, z, facing);
   follow.reset(follow.yaw);
 }
 if (lifeUI) {
   lifeUI.onTeleport = (x, z, facing) => teleport(x, z, facing);
+  // Admins go into the developer zones from the Admin window (the server checks it's an admin).
+  if (online?.welcome.dev) lifeUI.onEnterZone = (id) => online.link.zone(id);
   lifeUI.onReset = async () => {
     if (online) await online.link.reset();
     else clearLife();
@@ -544,7 +481,12 @@ function rideCamera(dt: number, now: number): void {
   }
   if (footDistance < 0) footDistance = follow.distance;
   const v = life ? ridden(life, sim) : undefined;
-  const want = p.mode === 'glide' ? RIDE_CAMERA.glideDistance : v && isBoat(rideable(v.def)) ? RIDE_CAMERA.boatDistance * Math.max(1, rideable(v.def).length / 9) : RIDE_CAMERA.rideDistance;
+  const want =
+    p.mode === 'glide'
+      ? RIDE_CAMERA.glideDistance
+      : v && isBoat(rideable(v.def))
+        ? RIDE_CAMERA.boatDistance * Math.max(1, rideable(v.def).length / 9)
+        : RIDE_CAMERA.rideDistance;
   follow.distance += (want - follow.distance) * (1 - Math.exp(-2.5 * dt));
   const moving = Math.hypot(p.vel.x, p.vel.z) > 1.5;
   if (moving && now - lastCameraTouch > RIDE_CAMERA.autoDelay * 1000) {
@@ -552,40 +494,27 @@ function rideCamera(dt: number, now: number): void {
   }
 }
 input.onDeviceChange = (d) => hud.setDevice(d);
-// The training yard keeps the experience of its skills in this browser; the open world keeps it
-// with your island (src/sim/life/progress.ts).
-const YARD_XP = 'yggdrasil.skillxp';
-const yardXp: Record<string, number> = (() => {
-  try {
-    const v = JSON.parse(localStorage.getItem(YARD_XP) ?? '{}');
-    return v && typeof v === 'object' ? v : {};
-  } catch {
-    return {};
-  }
-})();
-let yardSaved = 0;
-function yardTrain(e: GameEvent): void {
-  const b = trainedBy(e);
-  if (b < 0) return;
-  const id = BOOK[b].id;
-  const before = levelOf(yardXp[id] ?? 0);
-  yardXp[id] = (yardXp[id] ?? 0) + 1;
-  if (levelOf(yardXp[id]) > before || performance.now() - yardSaved > 3000) {
-    yardSaved = performance.now();
-    try {
-      localStorage.setItem(YARD_XP, JSON.stringify(yardXp));
-    } catch {
-      /* storage unavailable */
-    }
-  }
+/** Whether you're in a developer zone, which is for trying weapons and skills. */
+const inDeveloperZone = (): boolean => !!(visit?.inside && dungeonDef(visit.inside)?.developer);
+/**
+ * Points you may have in the tree: earned in the world, and the whole tree in a developer zone (the
+ * server allows the same).
+ */
+const skillPoints = (): number => {
+  if (inDeveloperZone()) return NODES.length;
+  return skillBudget(life.state);
+};
+// Your points hold your build to what you may spend where you are, as the server does on joining:
+// a build they can't cover falls back to Sword Training. Online the welcome already says what the
+// server chose, except when ?fresh has just started your life, and its points, over.
+if ((!online || opt.fresh) && !validBuild(build, skillPoints())) {
+  build = defaultBuild();
+  engine.setBuild(build);
 }
-if (!life) sim.levels = levelsFrom(yardXp);
-/** Points you may have in the tree: earned on the island, a training budget elsewhere. */
-const skillPoints = () => (life ? skillBudget(life.state) : SKILL_POINTS);
 const panel = new SkillsPanel(build, {
   budget: skillPoints,
-  budgetNote: () => (life ? 'Earned from quests and milestones' : 'Training yard: points to try builds with'),
-  xp: () => (life ? life.state.skillXp ?? {} : yardXp),
+  budgetNote: () => (inDeveloperZone() ? 'A developer zone: the whole tree to try builds with' : 'Earned from quests and milestones'),
+  xp: () => life.state.skillXp ?? {},
   levels: () => sim.levels,
   portrait: () => portraitOf('player'),
   device: () => input.lastDevice,
@@ -602,7 +531,6 @@ if (lifeUI) {
     if (!panel.isOpen && !frozen) input.capture();
   };
 }
-const DEG = Math.PI / 180;
 
 // What the target plate's cast bar calls a monster's cast, by the behaviour state casting it.
 const CASTS: Record<string, string> = { gather: 'Gathering' };
@@ -626,21 +554,9 @@ function castOf(key: string): { label: string; progress: number } | null {
   return { label: CASTS[s.name] ?? s.name, progress: stateProgress(a) };
 }
 
-// What the target plate calls each kind. Content, not rules, so it lives next to the UI.
-const NAMES: Record<string, string> = {
-  dummy: 'Training Dummy',
-  slimelet: 'Slimelet',
-  slime: 'Slime',
-  'great-slime': 'Great Slime',
-  'slime-monarch': 'Slime Monarch',
-  // Creatures with files of their own name themselves (shared/creatures/).
-  ...Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : []))),
-};
+// What the target plate calls each kind: its name in its file (shared/actors.json, shared/creatures/).
+const NAMES: Record<string, string> = Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : [])));
 
-// The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
-const crowd = raidCount ? new CrowdSim(raidCount) : null;
-const net = serverUrl ? new NetCrowd(serverUrl) : online ? NetCrowd.detached((seq, raw, stick) => online.link.sendInput(seq, [...raw, ...stick])) : null;
-const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
 // The server's monsters: drawn between its updates, at the moment other players are drawn
 // (shownActors), and as it has them now (presentActors) for what has to be on time - warnings, and
 // guessing whether your swing connects. NetMonsters gives online hits their sparks and flashes.
@@ -648,65 +564,29 @@ const netMonsters = net ? new NetMonsters(groundY) : null;
 let shownActors: NetActor[] = [];
 let presentActors: NetActor[] = [];
 const shownById = new Map<number, NetActor>();
-const crowdSource: CrowdSource | null = crowd ?? (serverUrl ? net : null);
-let crowdView: CrowdView | null = null;
-function addCrowdView(n: number): void {
-  crowdView = new CrowdView(n, params.get('outline') !== '0');
-  stage.scene.add(crowdView.group);
-}
-if (crowd) addCrowdView(crowd.n);
-let crowdAcc = 0;
-let lastViewSent = 0;
-
-// Online play: your fighter is predicted locally and corrected by the server; other players are drawn
-// from the server's updates.
-const playing = !!net && params.get('play') !== '0';
-const prediction = net && playing ? new Prediction(sim, net) : null;
-// Other players on the battlefield; in Emberholm they're drawn with their vehicles and gliders by
-// WorldPeers instead.
-const remotes = serverUrl ? new RemotePlayers(stage.scene) : null;
-let lastSnapshot = 0;
-let lastHp: number = COMBAT.maxHp;
-let shownTeam = -1;
-let scripted: Actions[] = []; // test hook: replaces the controller for a few frames
-let autoAttack = false; // test hook: swing at the nearest enemy you can see
-let autoCooldown = 0;
-if (net) {
-  net.onReady = (n) => {
-    addCrowdView(n);
-    if (playing) {
-      net.join(team);
-      net.sendBuild(build.skills, build.weapon, build.abilities, build.movement);
-    }
-    if (lagMs) net.setLag(lagMs);
-  };
-}
-if (net && !playing) hud.hideAbilities();
+const scripted: Actions[] = []; // test hook: replaces the controller for a few frames
 
 // A new build from the skill panel: save it, and use it (online, the server switches you over).
 function applyBuild(b: Build): void {
   build = b;
   if (online) online.link.saveBuild(b);
   else saveBuild(b);
-  if (net) net.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
   if (netSpells) netSpells.stats = resolveSkills(b.skills);
-  else sim.setBuild(b);
+  else engine.setBuild(b);
 }
-if (remotes) {
-  // Flinch and sparks for any hit you can see. The number itself only comes from the server's
-  // attributed events, so other people's hits don't put damage numbers on your screen.
-  remotes.onHurt = (x, y, z, damage, dirX, dirZ) => {
-    vfx.onEvent({ type: 'hit', frame: 0, index: damage >= 25 ? 2 : 0, damage, x, y, z, dirX, dirZ });
-  };
-}
+// Flinch and sparks for any hit on another player you can see. The number itself only comes from
+// the server's attributed events, so other people's hits don't put damage numbers on your screen.
+const showHurt = (x: number, y: number, z: number, damage: number, dirX: number, dirZ: number): void =>
+  vfx.onEvent({ type: 'hit', frame: 0, index: damage >= 25 ? 2 : 0, damage, x, y, z, dirX, dirZ });
+if (peers) peers.onHurt = showHurt;
 
-// Which icon goes beside a floating number, from the cause the server packed into the event.
+// Which icon goes beside a floating number, from the cause the server packed into the event: the
+// weapon's or the ability's own, or a monster's.
 function causeIcon(cause: number): string {
-  if (cause >= 1 && cause <= 4) return WEAPON_ICONS[cause - 1] ?? '';
-  if (cause === 5) return ABILITY_ICONS[1]; // meteor
-  if (cause === 6) return ABILITY_ICONS[0]; // heal
-  if (cause === 7) return '\u{1f43a}'; // a bot got you
-  if (cause === 8) return '\u{1f7e2}'; // a monster's slam
+  const { sort, index } = causeOf(cause);
+  if (sort === CAUSE_WEAPON) return WEAPON_ICONS[index] ?? '';
+  if (sort === CAUSE_ABILITY) return ABILITY_ICONS[index] ?? '';
+  if (sort === CAUSE_MONSTER) return '\u{1f7e2}'; // a monster's slam
   return '';
 }
 if (netSpells) {
@@ -717,7 +597,7 @@ if (netSpells) {
       const p = sim.player;
       const from = { x: p.pos.x, z: p.pos.z, index: p.mode === 'attack' ? p.attackIndex : 0 };
       const at = netMonsters.confirm(x, y, z, cause, from, net?.actorTimeline.newest() ?? [], shownById, sim.frame, performance.now());
-      for (const e of at.show) showEvent(e);
+      for (const e of at.show) drawing.showEvent(e);
       hud.marker(kind, at.x, at.y, at.z, amount, causeIcon(cause));
       return;
     }
@@ -725,312 +605,19 @@ if (netSpells) {
   };
 }
 
-// Test hook: swing at the nearest enemy you can see within reach (players first, then bots),
-// using the positions drawn on this screen.
-function autoAim(a: Actions): Actions {
-  if (autoCooldown > 0) {
-    autoCooldown--;
-    return a;
-  }
-  const me = sim.player.pos;
-  let best: { x: number; z: number } | null = null;
-  let bestD = 2.3;
-  for (const r of remotes?.list() ?? []) {
-    const d = Math.hypot(r.x - me.x, r.z - me.z);
-    if (r.team !== sim.player.team && r.hp > 0 && d < bestD) {
-      bestD = d;
-      best = r;
-    }
-  }
-  if (!best && net) {
-    for (let i = 0; i < net.n; i++) {
-      if (!net.known[i] || net.down[i] || net.team[i] === sim.player.team) continue;
-      const d = Math.hypot(net.rx[i] - me.x, net.rz[i] - me.z);
-      if (d < bestD) {
-        bestD = d;
-        best = { x: net.rx[i], z: net.rz[i] };
-      }
-    }
-  }
-  if (!best) return a;
-  autoCooldown = 30;
-  const dx = best.x - me.x;
-  const dz = best.z - me.z;
-  const l = Math.hypot(dx, dz) || 1;
-  return { ...a, moveX: dx / l, moveZ: dz / l, attackPressed: true };
-}
-
-// Enemies you could aim at, where they're drawn on this screen: the dummy, other players, bots.
-function forEachEnemy(fn: (x: number, z: number) => void): void {
-  const myTeam = sim.player.team;
-  if (!serverRules) for (const a of sim.actors.all()) if (isAlive(a) && a.faction !== 0 && a.faction !== 2) fn(a.x, a.z);
-  // The server's monsters (not townsfolk, not other players' things), where they're drawn.
-  for (const a of shownActors) {
-    const f = actorKindAt(a.kind)?.faction ?? 0;
-    if (a.deadFrame < 0 && f !== 0 && f !== 2) fn(a.x, a.z);
-  }
-  for (const r of remotes?.list() ?? []) if (r.team !== myTeam && r.hp > 0) fn(r.x, r.z);
-  if (net) {
-    for (let i = 0; i < net.n; i++) if (net.known[i] && !net.down[i] && net.team[i] !== myTeam) fn(net.rx[i], net.rz[i]);
-  }
-}
-
-function enemyAt(x: number, z: number, r: number): boolean {
-  let hit = false;
-  forEachEnemy((ex, ez) => {
-    if (!hit && (ex - x) * (ex - x) + (ez - z) * (ez - z) < r * r) hit = true;
-  });
-  return hit;
-}
-
-// Combat stance: with an enemy marked, or for a moment after you swing or cast, you keep facing
-// where the camera looks, so the stick strafes and backs off, and dodges and double jumps go any of
-// eight ways. Out of a fight you turn and run the way you push; sprinting always does (the rules
-// see to that). Swimming, gliding and riding ignore it.
-const STANCE_LINGER = 90; // frames the stance holds after your last swing or cast
-let lastFight = -Infinity;
-/** In a fight: an enemy marked, or a swing or cast just made. The hero's weapon is out for it. */
-const inAFight = (): boolean => lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
-function combatStance(a: Actions): Actions {
-  if (a.faceX !== 0 || a.faceZ !== 0) return a; // already given (tests)
-  if (net && !playing) return a;
-  const p = sim.player;
-  if (p.mode === 'attack' || p.mode === 'cast') lastFight = sim.frame;
-  if (!inAFight() || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
-  return { ...a, faceX: Math.sin(follow.yaw), faceZ: Math.cos(follow.yaw) };
-}
-
-// Aim assist: attacks and Meteor go toward the enemy you most likely mean, the nearest one close
-// to the direction you're pushing (or facing; the bow and Meteor use the camera's direction when you
-// stand still). With nothing to aim at, the bow and Meteor still go where the camera looks. The rules
-// only read the aim when an attack or cast starts, so it's only worked out while one is pending.
-function aimAssist(a: Actions): Actions {
-  if (a.aimX !== 0 || a.aimZ !== 0) return a; // already aimed (tests)
-  const p = sim.player;
-  const pending = a.abilitySlot || (p.abilityBuffer > 0 ? p.abilityBufferSlot : 0);
-  const aiming = pending >= 1 ? (p.abilities[pending - 1] ?? NO_ABILITY) : NO_ABILITY;
-  const casting = aiming !== NO_ABILITY && isGroundTargeted(aiming);
-  const attacking = a.attackPressed || p.attackBuffer > 0 || p.attackQueued;
-  if (!casting && !attacking) return a;
-  const bow = p.weapon === 3;
-  const ranged = casting || bow;
-  const moving = Math.hypot(a.moveX, a.moveZ) > 0.3;
-  const dir = moving ? Math.atan2(a.moveX, a.moveZ) : ranged ? follow.yaw : p.facing;
-  const swing = comboFor(p.weapon, sim.stats)[0];
-  const maxDist = casting ? (groundRange(aiming) ?? 16) : bow ? Math.min(30, swing.projectileRange ?? 30) : swing.reach + 1.6;
-  const cone = (casting ? 30 : bow ? 14 : 55) * DEG;
-  let best: { x: number; z: number } | null = null;
-  let bestScore = Infinity;
-  forEachEnemy((x, z) => {
-    const dx = x - p.pos.x;
-    const dz = z - p.pos.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist > maxDist || dist < 0.05) return;
-    let off = Math.abs(Math.atan2(dx, dz) - dir) % (Math.PI * 2);
-    if (off > Math.PI) off = Math.PI * 2 - off;
-    if (off > cone) return;
-    const score = dist / maxDist + off / cone;
-    if (score < bestScore) {
-      bestScore = score;
-      best = { x, z };
-    }
-  });
-  const target = best as { x: number; z: number } | null;
-  if (target) return { ...a, aimX: target.x - p.pos.x, aimZ: target.z - p.pos.z };
-  if (!ranged || moving) return a;
-  const reach = casting ? (ABILITIES[aiming]?.range ?? 9) : 20;
-  return { ...a, aimX: Math.sin(dir) * reach, aimZ: Math.cos(dir) * reach };
-}
-
-// ---------- Targeting ----------
-// A soft lock you can override with Tab; see app/targeting.ts.
-const lockOn = createTargeting({
-  sim,
-  camera: () => follow.camera,
-  yaw: () => follow.yaw,
-  remotes,
-  crowdSource,
-  net,
-  playing,
-  online: serverRules,
-  softLock: params.get('softlock') !== '0',
+// ---------- Aiming: the mark, the ground-aimed circle, aim assist, the combat stance (src/app/aiming.ts) ----------
+const aiming = new Aiming({
+  engine,
+  follow,
+  input,
+  softLock: opt.softLock,
   names: NAMES,
   netActors: () => shownActors,
+  peers: () => peers?.present() ?? [],
 });
-const updateTarget = () => lockOn.update();
-const cycleTarget = (step: number) => lockOn.cycle(step);
-
-// ---------- Ground-aimed casts: hold to place the circle, release to cast ----------
-
-// The circle is a cursor you push around, held as an offset from wherever you are. It can't be
-// a raycast through the middle of the screen: the camera always looks straight at you, so that
-// point is always your own feet however you tilt the sticks.
-const aimOffset = { x: 0, z: 0 };
-const reticle = { x: 0, z: 0, range: 0, radius: 0 };
-let aimingSlot = 0; // 0 none, 1 or 2 while that ability is held down
-
-// Opening the circle: start it on whoever is marked, so the common case of "drop it on that one"
-// needs no aiming at all. Otherwise put it out in front of the camera.
-function startAiming(maxRange: number): void {
-  const px = sim.player.pos.x;
-  const pz = sim.player.pos.z;
-  const mark = lockOn.mark();
-  if (mark) {
-    aimOffset.x = mark.x - px;
-    aimOffset.z = mark.z - pz;
-  } else {
-    aimOffset.x = Math.sin(follow.yaw) * maxRange * AIM.startRange;
-    aimOffset.z = Math.cos(follow.yaw) * maxRange * AIM.startRange;
-  }
-  clampAim(maxRange);
-}
-
-// Pushes the circle, in the directions the camera is facing, and keeps it inside the ability's
-// range rather than refusing to cast (GW2's "lock ground target at maximum range").
-function moveAim(right: number, away: number, maxRange: number): void {
-  if (right !== 0 || away !== 0) {
-    const fx = Math.sin(follow.yaw);
-    const fz = Math.cos(follow.yaw);
-    aimOffset.x += fx * away - fz * right;
-    aimOffset.z += fz * away + fx * right;
-  }
-  clampAim(maxRange);
-}
-
-function clampAim(maxRange: number): void {
-  const d = Math.hypot(aimOffset.x, aimOffset.z);
-  if (d > maxRange) {
-    aimOffset.x = (aimOffset.x / d) * maxRange;
-    aimOffset.z = (aimOffset.z / d) * maxRange;
-  }
-  reticle.x = sim.player.pos.x + aimOffset.x;
-  reticle.z = sim.player.pos.z + aimOffset.z;
-  reticle.range = maxRange;
-}
-
-// Reads the aiming controls once per rendered frame, before any sim steps use them. `cam` is
-// what the camera would have done; while the circle is up, that input moves the circle instead,
-// so the view stays put and you can see where the spell is going.
-let combat = input.pollCombat();
-// Escape while placing a circle, kept until a rules step has seen it: a fast screen draws frames
-// that run no step at all, and a press read in one of those would otherwise be lost.
-let cancelWaiting = false;
-function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boolean {
-  combat = input.pollCombat();
-  for (let i = 0; i < combat.nextTarget; i++) cycleTarget(1);
-  for (let i = 0; i < combat.prevTarget; i++) cycleTarget(-1);
-  if (combat.cancel > 0 && aimingSlot === 0) {
-    // Escape with nothing being aimed drops the target instead.
-    lockOn.clear();
-  } else if (combat.cancel > 0) {
-    cancelWaiting = true;
-  }
-  updateTarget();
-
-  if (aimingSlot === 0) {
-    follow.stopAiming();
-    return false;
-  }
-  const ability = sim.player.abilities[aimingSlot - 1] ?? NO_ABILITY;
-  const r = groundRange(ability);
-  if (r === null) {
-    aimingSlot = 0;
-    follow.stopAiming();
-    return false;
-  }
-  reticle.radius = abilityRadius(ability, sim.stats);
-  if (input.lastDevice === 'gamepad') {
-    // Left stick places the circle; the character stays put while you aim.
-    moveAim(combat.stickX * AIM.stickSpeed * dt, combat.stickY * AIM.stickSpeed * dt, r);
-  } else {
-    // Mouse, with the pointer captured: the movement that would have turned the camera slides
-    // the circle instead. dYaw is negated because turning right moves the view right.
-    moveAim((-cam.dYaw / CAMERA.mouseSensitivity) * AIM.mouseSpeed, (-cam.dPitch / CAMERA.mouseSensitivity) * AIM.mouseSpeed, r);
-  }
-  follow.aimAt(reticle.x, reticle.z);
-  return true;
-}
-
-// Turns the raw buttons into the actions the rules see: holding a ground-aimed ability arms it
-// instead of casting, releasing it casts at the circle, and the marked enemy supplies the aim.
-function targeting(a: Actions): Actions {
-  // The first step after an Escape takes it, whatever happens next.
-  const cancel = cancelWaiting;
-  cancelWaiting = false;
-  if (net && !playing) return a;
-  // An action that already carries an aim was aimed by whoever made it (the test hooks, and
-  // autoAim): it casts straight away rather than arming the circle, matching aimAssist().
-  if (a.aimX !== 0 || a.aimZ !== 0) return a;
-  let out = a;
-  if (aimingSlot === 0 && a.abilitySlot >= 1) {
-    const ability = sim.player.abilities[a.abilitySlot - 1] ?? NO_ABILITY;
-    if (groundRange(ability) !== null) {
-      // Ground-aimed: the press arms the circle instead of casting.
-      aimingSlot = a.abilitySlot;
-      out = { ...out, abilitySlot: 0 };
-      reticle.radius = abilityRadius(ability, sim.stats);
-      startAiming(groundRange(ability) ?? 16);
-    }
-  }
-  if (aimingSlot !== 0) {
-    // Escape, or B on a pad (which would otherwise slide), backs out without casting.
-    if (cancel || out.slidePressed) {
-      aimingSlot = 0;
-      return { ...out, slidePressed: false, abilitySlot: 0 };
-    }
-    if (combat.slotHeld !== aimingSlot) {
-      const slot = aimingSlot;
-      aimingSlot = 0;
-      return { ...out, abilitySlot: slot, aimX: reticle.x - sim.player.pos.x, aimZ: reticle.z - sim.player.pos.z };
-    }
-    // On a pad the left stick is placing the circle, so it mustn't also walk you around.
-    if (input.lastDevice === 'gamepad') return { ...out, moveX: 0, moveZ: 0, abilitySlot: 0 };
-    return { ...out, abilitySlot: 0 };
-  }
-  const p = sim.player;
-  const swinging = out.attackPressed || p.attackBuffer > 0 || p.attackQueued;
-  const mark = lockOn.mark();
-  // A blade only turns to the mark when it can reach it: swinging at the slime beside you while
-  // one further off is marked hits the one beside you (aimAssist), not the air. The bow shoots at
-  // the mark wherever it is.
-  const reach = p.weapon === 3 ? Infinity : comboFor(p.weapon, sim.stats)[0].reach + 1.6;
-  if (mark && swinging && Math.hypot(mark.x - p.pos.x, mark.z - p.pos.z) <= reach) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
-  return out;
-}
+const lockOn = aiming.lockOn;
 
 // Picks up a new server update: correct your prediction and refresh the other players.
-function syncNet(): void {
-  if (!net || net.snapshots === lastSnapshot) return;
-  lastSnapshot = net.snapshots;
-  if (prediction && net.you) {
-    prediction.reconcile(net.you.ack, net.you.player);
-    const hp = net.you.player.hp;
-    if (hp < lastHp) {
-      follow.shake(0.35);
-      input.rumble(0.7, 0.5, 120);
-    }
-    lastHp = hp;
-    // Team colours are the battlefield's; on Emberholm everyone is on the same side.
-    if (serverUrl && shownTeam !== net.you.player.team) {
-      shownTeam = net.you.player.team;
-      hero.setTeam(shownTeam);
-    }
-  }
-  remotes?.receive(net.players, net.lastTick);
-  netSpells?.receive(net.you?.id ?? null);
-}
-
-// What the player would land on right now (terrain, a deck, a roof), for the shadow blob.
-function groundUnder(x: number, z: number, y: number): number {
-  return terrain ? groundAt(terrain, world.index, x, z, y, 0.05) : 0;
-}
-
-// Soft round shadow right under the player, so you can always see where you'll land.
-const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false });
-const blob = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24).rotateX(-Math.PI / 2), blobMat);
-blob.renderOrder = 1;
-stage.scene.add(blob);
-
 function resize(): void {
   stage.resize(innerWidth, innerHeight);
   follow.resize(innerWidth / innerHeight);
@@ -1038,1245 +625,324 @@ function resize(): void {
 addEventListener('resize', resize);
 resize();
 
-const simPos = new THREE.Vector3();
-/** What F does that runs ahead online (see life.remote): packs in and out of hands and vehicles, getting in. */
-const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
-const dummyTop = new THREE.Vector3();
-const markPos = new THREE.Vector3();
+// ---------- What the modules reach the game through ----------
 
-// One fixed sim step, plus the effects its events trigger.
-function stepOnce(actions: Actions): void {
-  // At a mini-game's table you stay in your seat, as the server keeps you there: nothing you press
-  // moves you, and nothing walks you off.
-  if (minigames?.seated) {
-    actions = NO_ACTIONS;
-    walker?.stop();
-  }
-  if (prediction) {
-    if (!net?.you) return; // wait until the server has placed us
-    prediction.step(actions);
-  } else {
-    sim.step(actions);
-  }
-  // Offline, fallen out of the bottom of a dungeon: back where you came in (the server does it online).
-  if (!online) visit?.catchFall();
-  let events = sim.drainEvents();
-  if (range) {
-    // Training: arrows, meteors and heals against the dummy.
-    range.step(events);
-    events = events.concat(sim.drainEvents());
-  }
-  if (netSpells) {
-    // Online: your own arrows, meteors and heals show straight away.
-    const local = events.flatMap((e) => netSpells.local(e));
-    events = events.concat(local, netSpells.step(STEP, sim.frame, enemyAt));
-  }
-  if (prediction && netMonsters) {
-    // Online: your swing connecting with a monster sparks and shakes the moment it strikes.
-    const p = sim.player;
-    const attacking = p.mode === 'attack';
-    const swing = attacking ? (comboFor(p.weapon, sim.stats)[p.attackIndex] ?? null) : null;
-    const hits = netMonsters.swing(
-      { attacking, attackIndex: p.attackIndex, attackFrame: p.attackFrame, step: swing, x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing, above: swing ? heightAboveGround(sim) : 0, max: meleeTargets(p.weapon, sim.stats) },
-      presentActors,
-      shownById,
-      sim.frame,
-      performance.now(),
-    );
-    // The swing pauses on the hit as it does offline, in the drawing only.
-    if (hits.length && swing) hero.hitPause(swing.hitstop, p.attackIndex);
-    events = events.concat(hits);
-  }
-  for (const e of events) showEvent(e);
-  if (!life && !net) {
-    for (const e of events) yardTrain(e);
-    const lv = levelsFrom(yardXp);
-    if (!sameLevels(lv, sim.levels)) sim.levels = lv;
-  }
-  const le = life ? life.drainEvents() : [];
-  bugs?.step(sim.frame, actions, events, le);
-  if (life) {
-    lifeUI?.onEvents(le);
-    for (const e of le) {
-      if (e.t === 'harvest') vfx.lifeEffect('harvest', e.x, e.y, e.z);
-      else if (e.t === 'gather') vfx.lifeEffect(e.kind, e.x, e.y, e.z);
-      else if (e.t === 'build') vfx.lifeEffect('build', e.x, groundY(e.x, e.z), e.z);
-      else if (e.t === 'thunder') vfx.lifeEffect('thunder', e.x, e.y, e.z);
-      else if (e.t === 'sold') vfx.lifeEffect('coins', sim.player.pos.x, sim.player.pos.y, sim.player.pos.z);
-    }
-  }
-  const p = sim.player;
-  // Dust while sliding. Which action that is comes from its pose, not from a mode of its own.
-  if (p.mode === 'action' && MOVEMENT_SKILLS[p.actionId]?.action.pose === 'slide' && sim.frame % 2 === 0) {
-    vfx.slideDust(p.pos.x, p.pos.z, p.actionDirX, p.actionDirZ);
-  }
-  vfx.step(STEP);
-  hud.step(STEP);
-}
+/** What the test API (src/app/testApi.ts) reaches the game through: read when used, so it sees each as it is then. */
+const refs = {
+  get acc() {
+    return loop.acc;
+  },
+  set acc(v) {
+    loop.acc = v;
+  },
+  get aimingSlot() {
+    return aiming.slot;
+  },
+  get applyBuild() {
+    return applyBuild;
+  },
+  get autoAttack() {
+    return aiming.autoAttack;
+  },
+  set autoAttack(v) {
+    aiming.autoAttack = v;
+  },
+  get bugs() {
+    return bugs;
+  },
+  get build() {
+    return build;
+  },
+  get cycleTarget() {
+    return (step: number) => aiming.cycleTarget(step);
+  },
+  get draw() {
+    return drawing.draw;
+  },
+  get dummyActor() {
+    return dummyActor;
+  },
+  /** Where the training dummy is drawn, or null while none is. */
+  get dummyDrawn() {
+    return dummy.root.visible ? { x: dummy.root.position.x, y: dummy.root.position.y, z: dummy.root.position.z } : null;
+  },
+  get groundY() {
+    return groundY;
+  },
+  get follow() {
+    return follow;
+  },
+  get followSim() {
+    return drawing.followSim;
+  },
+  get frozen() {
+    return frozen;
+  },
+  get gameTables() {
+    return gameTables;
+  },
+  get hero() {
+    return hero;
+  },
+  get hud() {
+    return hud;
+  },
+  get input() {
+    return input;
+  },
+  get last() {
+    return loop.last;
+  },
+  set last(v) {
+    loop.last = v;
+  },
+  get life() {
+    return life;
+  },
+  get lifeUI() {
+    return lifeUI;
+  },
+  get landView() {
+    return landView;
+  },
+  get lockOn() {
+    return lockOn;
+  },
+  get minigames() {
+    return minigames;
+  },
+  get net() {
+    return net;
+  },
+  get netMonsters() {
+    return netMonsters;
+  },
+  get netSpells() {
+    return netSpells;
+  },
+  get online() {
+    return online;
+  },
+  get openStage() {
+    return openStage;
+  },
+  get panel() {
+    return panel;
+  },
+  get party() {
+    return party;
+  },
+  get channels() {
+    return channels;
+  },
+  get paused() {
+    return loop.paused;
+  },
+  set paused(v) {
+    loop.paused = v;
+  },
+  get peers() {
+    return peers;
+  },
+  get peersView() {
+    return peersView;
+  },
+  get perf() {
+    return () => perfs.numbers();
+  },
+  get pinnedView() {
+    return drawing.pinnedView;
+  },
+  set pinnedView(v) {
+    drawing.pinnedView = v;
+  },
+  get portraitOf() {
+    return portraitOf;
+  },
+  get prediction() {
+    return prediction;
+  },
+  get range() {
+    return range;
+  },
+  get reticle() {
+    return aiming.reticle;
+  },
+  get scripted() {
+    return scripted;
+  },
+  get shownActors() {
+    return shownActors;
+  },
+  get engine() {
+    return engine;
+  },
+  get lifeCommand() {
+    return lifeCommand;
+  },
+  get sim() {
+    return sim;
+  },
+  get skillPoints() {
+    return skillPoints;
+  },
+  get skyHour() {
+    return skyHour;
+  },
+  get spells() {
+    return spells;
+  },
+  get stage() {
+    return stage;
+  },
+  get stepOnce() {
+    return step.stepOnce;
+  },
+  get studio() {
+    return studio;
+  },
+  get teleport() {
+    return teleport;
+  },
+  get terrain() {
+    return engine.terrain;
+  },
+  get vfx() {
+    return vfx;
+  },
+  get visit() {
+    return visit;
+  },
+  get walker() {
+    return walker;
+  },
+  get world() {
+    return world;
+  },
+  get api() {
+    return api;
+  },
+  set bugs(v) {
+    bugs = v;
+  },
+  get canvas() {
+    return canvas;
+  },
+  get opt() {
+    return opt;
+  },
+  get testMode() {
+    return testMode;
+  },
+  get framesDrawn() {
+    return loop.framesDrawn;
+  },
+  set frozen(v) {
+    frozen = v;
+  },
+  get onlineSpace() {
+    return onlineSpace;
+  },
+  get DUMMY_KIND() {
+    return DUMMY_KIND;
+  },
+  get NAMES() {
+    return NAMES;
+  },
+  get actorView() {
+    return actorView;
+  },
+  get aiming() {
+    return aiming;
+  },
+  get castOf() {
+    return castOf;
+  },
+  get causeIcon() {
+    return causeIcon;
+  },
+  get drawnGround() {
+    return drawnGround;
+  },
+  get dummy() {
+    return dummy;
+  },
+  get missileView() {
+    return missileView;
+  },
+  get perfs() {
+    return perfs;
+  },
+  get portraits() {
+    return portraits;
+  },
+  get presentActors() {
+    return presentActors;
+  },
+  set presentActors(v) {
+    presentActors = v;
+  },
+  get serverRules() {
+    return serverRules;
+  },
+  set shownActors(v) {
+    shownActors = v;
+  },
+  get shownById() {
+    return shownById;
+  },
+  get drawing() {
+    return drawing;
+  },
+  get lastCameraTouch() {
+    return lastCameraTouch;
+  },
+  set lastCameraTouch(v) {
+    lastCameraTouch = v;
+  },
+  get rideCamera() {
+    return rideCamera;
+  },
+  get syncNet() {
+    return step.syncNet;
+  },
+  get regions() {
+    return regions;
+  },
+};
+export type GameRefs = typeof refs;
 
-// Effects, camera shake, rumble and damage numbers for something that happened.
-function showEvent(e: GameEvent): void {
-  vfx.onEvent(e);
-  if (e.type === 'hit') {
-    const big = e.index === 2;
-    follow.shake(comboFor(sim.player.weapon, sim.stats)[e.index]?.shake ?? 0.3);
-    input.rumble(big ? 0.9 : 0.45, big ? 1.0 : 0.6, big ? 160 : 90);
-    // Online the server sends an attributed event for this instead, so it isn't drawn twice.
-    if (!serverRules) hud.marker('hit', e.x, e.y, e.z, e.damage, WEAPON_ICONS[sim.player.weapon] ?? '');
-  } else if (e.type === 'land' && e.impact > 0.6) {
-    follow.shake(0.15);
-  } else if (e.type === 'actorDie' && e.kind === 'dummy') {
-    follow.shake(0.5);
-  } else if (e.type === 'hurt') {
-    // A monster got you. Online the server's own attributed event draws the number instead.
-    hud.marker('hurt', e.x, e.y, e.z, e.damage, causeIcon(8));
-    follow.shake(0.55);
-    input.rumble(0.9, 0.8, 180);
-  } else if (e.type === 'slam') {
-    const d = Math.hypot(e.x - sim.player.pos.x, e.z - sim.player.pos.z);
-    if (d < 10) follow.shake(0.3 * (1 - d / 10) * Math.min(2, e.radius));
-  } else if (e.type === 'explosion') {
-    const d = Math.hypot(e.x - sim.player.pos.x, e.z - sim.player.pos.z);
-    if (d < 16) {
-      follow.shake(0.7 * (1 - d / 16));
-      input.rumble(0.8 * (1 - d / 16), 0.6, 200);
-    }
-  } else if (e.type === 'cast') {
-    hud.castFinished();
-  } else if (e.type === 'short') {
-    hud.refuse(e.what === 'mp' ? 'Not Enough MP' : 'Not Enough Stamina');
-  } else if (e.type === 'splash') {
-    vfx.lifeEffect('splash', e.x, e.y, e.z);
-    if (e.speed > 8) follow.shake(0.2);
-  } else if (e.type === 'glideOpen') {
-    vfx.lifeEffect('glide', e.x, e.y, e.z);
-    input.rumble(0.3, 0.4, 90);
-  }
-}
+// ---------- Performance numbers (src/app/perf.ts) ----------
 
-// Ground warnings for a cast in progress: where a meteor will land, or the area a heal will cover.
-// `mine` carries your own resolved skills; other players only send how far along they are, so
-// their circle fills against the ability's base time. A cosmetic difference at worst.
-function castCircle(p: PlayerState, x: number, z: number, hostile: boolean, mine: ResolvedSkills | null): void {
-  const ability = p.castAbility;
-  if (p.mode !== 'cast' || ability === NO_ABILITY || !ABILITIES[ability]) return;
-  const frames = mine ? castFramesFor(ability, mine) : ABILITIES[ability].castFrames;
-  const k = p.castFrame / frames;
-  const radius = mine ? abilityRadius(ability, mine) : Math.max(0, ...ABILITIES[ability].effects.map((e) => e.radius));
-  // A placed cast warns at the spot; one centred on the caster warns around them.
-  if (ABILITIES[ability].target === 'ground') {
-    spells.circle(p.castTargetX, p.castTargetZ, radius, k, hostile ? CIRCLE.enemy : CIRCLE.ally, 0.6, p.pos.y);
-  } else {
-    spells.circle(x, z, radius, k, CIRCLE.heal, 0.5, p.pos.y);
-  }
-}
+const perfs = new Perf(
+  stage.renderer,
+  () => vfx.particleCount,
+  () => online?.link.stats ?? null,
+);
 
-// Monsters about to do something to you: where a slam will land, from the moment one picks the
-// spot until it comes down. Read off the behaviour's acts, so a new monster's slam warns the same way.
-// A gather shows the reach of its pull, filling as the cast goes on.
-function monsterWarning(kind: string, state: number, progress: number, x: number, z: number, tx: number, tz: number): boolean {
-  const k = findKind(kind);
-  const b = k?.brain ? behaviour(k.brain) : undefined;
-  const act = b?.states[state]?.act;
-  let drawn = false;
-  if (act === 'channel' && b?.gather) {
-    spells.circle(x, z, b.gather.radius, progress, CIRCLE.gather, 0.55);
-    drawn = true;
-  }
-  if (!k?.slam || (act !== 'windup' && act !== 'leap')) return drawn;
-  spells.circle(tx, tz, k.slam.radius, act === 'windup' ? progress : 1, CIRCLE.enemy, 0.9);
-  return true;
-}
+// ---------- Drawing a frame (src/app/drawing.ts) ----------
 
-function monsterWarnings(): void {
-  if (net) {
-    // As the server has them now, so a warning never runs late...
-    const warned = new Set<number>();
-    for (const a of presentActors) {
-      if (a.deadFrame >= 0) continue;
-      const k = actorKindAt(a.kind);
-      if (k && monsterWarning(k.id, a.state, a.progress, a.x, a.z, a.targetX, a.targetZ)) warned.add(a.id);
-    }
-    // ...and kept until the monster drawn on screen has done what it warned of (a slam stays
-    // marked until the slime you see lands on it).
-    for (const a of shownActors) {
-      if (a.deadFrame >= 0 || warned.has(a.id)) continue;
-      const k = actorKindAt(a.kind);
-      if (k) monsterWarning(k.id, a.state, a.progress, a.x, a.z, a.targetX, a.targetZ);
-    }
-    return;
-  }
-  for (const a of sim.actors.all()) {
-    if (isAlive(a) && !a.gone) monsterWarning(a.kind, a.state, stateProgress(a), a.x, a.z, a.targetX, a.targetZ);
-  }
-}
+const drawing = makeDrawing(refs);
 
-// Arrows, meteors and cast warnings, drawn every frame.
-function drawSpells(alpha: number, dt: number): void {
-  spells.begin(dt, follow.yaw);
-  if (range) {
-    for (const a of range.arrows) {
-      const back = a.speed * STEP * (1 - alpha); // blend between sim steps
-      spells.arrow(a.x - a.dirX * back, a.y, a.z - a.dirZ * back, a.dirX, a.dirZ);
-    }
-    for (const m of range.meteors) spells.meteor(m.x, m.z, (m.frame + alpha) / m.fallFrames, m.radius, false);
-  }
-  if (net && netSpells) {
-    const renderTick = net.renderTick(performance.now());
-    const ahead = prediction && net.you ? (prediction.seq - net.you.ack) / (60 / net.ticksPerSecond) : 0;
-    const myId = playing ? (net.you?.id ?? null) : null;
-    netSpells.draw(spells, renderTick, net.lastTick + ahead, myId, sim.player.team);
-    for (const e of netSpells.due(renderTick, sim.frame)) showEvent(e);
-    for (const r of remotes?.shown() ?? []) castCircle(r, r.pos.x, r.pos.z, r.team !== sim.player.team, null);
-  }
-  if (!net || playing) castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
-  monsterWarnings();
-  if (aimingSlot !== 0) {
-    const y = sim.player.pos.y;
-    spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35, y);
-    spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95, y);
-  }
-  spells.end();
-}
+// ---------- One step of the rules, and what it shows (src/app/step.ts) ----------
 
-// The ability bar and cast bar.
-function drawAbilityBar(): void {
-  const p = sim.player;
-  const slotAbility = p.abilities[p.castSlot - 1] ?? NO_ABILITY;
-  hud.setAbilities(
-    {
-      weapon: p.weapon,
-      abilities: p.abilities,
-      cooldowns: p.cooldowns,
-      movement: p.movement,
-      movementCooldowns: p.movementCooldowns,
-      stamina: p.stamina,
-      mp: p.mp,
-      castAbility: p.castAbility,
-      castSlot: p.castSlot,
-      castFrame: p.castFrame,
-      castFrames: p.castAbility !== NO_ABILITY ? castFramesFor(slotAbility, sim.stats) : 1,
-      stun: p.stun,
-      downFrame: p.downFrame,
-    },
-    input.lastDevice,
-    pointsLeft(build.skills, skillPoints()),
-    {
-      weapon: [WEAPON_ICONS[p.weapon] ?? '', WEAPON_NAMES[p.weapon] ?? ''],
-      ability: (a) => (a === NO_ABILITY || !ABILITIES[a] ? null : [ABILITY_ICONS[a], ABILITIES[a].name]),
-      cooldownFrames: (a) => ABILITIES[a]?.cooldownFrames ?? 1,
-      mpCost: (a) => abilityMpFor(a, sim.stats),
-      move: (m) => (MOVEMENT_SKILLS[m] ? [MOVEMENT_SKILLS[m].icon, MOVEMENT_SKILLS[m].name] : null),
-      moveCooldownFrames: (m) => movementCooldownFor(m, sim.stats),
-      staminaCost: (m) => movementStaminaFor(m, sim.stats),
-    },
-  );
-}
-
-function followSim(dt: number): void {
-  const p = sim.player.pos;
-  if (openStage) {
-    openStage.village.locate(p.x, p.y, p.z);
-    follow.indoors = openStage.village.indoors !== null;
-  }
-  follow.update(simPos.set(p.x, p.y, p.z), dt);
-}
-
-// Where the server's monsters are drawn this frame, and what they've just done.
-function refreshActors(now: number): void {
-  if (!net) return;
-  const tick = net.renderTick(now);
-  shownActors = net.actorTimeline.at(tick);
-  presentActors = net.actorTimeline.at(tick + INTERP_TICKS);
-  shownById.clear();
-  for (const a of shownActors) shownById.set(a.id, a);
-  if (!netMonsters) return;
-  // Anyone's blow flashes what it hit at the moment that blow is drawn.
-  const tickMs = 1000 / net.ticksPerSecond;
-  netMonsters.hurts(net.actorTimeline, (t, at) => at + Math.max(0, t - net.renderTick(at)) * tickMs);
-  for (const e of netMonsters.transitions(shownActors, sim.frame)) showEvent(e);
-}
-
-/** A camera the tests park anywhere (window.__game.viewFrom), for views the follow camera can't reach. */
-let pinnedView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null;
-
-function draw(alpha: number, cameraDt: number, animDt: number): void {
-  // Weapon out in a fight, put away a little after one (the battlefield is all fight).
-  hero.armed = battlefield || inAFight();
-  prediction?.ease(animDt);
-  // Riding: the vehicle goes where it is this frame before you're posed in its seat, so you tilt
-  // with it on a hill and your hands find its wheel or oars where they are now. Driving, yours is
-  // put under you (and anyone riding along with you sits in it after); riding along with someone,
-  // their vehicle is placed first, with everyone else.
-  const along = sim.player.mode === 'ride' && !!sim.player.host;
-  if (along) peers?.frame(animDt, sim.frame, follow.camera.position);
-  // Mini-game tables near you; at one, you sit on its stool.
-  if (gameTables && online) gameTables.update(online.link.latest?.tables ?? []);
-  const stool = online ? (gameTables?.seatOf(online.welcome.character.id) ?? null) : null;
-  sitIn(hero, stool ?? lifeView?.placeRide(sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peers?.seatFor(sim.player) ?? null) : null));
-  hero.update(stool ? seatedState(sim.player) : sim.player, alpha, sim.frame);
-  if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
-  const d = dummyActor();
-  if (d) dummy.update(d);
-  if (net) {
-    const now = performance.now();
-    refreshActors(now);
-    actorView.fromNetwork(shownActors, (id) => netMonsters?.flash(id, now) ?? 0);
-  }
-  // Townsfolk with their own models are drawn by the life view instead of the crowd.
-  else actorView.update(lifeView?.drawsTownsfolk ? sim.actors.all().filter((a) => a.faction !== 2) : sim.actors.all());
-  if (!net) missileView.update(sim.actors.missiles);
-  if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
-  if (crowd) crowd.render(Math.min(1, crowdAcc / CROWD_TICK));
-  if (net) net.frame(performance.now());
-  if (net) remotes?.frame(net.renderTick(performance.now()), animDt, sim.frame, 60 / net.ticksPerSecond);
-  if (crowdView && crowdSource) crowdView.update(crowdSource, animDt);
-  drawSpells(alpha, animDt);
-  if (!along) peers?.frame(animDt, sim.frame, follow.camera.position);
-  if (life && lifeView) {
-    lifeView.update(sim, animDt, follow.camera.position);
-    lifeUI?.update(animDt);
-    minigames?.update();
-    party?.update();
-    // Wakes behind boats, dust behind fast wheels.
-    for (const v of life.state.vehicles) {
-      const speed = Math.abs(v.speed);
-      if (speed < 3 || Math.random() > speed / 25) continue;
-      const def = rideable(v.def);
-      const bx = v.x - Math.sin(v.heading) * def.length * 0.5;
-      const bz = v.z - Math.cos(v.heading) * def.length * 0.5;
-      if (isBoat(def)) vfx.lifeEffect('wake', bx, terrain!.water, bz);
-      else if (v.grounded && def.class === 'wheeled') vfx.lifeEffect('wheels', bx, v.y, bz);
-    }
-  }
-  if (!net || playing) drawAbilityBar();
-  // Health, MP and stamina: in the open world beside your portrait, elsewhere over the hotbar.
-  const vitals = { hp: sim.player.hp, maxHp: COMBAT.maxHp, mp: sim.player.mp, maxMp: MP.max, stamina: sim.player.stamina, maxStamina: STAMINA.max };
-  hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, serverUrl ? sim.player.team : null);
-  lifeUI?.setVitals(vitals);
-  const pos = hero.root.position;
-  if (openStage) {
-    // Which building you are in (it is drawn cut open, and holds the camera), its doors and lamps.
-    openStage.village.locate(pos.x, pos.y, pos.z);
-    openStage.village.update(animDt, peers ? [pos, ...peers.list()] : [pos], pos, follow.camera.position);
-    follow.indoors = openStage.village.indoors !== null;
-  }
-  if (cameraDt > 0) follow.update(pos, cameraDt);
-  if (pinnedView) {
-    follow.camera.position.copy(pinnedView.from);
-    follow.camera.lookAt(pinnedView.to);
-    follow.camera.updateMatrixWorld();
-  }
-  stage.follow(pos.x, pos.z, pos.y);
-  openStage?.update(animDt, follow.camera, pos.x, pos.z);
-  if (openStage && life) {
-    const sky = life.zone.recipe.sky;
-    openStage.setTime(skyHour(), sky.sunrise, sky.sunset);
-  }
-
-  // On a farm the shadow lies on its soil, which is drawn a little over the ground you stand on.
-  const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y), drawnGround(pos.x, pos.z, 0.42)) : 0;
-  const lift = Math.max(0.35, Math.min(1, 1 - (pos.y - under) * 0.18));
-  blob.position.set(pos.x, under + 0.03, pos.z);
-  blob.visible = sim.player.mode !== 'swim';
-  blob.scale.setScalar(lift);
-  blobMat.opacity = 0.22 * lift;
-
-  const timing = gpuTimerBegin();
-  portraits.flush();
-  if (openStage) openStage.render(follow.camera);
-  else stage.renderer.render(stage.scene, follow.camera);
-  if (timing) gpuTimerEnd();
-  bugs?.afterRender();
-  const dAct = dummyActor();
-  const markNow = lockOn.mark();
-  dummyTop.set(dAct?.x ?? 0, 2.05 + groundY(dAct?.x ?? 0, dAct?.z ?? 0), dAct?.z ?? 0);
-  hud.setTarget(
-    markNow ? { pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z), hp: markNow.hp, name: markNow.name, locked: lockOn.locked, cast: castOf(markNow.key) } : null,
-  );
-  // The dummy has its own health bar in the training yard; hide it when the target plate is
-  // already showing the same thing, or they stack on top of each other.
-  const plateOnDummy = !!markNow && markNow.name === NAMES.dummy;
-  hud.layout(follow.camera, innerWidth, innerHeight, dummyTop, (dAct?.hp ?? 0) / DUMMY.hp, !serverRules && !plateOnDummy);
-}
-
-// ---------- Performance numbers ----------
-
-const frameTimes: number[] = [];
-let cpuMs = 0;
-
-// Measures how long the graphics card spends drawing each frame (when the browser allows it).
-// Unlike fps, this isn't capped at 60, so it shows how much headroom is left.
-const gl = stage.renderer.getContext() as WebGL2RenderingContext;
-const timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-let gpuQuery: WebGLQuery | null = null;
-let gpuMs = 0;
-
-function gpuTimerBegin(): boolean {
-  if (!timerExt) return false;
-  if (gpuQuery) {
-    if (!gl.getQueryParameter(gpuQuery, gl.QUERY_RESULT_AVAILABLE)) return false;
-    if (!gl.getParameter(timerExt.GPU_DISJOINT_EXT)) {
-      const ms = gl.getQueryParameter(gpuQuery, gl.QUERY_RESULT) / 1e6;
-      gpuMs = gpuMs === 0 ? ms : gpuMs * 0.9 + ms * 0.1;
-    }
-    gl.deleteQuery(gpuQuery);
-  }
-  gpuQuery = gl.createQuery();
-  gl.beginQuery(timerExt.TIME_ELAPSED_EXT, gpuQuery);
-  return true;
-}
-
-function gpuTimerEnd(): void {
-  if (timerExt) gl.endQuery(timerExt.TIME_ELAPSED_EXT);
-}
-
-function gpuName(): string {
-  const gl = stage.renderer.getContext();
-  const ext = gl.getExtension('WEBGL_debug_renderer_info');
-  return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
-}
-
-function perf() {
-  const sorted = [...frameTimes].sort((a, b) => a - b);
-  const avg = sorted.length ? sorted.reduce((s, v) => s + v, 0) / sorted.length : 0;
-  const p95 = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : 0;
-  const info = stage.renderer.info.render;
-  return {
-    avgMs: +avg.toFixed(2),
-    p95Ms: +p95.toFixed(2),
-    fps: avg > 0 ? Math.round(1000 / avg) : 0,
-    cpuMs: +cpuMs.toFixed(2),
-    gpuMs: timerExt ? +gpuMs.toFixed(2) : null,
-    drawCalls: info.calls,
-    triangles: info.triangles,
-    particles: vfx.particleCount,
-    fighters: crowdSource?.n ?? 0,
-    downloadKBps: net ? +(net.bytesPerSec / 1024).toFixed(1) : null,
-    messagesPerSec: net ? +net.messagesPerSec.toFixed(1) : null,
-    server: net?.stats ?? null,
-    crowdTickMs: crowd ? +crowd.tickMs.toFixed(2) : 0,
-    crowdUploadMs: crowdView ? +crowdView.updateMs.toFixed(2) : 0,
-    gpu: gpuName(),
-  };
-}
+const step = makeStep(refs);
 
 // ---------- Main loop ----------
 
-let paused = testMode;
-/**
- * Online, while the server is away (being updated, or the connection dropped): no rules steps,
- * nothing pressed counts, and the last frame stays up under the screen that says so.
- */
-let frozen = false;
-let acc = 0;
-let last = performance.now();
-let lastStats = 0;
-/** Frames drawn so far (the title screen fades once the first few are up). */
-let framesDrawn = 0;
+const loop = startLoop(refs);
 
-/** Throws away whatever was pressed (while frozen): it mustn't all happen at once when play resumes. */
-function dropInput(): void {
-  input.pollLife(true);
-  input.pollMenu();
-  input.pollCamera(0);
-  input.pollCombat();
-  input.pollActions(follow.yaw);
-}
-
-function frame(now: number): void {
-  // Asked for first, so one frame that throws can't stop the game.
-  requestAnimationFrame(frame);
-  const dt = Math.min(0.1, (now - last) / 1000);
-  last = now;
-  frameTimes.push(dt * 1000);
-  if (frameTimes.length > 240) frameTimes.shift();
-  const cpuStart = performance.now();
-
-  if (frozen) {
-    dropInput();
-  } else if (!paused) {
-    // A window open on a controller has the pad: its stick and buttons drive the window, so you
-    // stand still. With a keyboard and mouse you can walk with a window open (walking away from
-    // whoever you're talking to closes it). The skill panel and the map take every device.
-    const padToMenu = panel.isOpen || ((!!lifeUI?.takesPad || !!party?.takesPad) && input.lastDevice === 'gamepad');
-    // Open-world keys first, so a panel they open takes this frame's input. The skill book and
-    // tree sit over everything while they're open, so the world's keys wait.
-    if (lifeUI) {
-      const keys = input.pollLife(padToMenu);
-      if (!panel.isOpen) {
-        for (const k of keys) {
-          bugs?.note('key', { type: k });
-          lifeUI.press(k);
-        }
-      }
-    }
-    const menuOpen = padToMenu || !!lifeUI?.modal;
-    for (const m of input.pollMenu()) {
-      bugs?.note('menu', { type: m });
-      if (panel.isOpen) {
-        panel.menu(m);
-        continue;
-      }
-      // A party invitation or the Party window takes the D-pad and A / B first (src/ui/party), then
-      // an open life panel (dialog, shop, bag...).
-      if (party?.menu(m)) continue;
-      if (lifeUI?.menu(m)) continue;
-      if (m === 'toggle' && (!net || playing)) panel.open('book');
-      else if (m === 'tree' && (!net || playing)) panel.open('tree');
-    }
-    panel.tick();
-    // Just closed (B, say): whatever closed it is still held, and mustn't count as a press in the
-    // game once the menu is gone - B would slide. Reading the controls now uses those presses up,
-    // even on a frame that runs no rules step to read them. A docked window that still has the
-    // controller hasn't closed.
-    if (menuOpen && !panel.isOpen && !lifeUI?.modal && !(lifeUI?.takesPad && input.lastDevice === 'gamepad')) input.pollActions(follow.yaw);
-    const cam = input.pollCamera(dt);
-    syncNet();
-    const placing = !menuOpen && updateCombatAim(cam, dt);
-    if (!menuOpen && !placing) {
-      follow.rotate(cam.dYaw, cam.dPitch);
-      follow.zoom(cam.dZoom);
-      if (cam.dYaw !== 0 || cam.dPitch !== 0) lastCameraTouch = now;
-    }
-    if (life) rideCamera(dt, now);
-    // Travelling by road on foot, the camera comes round behind you as it does on a mount, unless
-    // you have been turning it yourself.
-    if (walker?.mode === 'travel' && sim.player.mode !== 'ride' && now - lastCameraTouch > RIDE_CAMERA.autoDelay * 1000 && Math.hypot(sim.player.vel.x, sim.player.vel.z) > 1.5) {
-      follow.yaw += angleDiff(follow.yaw, sim.player.facing) * (1 - Math.exp(-RIDE_CAMERA.autoFollow * dt));
-    }
-    // Online the world waits while the connection is down: inputs that can't reach the server
-    // would only be taken back.
-    if (online && !online.link.open) acc = 0;
-    acc += dt;
-    let steps = 0;
-    while (acc >= STEP && steps < 5) {
-      const pad = input.pollActions(follow.yaw);
-      // With the panel open and an ability waiting to be placed, a hotbar press assigns it
-      // instead of casting it.
-      if (menuOpen && pad.abilitySlot >= 1 && panel.isAssigning) panel.assignToSlot(pad.abilitySlot);
-      const own = scripted.length ? scripted.shift()! : menuOpen ? NO_ACTIONS : pad;
-      // Auto-run or travel by road moves you, until your own moving takes over.
-      const a = walker ? walker.steer(own, follow.yaw) : own;
-      // targeting() supplies an aim when it has a mark or a placed circle; aimAssist() only
-      // fills in the gaps it leaves; combatStance() keeps you facing the fight.
-      stepOnce(combatStance(aimAssist(targeting(autoAttack ? autoAim(a) : a))));
-      acc -= STEP;
-      steps++;
-    }
-    if (steps === 5) acc = 0; // don't spiral if the tab was in the background
-    if (net && !playing && now - lastViewSent > 100) {
-      lastViewSent = now;
-      net.sendView(sim.player.pos.x, sim.player.pos.z);
-    }
-    if (crowd) {
-      crowdAcc += dt;
-      let ticks = 0;
-      while (crowdAcc >= CROWD_TICK && ticks < 3) {
-        crowd.step();
-        crowdAcc -= CROWD_TICK;
-        ticks++;
-      }
-      if (ticks === 3) crowdAcc = 0;
-    }
-    draw(acc / STEP, dt, dt);
-    framesDrawn++;
-  } else {
-    draw(1, 0, 0);
-    framesDrawn++;
-  }
-  cpuMs = cpuMs * 0.95 + (performance.now() - cpuStart) * 0.05;
-
-  if (now - lastStats > 250) {
-    lastStats = now;
-    const s = perf();
-    const base = `${s.fps} fps · ${s.drawCalls} draw calls · ${s.triangles.toLocaleString()} triangles`;
-    const gpu = s.gpuMs !== null ? ` · GPU ${s.gpuMs} ms/frame` : '';
-    if (net) {
-      const srv = s.server;
-      const server = srv
-        ? ` · server: ${srv.realPlayers} real + ${srv.virtualPlayers.toLocaleString()} virtual players, ${srv.tickMs.toFixed(1)} ms per 50 ms tick`
-        : '';
-      hud.setStats(
-        `${base} · ${s.fighters.toLocaleString()} fighters from server · download ${s.downloadKBps} KB/s${server}` +
-          (net.connected ? '' : ' · NOT CONNECTED'),
-      );
-    } else if (crowd) {
-      hud.setStats(`${base} · ${s.fighters.toLocaleString()} fighters · crowd sim ${s.crowdTickMs} ms/tick · CPU ${s.cpuMs} ms/frame${gpu}`);
-    } else {
-      hud.setStats(base);
-    }
-  }
-}
-requestAnimationFrame(frame);
-
-// ---------- Hooks for automated tests ----------
-
-const api = {
-  ready: true,
-  /** The new look's textures and models have all arrived (src/render/assets.ts). */
-  get assetsReady(): boolean {
-    return assetsReady();
-  },
-  // Steps the game with the same scripted actions every frame (auto-walk, when on, moves you), and
-  // draws the last; `drawn` false leaves that to the caller (a long walk sampled as it goes needn't
-  // draw every sample, which a browser drawing in software, as CI's does, takes a second over).
-  advance(frames: number, actions: Partial<Actions> = {}, drawn = true): void {
-    for (let i = 0; i < frames; i++) {
-      const own = { ...NO_ACTIONS, ...actions };
-      stepOnce(walker ? walker.steer(own, follow.yaw) : own);
-      followSim(STEP);
-    }
-    if (drawn) draw(1, 0, 0);
-  },
-  // Steps the game reading the real keyboard, mouse and controller, and draws the last (`drawn`
-  // false leaves that to the caller, as advance's does).
-  advanceLive(frames: number, drawn = true): void {
-    for (let i = 0; i < frames; i++) {
-      const cam = input.pollCamera(STEP);
-      follow.rotate(cam.dYaw, cam.dPitch);
-      follow.zoom(cam.dZoom);
-      const own = input.pollActions(follow.yaw);
-      stepOnce(walker ? walker.steer(own, follow.yaw) : own);
-      followSim(STEP);
-    }
-    if (drawn) draw(1, 0, 0);
-  },
-  /** Auto-run and travel by road: what is walking you, where to, and how far is left. */
-  walk() {
-    if (!walker) return null;
-    const r = walker.route;
-    return { mode: walker.mode, marker: walker.marker, left: walker.left, length: r?.length ?? 0, short: r?.short ?? 0, refusal: walker.refusal() };
-  },
-  /** Marks (x, z) and sets off along the roads to it, as a click on the map does. False when you can't from here. */
-  travelTo(x: number, z: number, label = 'Marked Spot'): boolean {
-    if (!walker) return false;
-    walker.mark(x, z, label);
-    return walker.travel();
-  },
-  render(): void {
-    draw(1, 0, 0);
-  },
-  reset(opts: { x?: number; z?: number; facing?: number; camYaw?: number } = {}): void {
-    const facing = opts.facing ?? world.spawn.facing;
-    sim.reset({ x: opts.x ?? world.spawn.x, z: opts.z ?? world.spawn.z, facing }, 0, build);
-    if (terrain) {
-      // Stand on the ground there, not inside it.
-      const p = sim.player;
-      p.pos.y = groundAt(terrain, world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
-      p.prevPos = { ...p.pos };
-    }
-    life?.afterReset(sim);
-    range?.reset();
-    vfx.reset();
-    hud.clear();
-    follow.reset(opts.camYaw ?? facing);
-    followSim(STEP);
-    draw(1, 0, 0);
-  },
-  state() {
-    return JSON.parse(JSON.stringify({ frame: sim.frame, hitstop: sim.hitstop, player: sim.player, dummy: dummyActor() }));
-  },
-  events() {
-    return sim.log.map((e) => ({ ...e }));
-  },
-  perf,
-  crowd() {
-    if (net) return { fighters: net.n, known: net.knownCount(), connected: net.connected, downloadKBps: net.bytesPerSec / 1024, server: net.stats };
-    if (!crowd) return null;
-    return { fighters: crowd.n, alive: crowd.aliveCount(), kills: crowd.kills, ticks: crowd.tick, trianglesPerFighter: crowdView?.trianglesPerFighter };
-  },
-  setPaused(p: boolean): void {
-    paused = p;
-    acc = 0;
-    last = performance.now();
-  },
-  setCamera(c: { yaw?: number; pitch?: number; distance?: number }): void {
-    if (c.yaw !== undefined) follow.yaw = c.yaw;
-    if (c.pitch !== undefined) follow.pitch = c.pitch;
-    if (c.distance !== undefined) {
-      follow.distance = c.distance;
-      follow.zoom(0);
-    }
-    followSim(STEP);
-  },
-  camera() {
-    return { yaw: follow.yaw, pitch: follow.pitch, distance: follow.distance };
-  },
-  /** Parks the camera at `from` looking at `to` (null hands it back to the follow camera). */
-  viewFrom(from: [number, number, number] | null, to: [number, number, number] = [0, 0, 0]): void {
-    pinnedView = from ? { from: new THREE.Vector3(...from), to: new THREE.Vector3(...to) } : null;
-    // The follow camera only moves when it steps, so step it back from wherever the view was.
-    if (!pinnedView) followSim(STEP);
-    draw(1, 0, 0);
-  },
-  // Where the eye actually is, which the targeting view lifts. follow.pitch is what you chose and
-  // doesn't change while aiming, so it can't be used to see this.
-  cameraHeight(): number {
-    return follow.camera.position.y;
-  },
-  /**
-   * Where the hero's weapon is drawn: 'hand' when held, 'away' when put away (at the hip, across the
-   * back), 'hidden' when it isn't drawn at all (travelling, a pack on the back).
-   */
-  heroWeapon(): WeaponAt {
-    return hero.weaponState;
-  },
-  /**
-   * At the controls of a vehicle: where each hand is and where what it holds is (the oars' handles,
-   * a wheel's rim), left then right, in the world as last drawn; null with nothing to hold.
-   */
-  holds() {
-    const h = hero.seatHolds?.hands;
-    if (!h) return null;
-    const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()).toArray();
-    return { hands: [at(hero.detail.joint('handL')), at(hero.detail.joint('handR'))], holds: h.map(at) };
-  },
-  // Targeting, the ground-aim circle, and the floating numbers currently on screen.
-  combat() {
-    return {
-      target: (() => {
-        const m = lockOn.mark();
-        return m ? { key: m.key, name: m.name, hp: m.hp, x: m.x, z: m.z } : null;
-      })(),
-      locked: lockOn.locked,
-      aiming: aimingSlot,
-      reticle: aimingSlot !== 0 ? { x: reticle.x, z: reticle.z, range: reticle.range, radius: reticle.radius } : null,
-      markers: hud.markerLog(),
-    };
-  },
-  // Pretends Tab (1) or Shift-Tab (-1) was pressed.
-  cycleTarget(step = 1): void {
-    cycleTarget(step);
-  },
-  clearMarkers(): void {
-    hud.clearMarkerLog();
-  },
-  // Testing: take a hit as if another fighter had landed it.
-  takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
-    sim.takeHit(damage, dirX, dirZ, knock);
-  },
-  // Testing: your stamina and MP as they would be part way through a fight (offline only).
-  setVitals(v: { stamina?: number; mp?: number }): void {
-    if (v.stamina !== undefined) sim.player.stamina = v.stamina;
-    if (v.mp !== undefined) sim.player.mp = v.mp;
-    draw(1, 0, 0);
-  },
-  // The skill panel: whether it's open and whether it's waiting for a hotbar slot.
-  panel() {
-    return { ...panel.state(), abilities: [...build.abilities] };
-  },
-  /** Puts the skill book's cursor on a skill (by id) or a slot, or the tree's on a node. */
-  panelFocus(where: { book?: string; slot?: number; move?: number; node?: string }): void {
-    panel.setFocus(where);
-  },
-  openPanel(view: 'book' | 'tree' = 'book'): void {
-    panel.open(view);
-  },
-  /** Plans the way to a tree node and learns it, as clicking it and Learn would. */
-  learnNode(id: string): boolean {
-    return panel.learnNode(id);
-  },
-  selectBook(id: string): void {
-    panel.selectBook(id);
-  },
-  /** Skill points, levels and experience, as the book shows them. */
-  skills() {
-    return {
-      budget: skillPoints(),
-      left: pointsLeft(build.skills, skillPoints()),
-      levels: Object.fromEntries(BOOK.map((b, i) => [b.id, sim.levels[i] ?? 1])),
-      xp: { ...(life ? (life.state.skillXp ?? {}) : yardXp) },
-    };
-  },
-  // What a drag between two hotbar slots ends up doing.
-  swapSlots(a: number, b: number): void {
-    applyBuild(swapSlots(build, a, b));
-  },
-  device() {
-    return input.lastDevice;
-  },
-  // Online play: your fighter, how often the server corrected the prediction, and the players nearby.
-  net() {
-    if (!net) return null;
-    const p = sim.player;
-    return {
-      connected: net.connected,
-      joined: !!net.you,
-      id: net.you?.id ?? null,
-      team: p.team,
-      hp: p.hp,
-      x: p.pos.x,
-      y: p.pos.y,
-      z: p.pos.z,
-      mode: p.mode,
-      stun: p.stun,
-      weapon: p.weapon,
-      skills: [...p.skills],
-      abilities: [...p.abilities],
-      cooldowns: [...p.cooldowns],
-      sprinting: p.sprinting,
-      crouching: p.crouching,
-      castAbility: p.castAbility,
-      seq: prediction?.seq ?? 0,
-      ack: prediction?.lastAck ?? 0,
-      pending: prediction?.pendingCount ?? 0,
-      corrections: prediction?.corrections ?? 0,
-      maxCorrection: prediction?.maxCorrection ?? 0,
-      lastCorrection: prediction?.lastCorrection ?? 0,
-      snapshots: net.snapshots,
-      remotes: remotes?.list() ?? [],
-      scriptLeft: scripted.length,
-      renderTick: net.renderTick(performance.now()),
-      lastTick: net.lastTick,
-      server: net.stats,
-    };
-  },
-  // Feeds a list of [frames, actions] in place of the controller (live play, for tests).
-  scriptInput(segments: Array<[number, Partial<Actions>]>): void {
-    for (const [frames, a] of segments) for (let i = 0; i < frames; i++) scripted.push({ ...NO_ACTIONS, ...a });
-  },
-  // Every crowd fighter's (x, y, z, yaw) as drawn this frame; y below zero means sinking or hidden.
-  crowdRoots(): Float32Array | null {
-    return crowdView?.roots() ?? null;
-  },
-  autoAttack(on: boolean): void {
-    autoAttack = on;
-  },
-  // Skills and loadout: the build you've chosen, and what your fighter is actually using.
-  build() {
-    const p = sim.player;
-    return { chosen: { ...build }, using: { skills: [...p.skills], weapon: p.weapon, abilities: [...p.abilities], movement: [...p.movement] } };
-  },
-  setBuild(b: Build): boolean {
-    // Only what your points allow: on the island, what its quests and milestones have earned.
-    if (!validBuild(b, skillPoints())) return false;
-    panel.setBuild(b);
-    applyBuild(b);
-    return true;
-  },
-  // Testing: send a build without checking it first, to see the server turn it down.
-  sendRawBuild(b: Build): void {
-    net?.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
-  },
-  // Puts an actor of a kind somewhere specific, so a test does not have to wait for one to
-  // wander over. `i` indexes the actors of that kind, in spawn order.
-  placeActor(kind: string, i: number, x: number, z: number): void {
-    const a = sim.actors.all().filter((v) => v.kind === kind)[i];
-    if (!a) return;
-    a.x = x;
-    a.z = z;
-    a.y = 0;
-    a.homeX = x;
-    a.homeZ = z;
-  },
-  // What the server says is in the world around you; empty when playing offline.
-  netActors() {
-    return net?.actors ?? [];
-  },
-  /** The server's monsters as drawn this frame (between its updates), with how white each one is. */
-  shownActors() {
-    const now = performance.now();
-    return shownActors.map((a) => ({ ...a, flash: netMonsters?.flash(a.id, now) ?? 0 }));
-  },
-  /** Online hit effects so far: swings guessed to land, the server's confirmations (and how many matched a guess or came late), flashes, and slams and deaths shown. */
-  netFx() {
-    return netMonsters ? { ...netMonsters.counts } : null;
-  },
-  actors(kind?: string) {
-    return sim.actors
-      .all()
-      .filter((a) => !kind || a.kind === kind)
-      .map((a) => ({
-        id: a.id,
-        kind: a.kind,
-        x: +a.x.toFixed(3),
-        y: +a.y.toFixed(3),
-        z: +a.z.toFixed(3),
-        hp: a.hp,
-        maxHp: a.maxHp,
-        alive: isAlive(a),
-        state: stateName(a),
-        deadFrame: a.deadFrame,
-        flash: a.flashFrame,
-        mass: a.mass,
-        gone: a.gone,
-        transient: a.transient,
-        angry: a.angry,
-        rallyTo: a.rallyTo,
-        calling: a.calling,
-        fuse: a.fuse,
-        group: a.group,
-        slamCd: a.slamCd,
-        gatherCd: a.gatherCd,
-        targetX: +a.targetX.toFixed(3),
-        targetZ: +a.targetZ.toFixed(3),
-        target: a.target,
-        band: a.band,
-        token: a.token,
-        opening: a.opening,
-        afraid: a.afraid,
-        slotX: +a.slotX.toFixed(3),
-        slotZ: +a.slotZ.toFixed(3),
-        charges: a.charges,
-        cds: [...a.cds],
-        facing: +a.facing.toFixed(4),
-      }));
-  },
-  // Testing: a war-band of `count` of a kind round (x, z), fighting together. Returns their ids.
-  spawnBand(kind: string, count: number, x: number, z: number): number[] {
-    return sim.spawnBand(kind, count, x, z, (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0);
-  },
-  // What creatures have thrown, still in the air.
-  missiles() {
-    return sim.actors.missiles.map((m) => ({ id: m.id, owner: m.owner, x: +m.x.toFixed(3), y: +m.y.toFixed(3), z: +m.z.toFixed(3), age: m.age }));
-  },
-  // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
-  hurtActor(id: number, amount: number): void {
-    const a = sim.actors.get(id);
-    if (a && isAlive(a)) sim.damage(targetOf(a), amount, 0, 0, sim.player.weapon);
-  },
-  // Testing: sets fields on an actor by id (a cooldown, a fuse), to set up a moment directly.
-  setActor(id: number, fields: Partial<Actor>): void {
-    const a = sim.actors.get(id);
-    if (a) Object.assign(a, fields);
-  },
-  // Testing: puts a new actor of a kind in the world, as if a fight had made it (it won't respawn).
-  spawnActor(kind: string, x: number, z: number): number {
-    const a = sim.actors.spawn({ kind, x, z, seed: (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0 });
-    a.transient = true;
-    startBrain(a, sim.sighting());
-    return a.id;
-  },
-  // Testing: monsters that never get angry, for tests about something else that hit them.
-  calmMonsters(on = true): void {
-    sim.actors.calm = on;
-    if (on) for (const a of sim.actors.all()) a.angry = 0;
-  },
-  skillPanel(open?: boolean): boolean {
-    if (open === true && !panel.isOpen) panel.open('book');
-    if (open === false && panel.isOpen) panel.close();
-    return panel.isOpen;
-  },
-  /** Testing: the height of the highest ground circle drawn over (x, z), or null where there is none. */
-  circleHeight(x: number, z: number): number | null {
-    return spells.heightAt(x, z);
-  },
-  /** Testing: the height of your farm's soil or furrows drawn over (x, z), or null where there is none. */
-  farmGround(x: number, z: number): number | null {
-    return lifeView?.farmGroundAt(x, z) ?? null;
-  },
-  /** Testing: where the shadow under you is drawn. */
-  shadowHeight(): number {
-    return blob.position.y;
-  },
-  /** A portrait the UI shows (an image URL): 'player' (your face), 'body' (all of you) or an NPC's id; and how many of yours the studio has taken. */
-  portrait(who: string) {
-    return { url: portraitOf(who), taken: studio.taken };
-  },
-  spells() {
-    return {
-      arrowsDrawn: spells.arrowsDrawn,
-      meteorsDrawn: spells.meteorsDrawn,
-      circlesDrawn: spells.circlesDrawn,
-      training: range ? { arrows: range.arrows.length, meteors: range.meteors.length } : null,
-      online: netSpells?.counts ?? null,
-    };
-  },
-  // ---- Open world ----
-  /** Where your vehicles are drawn this frame. */
-  drawnVehicles() {
-    return lifeView?.drawnVehicles() ?? [];
-  },
-  /** The building you are in (src/render/village), and which storey: null outdoors. */
-  indoors() {
-    const i = openStage?.village.indoors;
-    return i ? { id: i.building.id, x: i.building.x, z: i.building.z, storey: i.storey } : null;
-  },
-  /** What the village draws: its meshes, how many triangles each, and whether it is drawn now. */
-  villageStats() {
-    return openStage?.village.stats() ?? null;
-  },
-  /** The life systems' state, as plain data. */
-  life() {
-    if (!life) return null;
-    return JSON.parse(JSON.stringify({ ...life.state, focus: life.focus, placing: life.placing, resting: life.resting }));
-  },
-  /** Where the quest you're on leads you (the ring on the maps, the marker on the compass). */
-  questGoal() {
-    return lifeUI?.goal() ?? null;
-  },
-  /** The hour of the day the sky shows, 0..24 (online the world's, from the server's clock). */
-  dayHour(): number | null {
-    return life ? skyHour() : null;
-  },
-  /** Queues a life command (it runs on the next sim step). */
-  lifeCommand(c: Parameters<Life['command']>[0]): void {
-    life?.command(c);
-  },
-  /** Jumps the player to (x, z) on the ground (`drawn` false leaves drawing it to the caller, as advance's does). */
-  teleport(x: number, z: number, facing?: number, drawn = true): void {
-    teleport(x, z, facing);
-    followSim(STEP);
-    if (drawn) draw(1, 0, 0);
-  },
-  /** Where things are on this island. */
-  zone() {
-    if (!world.zone) return null;
-    const r = world.zone.recipe;
-    return JSON.parse(JSON.stringify({ places: r.places, npcs: r.npcs, outposts: r.outposts, workbenches: r.workbenches, housePlots: r.housePlots, updrafts: r.updrafts, nodes: r.nodes, spawn: r.spawn, ramps: world.zone.gen.ramps.map((pts) => [pts[0], pts[pts.length - 1]]) }));
-  },
-  /** Dungeons: which one you're inside a copy of, whether each is solid in your world, its exit, and what F does now. */
-  dungeon() {
-    return { ...(visit?.state() ?? { inside: null, solid: {}, exit: null }), drawn: openStage?.dungeon ?? null, focus: life?.focus ? { action: life.focus.action, label: life.focus.label, ok: life.focus.ok } : null };
-  },
-  /** Offline: straight into a copy of a dungeon (at its arrival point), or back out to its door (null). */
-  visitDungeon(id: string | null): boolean {
-    if (!visit || online) return false;
-    return id ? visit.enterDungeonHere(id, true) : visit.leaveDungeonHere(true);
-  },
-  /** The waterfalls as the generator cut them (src/sim/zone/generate.ts). */
-  falls() {
-    return JSON.parse(JSON.stringify(world.zone?.gen.falls ?? []));
-  },
-  /** A carved mountain path as points from bottom to top (every few metres). */
-  rampPath(i = 0): Array<[number, number]> {
-    const r = world.zone?.gen.ramps[i] ?? [];
-    return r.filter((_, k) => k % 3 === 0 || k === r.length - 1).map(([x, z]) => [x, z]);
-  },
-  ground(x: number, z: number): number {
-    return terrain ? terrain.height(x, z) : 0;
-  },
-  /** What the ground is made of under a point (SURFACE in src/sim/terrain.ts). */
-  surface(x: number, z: number): number {
-    return terrain ? terrain.surfaceAt(x, z) : 0;
-  },
-  /**
-   * Scene objects whose name starts with `prefix`, with where they are (tests and debugging):
-   * the origin, and the centre of what is drawn, which differ for models anchored at an edge.
-   */
-  /** Trees within r of (x, z), nearest first: where they stand and how big (the look test frames them). */
-  treesNear(x: number, z: number, r = 40) {
-    return world.obstacles
-      .filter((o) => o.kind === 'tree' && Math.hypot(o.x - x, o.z - z) < r)
-      .sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))
-      .map((o) => ({ x: +o.x.toFixed(2), z: +o.z.toFixed(2), scale: +o.scale.toFixed(2), pine: terrain ? isPine(o.x, o.z, terrain.height(o.x, o.z)) : false }));
-  },
-  sceneObjects(prefix: string) {
-    type Seen = { name: string; x: number; y: number; z: number; visible: boolean; centre: { x: number; y: number; z: number } };
-    const out: Seen[] = [];
-    const v = new THREE.Vector3();
-    const c = new THREE.Vector3();
-    const box = new THREE.Box3();
-    const r = (n: number) => +n.toFixed(2);
-    stage.scene.traverse((o) => {
-      if (!o.name.startsWith(prefix)) return;
-      o.getWorldPosition(v);
-      box.setFromObject(o).getCenter(c);
-      let shown = o.visible;
-      for (let p = o.parent; p && shown; p = p.parent) shown = p.visible;
-      out.push({ name: o.name, x: r(v.x), y: r(v.y), z: r(v.z), visible: shown, centre: { x: r(c.x), y: r(c.y), z: r(c.z) } });
-    });
-    return out;
-  },
-  /** Writes the island to this browser now (tests and bug-report replays). Online the server keeps it. */
-  saveNow(): void {
-    if (!online && life) saveLife(life, sim);
-  },
-  clearSave(): void {
-    if (online) void online.link.reset();
-    else clearLife();
-  },
-  /** Online play: who you are and the connection (null offline). */
-  /** Online: everyone else in your channel, as drawn. */
-  peers() {
-    return peers?.list() ?? [];
-  },
-  online() {
-    return online
-      ? {
-          account: online.account.username,
-          character: online.welcome.character,
-          channel: online.welcome.channel,
-          dev: online.welcome.dev,
-          claims: online.link.claims,
-          status: online.link.status,
-          frozen,
-          ticks: online.link.ticks,
-          lifeLoaded: online.lifeLoaded?.() ?? false,
-          lastSaved: online.link.lastSaved,
-          ack: prediction?.lastAck ?? 0,
-          seq: prediction?.seq ?? 0,
-          corrections: prediction?.corrections ?? 0,
-          maxCorrection: prediction?.maxCorrection ?? 0,
-        }
-      : null;
-  },
-  /** Which life panel is open, if any. */
-  lifePanel(): string | null {
-    return lifeUI?.openPanel ?? null;
-  },
-  closeLifePanel(): void {
-    lifeUI?.closeAll();
-  },
-  pressLife(k: Parameters<LifeUI['press']>[0]): void {
-    lifeUI?.press(k);
-  },
-  setLag(ms: number): void {
-    if (online) online.link.lag = ms;
-    else net?.setLag(ms);
-  },
-  /** The bug reporter: what it is doing and the last report it saved (null when it is off). */
-  bugs() {
-    return bugs?.status() ?? null;
-  },
-  /** Same as pressing \ (toggle) or Backspace twice (discard). */
-  bugReport(action: 'toggle' | 'discard' = 'toggle'): void {
-    if (action === 'discard') bugs?.discard();
-    else bugs?.toggle();
-  },
-  // ---- Mini-games (online) ----
-  /** The mini-game windows, your challenges and your table's game as the server last sent them (null offline). */
-  minigames() {
-    return minigames ? JSON.parse(JSON.stringify(minigames.state())) : null;
-  },
-  /** Your party as the server sent it, the invitation waiting for you, and which of its windows show. */
-  party() {
-    return party ? JSON.parse(JSON.stringify(party.state())) : null;
-  },
-  /** Invites someone to your party by name (as the Party window does). */
-  partyInvite(name: string): boolean {
-    return online?.link.partyInvite({ name }) ?? false;
-  },
-  /** Answers the invitation waiting for you. */
-  partyAnswer(accept: boolean): boolean {
-    const inv = online?.link.invite;
-    return !!inv && (online?.link.partyAnswer(inv.from, accept) ?? false);
-  },
-  partyLeave(): boolean {
-    return online?.link.partyLeave() ?? false;
-  },
-  /** Where you play now: your channel, or a dungeon's copy (server/src/spaces.rs). */
-  space() {
-    return online ? { ...online.link.space } : null;
-  },
-  /** Online: through a dungeon's portal (you must be at it), or back out of its copy (at its way out), as F does there. */
-  throughPortal(enter: boolean, id = 'goblinsDread'): boolean {
-    return online?.link.dungeon(id, enter) ?? false;
-  },
-  /** The mini-game tables drawn near you: where, who sits at them, and how many beacons are lit. */
-  gameTables() {
-    return gameTables?.list() ?? [];
-  },
-  /** Challenges another player (by character), as the challenge window does; development servers deal `seed`'s game. */
-  challenge(to: number, stake = 0, game = 'beacons', seed?: number): boolean {
-    return online?.link.challenge(to, game, stake, seed) ?? false;
-  },
-  /** Tests: each turn of a game this browser challenges someone to lasts `seconds` (development servers). */
-  setChallengeTurn(seconds: number | null): void {
-    if (online) online.link.challengeTurn = seconds;
-  },
-  /** Answers the challenge waiting for you, as its window does. */
-  answerChallenge(accept: boolean): boolean {
-    const c = online?.link.challenges.waiting;
-    return !!c && !!online && online.link.answer(c.from, accept);
-  },
-  /** A move at your table, in the game's own terms (Beacons: src/ui/minigames/beacons.ts). */
-  tableMove(m: Record<string, unknown>): boolean {
-    const t = online?.link.table;
-    return !!t && !!online && online.link.move(t.id, m);
-  },
-};
+const api = makeTestApi(refs);
 
 (window as unknown as { __game: typeof api }).__game = api;
-
 // ---------- Bug reports ----------
 // \ (or clicking both sticks) records one: see src/app/bugs/reporter.ts. The dev server saves it
 // to bugs/, and /fix-bugs in Claude Code works through them. Off in automated tests unless asked for.
 
-const r2 = (v: number) => Math.round(v * 100) / 100;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
-
-/** Everything a bug report wants to know about the game at one moment. */
-function bugSnapshot(): Record<string, unknown> {
-  const p = sim.player;
-  const mark = lockOn.mark();
-  const eye = follow.camera.position;
-  return {
-    mode: openWorld ? 'open world (Emberholm)' : serverUrl ? 'online battle' : raidCount ? 'raid stress test' : 'training yard',
-    frame: sim.frame,
-    paused,
-    device: input.lastDevice,
-    player: p,
-    camera: { yaw: r3(follow.yaw), pitch: r3(follow.pitch), distance: r2(follow.distance), eye: [r2(eye.x), r2(eye.y), r2(eye.z)] },
-    panels: { life: api.lifePanel(), skills: panel.isOpen ? panel.view : null, aimingSlot },
-    target: mark ? { name: mark.name, hp: mark.hp, x: r2(mark.x), z: r2(mark.z), locked: lockOn.locked } : null,
-    riding: life && p.mode === 'ride' ? (ridden(life, sim) ?? null) : null,
-    walk: walker ? { mode: walker.mode, marker: walker.marker, left: r2(walker.left) } : null,
-    nearby: sim.actors
-      .all()
-      .map((a) => ({ id: a.id, kind: a.kind, x: r2(a.x), y: r2(a.y), z: r2(a.z), hp: a.hp, alive: isAlive(a), state: stateName(a), dist: r2(Math.hypot(a.x - p.pos.x, a.z - p.pos.z)) }))
-      .filter((a) => a.dist < 40)
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 24),
-    life: life ? { ...life.state, focus: life.focus, placing: life.placing, resting: life.resting } : null,
-    build,
-    net: api.net(),
-    perf: perf(),
-  };
-}
-
-/** The player in a few numbers, ten times a second, for a report's timeline. */
-function bugSample(): Record<string, unknown> {
-  const p = sim.player;
-  const s: Record<string, unknown> = {
-    f: sim.frame,
-    x: r2(p.pos.x),
-    y: r2(p.pos.y),
-    z: r2(p.pos.z),
-    vx: r2(p.vel.x),
-    vy: r2(p.vel.y),
-    vz: r2(p.vel.z),
-    mode: p.mode,
-    grounded: p.grounded,
-    facing: r3(p.facing),
-  };
-  if (p.hp !== COMBAT.maxHp) s.hp = p.hp;
-  if (p.sprinting) s.sprinting = true;
-  if (p.crouching) s.crouching = true;
-  if (life) {
-    const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
-    if (v) s.ride = { id: v.id, def: v.def, x: r2(v.x), y: r2(v.y), z: r2(v.z), speed: r2(v.speed), heading: r3(v.heading) };
-    if (life.focus) s.focus = `${life.focus.action}: ${life.focus.label}${life.focus.ok ? '' : ' (not now)'}`;
-    if (life.placing) s.placing = true;
-  }
-  const lp = api.lifePanel();
-  if (lp) s.panel = lp;
-  else if (panel.isOpen) s.panel = panel.view === 'tree' ? 'skill tree' : 'skill book';
-  return s;
-}
-
-if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
-  bugs = new BugReporter({
-    canvas,
-    snapshot: bugSnapshot,
-    save: () => (life ? saveData(life, sim) : null),
-    sample: bugSample,
-    device: () => input.lastDevice,
-    test: testMode,
-    speech: params.get('bugspeech') !== '0',
-    lang: params.get('buglang') || navigator.language || 'en-US',
-  });
-  // Mouse readings thrown away as impossible, so a report can show whether one caused a camera jump.
-  input.mouse.onDrop = (dx, dy, why) => bugs?.note('mouse', { type: why, dx, dy, raw: input.rawMouse });
-  if (lifeUI) {
-    lifeUI.onBugReport = () => bugs?.toggle();
-    lifeUI.bugKey = () => bugs?.key ?? '\\';
-  }
-}
+wireBugReports(refs);
 
 // ---------- Dungeons, online ----------
-// You're in a dungeon's copy, or back in the open world (server/src/spaces.rs): the server moved you
+// You're in a dungeon's copy, or back in the open world (crates/server/src/directory/mod.rs): the server moved you
 // there, and this follows (src/app/dungeonVisit.ts): the dungeon solid around you and drawn only
 // while you're in it, and getting up after a knockdown where it's entered.
 function onlineSpace(s: SpaceView): void {
@@ -2292,160 +958,4 @@ function onlineSpace(s: SpaceView): void {
 // that says so, and carries on when it's back; play stops for good if another window takes this
 // character or the sign-in ends.
 
-if (online) {
-  const { link } = online;
-  const exitToSelect = () => leaveFor(plainUrl());
-  const where = (s: SpaceView) => `${online.welcome.character.name} · ${s.kind === 'dungeon' ? s.name : `Emberholm ${s.channel}`}`;
-  const badge = new OnlineBadge(where(link.space), {
-    characters: exitToSelect,
-    signOut: async () => {
-      await signOut();
-      leaveFor(plainUrl());
-    },
-  });
-  if (lifeUI) lifeUI.onExitToSelect = exitToSelect;
-  const overlay = new NetOverlay();
-  let dropTimer = 0;
-  const freeze = (on: boolean) => {
-    if (frozen === on) return;
-    frozen = on;
-    acc = 0;
-    if (on && document.pointerLockElement) document.exitPointerLock();
-  };
-  const stopIf = (s: typeof link.status) => {
-    badge.set(s);
-    clearTimeout(dropTimer);
-    if (s === 'online') {
-      freeze(false);
-      overlay.hide();
-    } else if (s === 'updating') {
-      freeze(true);
-      overlay.show('updating');
-    } else if (s === 'reconnecting') {
-      // Frozen at once; a blip shorter than this isn't worth a screen.
-      freeze(true);
-      dropTimer = window.setTimeout(() => overlay.show('reconnecting'), 400);
-    } else {
-      freeze(false);
-      overlay.hide();
-      paused = true;
-      showStopped(s);
-      // Still loading: the title screen mustn't hide why play stopped.
-      void splash?.fadeOut();
-    }
-  };
-  link.onStatus = stopIf;
-  // A new connection counts inputs from scratch: start again from the server's next word. It may
-  // put you somewhere else, too: a restarted server has no dungeon copies, and puts you outside the
-  // door of the one you were in.
-  link.onReconnect = () => {
-    prediction?.resync();
-    ahead.length = 0;
-    peers?.everyoneLeft();
-    net?.resetWorld();
-    badge.rename(where(link.space));
-    onlineSpace(link.space);
-  };
-  link.onError = (text) => life?.fromServer({ t: 'toast', text, kind: 'bad' });
-  link.onNotice = (text) => life?.fromServer({ t: 'toast', text, kind: 'info' });
-  // Into a dungeon's copy, or back out of it (server/src/spaces.rs): another game, with its own ticks
-  // and its own people. As after a reconnection, start again from what the server says next.
-  link.onSpace = (s) => {
-    prediction?.resync();
-    ahead.length = 0;
-    peers?.everyoneLeft();
-    net?.resetWorld();
-    badge.rename(where(s));
-    onlineSpace(s);
-  };
-
-  // Your island as the server has it, and the parts that move with you as of each update.
-  let you: YouState | null = null;
-  /** Commands run here ahead of the server (see life.remote below), with the input each went with. */
-  const ahead: Array<{ seq: number; c: Command }> = [];
-  let lastRev = -1;
-  let lifeLoaded = false;
-  const solidScarecrows = new Set<number>();
-  /** What's built on your island (farms and houses, where), last time the grass was laid round it. */
-  let groundKey = '';
-  /** Your island as the server last sent it, kept as it came. */
-  let base: LifeState | null = null;
-  if (prediction && life) {
-    // Picking a pack up or putting it down, loading one or taking one out, getting in or out: run
-    // here at once as well as on the server, so the pack is on your back (or you're in the seat)
-    // without waiting a round trip for it. Until the server has run it too, whatever it sends is
-    // taken with what's still to come run again on top.
-    const quick = (c: Command): boolean => c.t === 'drop' || (c.t === 'exit' && !sim.player.host) || (c.t === 'interact' && !!life.focus?.ok && QUICK.has(life.focus.action));
-    life.remote = (c) => {
-      const seq = prediction.seq + 1;
-      online.link.command(seq, c);
-      if (!quick(c) || ahead.length >= 8) return;
-      if (life.state === base) life.state = structuredClone(base);
-      runCommand(life, sim, c);
-      ahead.push({ seq, c });
-    };
-    prediction.beforeReplay = () => {
-      if (!you) return;
-      // What the server has run too is in what it sent.
-      while (ahead.length && ahead[0].seq <= you.ack) ahead.shift();
-      if (ahead.length && base) life.state = structuredClone(base);
-      const s = life.state;
-      s.clock = you.clock;
-      s.labor = you.labor;
-      s.weather = you.weather;
-      s.vehicles = ahead.length ? structuredClone(you.vehicles) : you.vehicles;
-      life.resting = you.resting;
-      life.placing = you.placing;
-      for (const a of ahead) runCommand(life, sim, a.c);
-    };
-  }
-  const onTick = (t: WorldTick) => {
-    if (life && t.life) {
-      lifeLoaded = true;
-      base = t.life.state;
-      life.state = t.life.state;
-      life.placing = t.life.placing;
-      life.resting = t.life.resting;
-      if (t.life.rev !== lastRev) {
-        lastRev = t.life.rev;
-        life.revision++;
-        // What you've built is solid here as it is on the server.
-        for (const h of life.state.houses) addHouseColliders(life, sim, h);
-        for (const sc of life.state.scarecrows) {
-          if (solidScarecrows.has(sc.id)) continue;
-          solidScarecrows.add(sc.id);
-          addScarecrowCollider(sim, sc);
-        }
-        // The grass is laid again only round something new built: a pack picked up changes the
-        // island too, and laying it all again then is a stutter.
-        const ground = life.state.scarecrows.map((sc) => sc.id).join(',') + '|' + life.state.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
-        if (ground !== groundKey) {
-          groundKey = ground;
-          lifeView?.onGroundChanged?.();
-        }
-      }
-    }
-    you = t.you;
-    net?.applyWorld(t.tick, { id: t.you.id, ack: t.you.ack, player: stateFromServer(t.you.p) }, t.arrows ?? [], t.meteors ?? [], t.events ?? [], t.actors ?? []);
-    if (life) for (const e of t.lifeEvents ?? []) life.fromServer(e);
-  };
-  link.onTick = onTick;
-  // Back in a dungeon's copy you were in (the connection came back while it was still there).
-  onlineSpace(link.space);
-  // Whatever came while the page was still loading: the newest island, then the newest tick.
-  if (link.latestLife && link.latest && !link.latest.life) onTick({ ...link.latest, life: link.latestLife });
-  else if (link.latest) onTick(link.latest);
-  online.lifeLoaded = () => lifeLoaded;
-  stopIf(link.status);
-
-  // Into the game: the title screen fades once the first frames are drawn (the first one compiles
-  // the shaders) and your island has arrived, so it opens on your island as it is.
-  if (splash) {
-    const title = splash;
-    title.say('Lighting the Lanterns…');
-    const started = performance.now();
-    const ready = () => framesDrawn >= 3 && (lifeLoaded || performance.now() - started > 4000);
-    const wait = () => (ready() ? void title.fadeOut() : requestAnimationFrame(wait));
-    requestAnimationFrame(wait);
-  }
-}
+wireOnline(refs);

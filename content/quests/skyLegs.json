@@ -1,0 +1,26 @@
+{
+  "id": "skyLegs",
+  "name": "Sky Legs",
+  "giver": "",
+  "after": [
+    "firstFlight"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "Ysolde says the wind only trusts you once you have given it some time.",
+  "steps": [
+    {
+      "text": "Glide for two minutes in all",
+      "objectives": [
+        {
+          "type": "glide",
+          "seconds": 120
+        }
+      ]
+    }
+  ],
+  "outro": "You read the air like a gull.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

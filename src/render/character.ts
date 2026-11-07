@@ -1,12 +1,11 @@
 import * as THREE from 'three';
-import type { PlayerState } from '../sim/types';
-import { angleDiff } from '../sim/math';
-import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP } from '../tuning';
+import { type PlayerState, angleDiff } from '../engine/rules';
+import { ABILITIES, COMBAT, comboShape, DEFAULT_BUILD, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP, weaponId } from '../content/tuning';
 import { DetailRig } from './detail/rig';
 import { Body, SIDES, type Side } from './detail/body';
 import { Inertia } from './detail/blend';
 import { directional, dutyFactor, strideLength } from './detail/gait';
-import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../content/creatures/hero';
+import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES } from './creatures/heroBody';
 import { SlashArc } from './vfx';
 import { poseHumanoid, settle, strokeRate } from './detail/humanoid';
 import { swingFor } from './detail/swings';
@@ -17,10 +16,7 @@ import { madeHero, madeHeroNow, type MadeHero } from './detail/madeHero';
 import { dressWeapons } from './detail/madeWeapons';
 import { gripHands, wear, type Grip } from './detail/fit';
 import type { RigDef } from '../content/rig';
-
-const TAU = Math.PI * 2;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+import { TAU, clamp, lerp } from '../util/math';
 
 /** Which way a horizontal direction goes relative to a facing: 0 ahead, + to the left. */
 function headingOf(x: number, z: number, facing: number): number {
@@ -132,7 +128,7 @@ export function traceSwing(p: PoseInput, def: RigDef = HERO_RIG): Edges | null {
   const key = swingKey(p);
   if (traced.has(key)) return traced.get(key)!;
   const step = p.step!;
-  const edge = HERO_TRAIL_EDGES[HERO_WEAPONS[p.weapon] ?? ''];
+  const edge = HERO_TRAIL_EDGES[weaponId(p.weapon)];
   let edges: Edges | null = null;
   if (edge) {
     const hand = tracer.joint('handR');
@@ -141,7 +137,10 @@ export function traceSwing(p: PoseInput, def: RigDef = HERO_RIG): Edges | null {
     for (let i = 0; i <= n; i++) {
       const f = step.startup + (step.active * i) / n;
       // A jump attack is traced in the air, as it is mostly swung.
-      poseHumanoid(tracer, pose({ weapon: p.weapon, attackIndex: p.attackIndex, attackFrame: f, step, comboLength: p.comboLength, airSwing: p.airSwing, grounded: !p.airSwing }));
+      poseHumanoid(
+        tracer,
+        pose({ weapon: p.weapon, attackIndex: p.attackIndex, attackFrame: f, step, comboLength: p.comboLength, airSwing: p.airSwing, grounded: !p.airSwing }),
+      );
       tracer.root.updateMatrixWorld(true);
       edges.push([new THREE.Vector3(...edge.inner).applyMatrix4(hand.matrixWorld), new THREE.Vector3(...edge.outer).applyMatrix4(hand.matrixWorld)]);
     }
@@ -227,7 +226,7 @@ const DOWN_Y = new THREE.Vector3(0, -1, 0);
 // the build has equipped: sword, club, staff or bow.
 export class Hero {
   readonly root = new THREE.Group();
-  // The body comes from content (src/content/creatures/hero.ts); the motion lives in
+  // The body comes from content (src/render/creatures/heroBody.ts); the motion lives in
   // detail/humanoid.ts, shared by every humanoid race, and is a pure function of its input. What
   // only the close-up body does - the stride clock, easing between states, trails, the bowstring -
   // lives here.
@@ -317,7 +316,8 @@ export class Hero {
     this.nockedArrow = this.rig.attachment('arrow');
     this.strings = this.rig.built.filter((b) => b.mat === 'string').map((b) => b.mesh);
     this.inertia = new Inertia(this.body);
-    this.setWeapon(0);
+    // What a new character holds, until it's posed with what it has.
+    this.setWeapon(DEFAULT_BUILD.weapon);
     // The new look's made body, as soon as it has loaded (at once, if it already has).
     const made = madeHeroNow();
     if (made) this.adopt(made);
@@ -326,6 +326,39 @@ export class Hero {
 
   /** The made body worn, once it has loaded; null while the box body is drawn. */
   private made: MadeHero | null = null;
+
+  /** How much of the body shows (Hero.setFade); NaN until a fade has been asked for. */
+  private faded = Number.NaN;
+
+  /**
+   * How much of the body shows, 0..1: someone far off fades out of a hero into a crowd body and
+   * back (src/render/open/peersView.ts). Dithered (each material's alpha hash), so nothing needs
+   * sorting. Materials this body shares with others (the made body's, the made weapons') are copied
+   * for it the first time.
+   */
+  setFade(f: number): void {
+    if (f === this.faded) return;
+    this.faded = f;
+    const copies = new Map<THREE.Material, THREE.Material>();
+    const own = (m: THREE.Material): THREE.Material => {
+      if (m.userData.fades || m.transparent) return m;
+      let c = copies.get(m);
+      if (!c) {
+        c = m.userData.ownRig ? m : m.clone();
+        c.userData.fades = true;
+        c.alphaHash = true;
+        c.needsUpdate = true;
+        copies.set(m, c);
+      }
+      return c;
+    };
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material);
+      for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) if (m.userData.fades) m.opacity = f;
+    });
+  }
 
   /** Swaps the box body for the made one: a rig measured to it, wearing it, posed as before. */
   private adopt(made: MadeHero): void {
@@ -343,8 +376,12 @@ export class Hero {
     for (const arc of this.trails.values()) arc.mesh.removeFromParent();
     this.trails.clear();
     wear(rig, made.fitted);
-    this.place(this.weaponAt);
+    this.placeWeapon(this.weaponAt);
     this.setWeapon(this.weaponShown);
+    // A fade asked for before goes on the new body too.
+    const f = this.faded;
+    this.faded = Number.NaN;
+    if (!Number.isNaN(f)) this.setFade(f);
   }
 
   // Team colours: blue tunic with a red cape, or red tunic with a dark cape.
@@ -354,10 +391,10 @@ export class Hero {
     this.rig.recolour('cape', c.cape);
   }
 
-  // 0 sword, 1 club, 2 staff, 3 bow.
+  /** The weapon in hand, by its place in WEAPONS: the attachment named for its id is the one shown. */
   setWeapon(weapon: number): void {
     this.weaponShown = weapon;
-    this.rig.showAttachment(this.weaponAt === 'hidden' ? null : (HERO_WEAPONS[weapon] ?? null));
+    this.rig.showAttachment(this.weaponAt === 'hidden' ? null : weaponId(weapon) || null);
   }
 
   /** Where the vehicle's holds are this frame, in the body's model space, for the seated poses. */
@@ -389,10 +426,12 @@ export class Hero {
   }
 
   /** Puts the weapons in the hand, where they are put away on the body (stow.ts), or out of sight. */
-  private place(at: WeaponAt): void {
+  placeWeapon(at: WeaponAt): void {
     this.weaponAt = at;
-    this.rig.showAttachment(at === 'hidden' ? null : (HERO_WEAPONS[this.weaponShown] ?? null));
-    for (const name of HERO_WEAPONS) {
+    this.rig.showAttachment(at === 'hidden' ? null : weaponId(this.weaponShown) || null);
+    // The weapons are the attachments shown one at a time (the nocked arrow comes and goes with the bow).
+    for (const [name, a] of Object.entries(this.rig.def.attachments ?? {})) {
+      if (!a.exclusive) continue;
       const g = this.rig.attachment(name);
       const s = at === 'away' ? stowedFor(this.rig.def)[name] : undefined;
       if (s) {
@@ -400,7 +439,7 @@ export class Hero {
         g.position.set(...s.at);
         stowedTurn(s, g.quaternion);
       } else {
-        this.rig.joint(HERO_RIG.attachments?.[name]?.joint ?? 'handR').add(g);
+        this.rig.joint(a.joint).add(g);
         g.position.set(0, 0, 0);
         g.quaternion.identity();
       }
@@ -412,6 +451,21 @@ export class Hero {
     return this.weaponAt;
   }
 
+  /** The weapon shown, by its place in WEAPONS (-1 before the first is). */
+  get weaponHeld(): number {
+    return this.weaponShown;
+  }
+
+  /** Where each foot is held while it's planted, for the benches that measure the feet. */
+  get footHolds(): Readonly<Record<Side, Readonly<FootHold>>> {
+    return this.holds;
+  }
+
+  /** Hides the swings' trails (a still picture of a frame, drawn without its effects). */
+  hideTrails(): void {
+    for (const arc of this.trails.values()) arc.hide();
+  }
+
   /** The body itself, for benches and tests that measure it. */
   get detail(): DetailRig {
     return this.rig;
@@ -419,8 +473,8 @@ export class Hero {
 
   /**
    * A swing of yours connected: hold it where it is for `frames` (sixtieths of a second), then let
-   * it catch up, as the rules' own hit pause does in the training yard. Online the rules can't stop
-   * for it - the server decides where you are - so only the drawing does.
+   * it catch up, as the rules' own hit pause does offline. Online the rules can't stop for it - the
+   * server decides where you are - so only the drawing does.
    */
   hitPause(frames: number, swing: number): void {
     if (frames <= 0) return;
@@ -525,10 +579,10 @@ export class Hero {
     // ground (the left, which leads every leap); setting off from standing, with the back foot's step.
     if (input.grounded && !this.wasGrounded) {
       const v = input.speed * MOVE.runSpeed;
-      if (Math.cos(input.heading) < -0.3 && v > 0.5) this.phase = -dutyFactor(v, input.crouch, 1, this.body.stride) * TAU; // backing away: toes first
+      if (Math.cos(input.heading) < -0.3 && v > 0.5)
+        this.phase = -dutyFactor(v, input.crouch, 1, this.body.stride) * TAU; // backing away: toes first
       else this.phase = Math.sin(input.heading) * input.speed < -0.15 ? Math.PI : 0;
-    }
-    else if (this.stride < 0.02 && input.run > 0.01) this.phase = 0.06 * TAU;
+    } else if (this.stride < 0.02 && input.run > 0.01) this.phase = 0.06 * TAU;
     this.wasGrounded = input.grounded;
     if (moved > 0 && moved < 3) {
       const v = input.run * MOVE.runSpeed;
@@ -583,7 +637,7 @@ export class Hero {
     // (drawOrSheathe). On foot, in the hand until the hand putting it away lets go of it, halfway
     // through (and back in it halfway through drawing), then at the hip or across the back.
     const at: WeaponAt = input.travel || (input.carry && input.stow >= 1) ? 'hidden' : !input.carry && input.stow >= 0.5 ? 'away' : 'hand';
-    if (at !== this.weaponAt) this.place(at);
+    if (at !== this.weaponAt) this.placeWeapon(at);
     if (input.travel && this.seatHolds) this.reachForHolds(input, this.seatHolds);
     const fb = poseHumanoid(this.rig, input);
 
@@ -592,7 +646,8 @@ export class Hero {
     let blend = 0;
     if (key !== this.lastKey) {
       blend = jumped ? 0 : transition(this.lastKey, key);
-      // A made body's swings (takes.ts) end further from standing than the box hero's keyframes do.
+      // A made body's swings (clips from animation libraries, retarget.ts) end further from standing
+      // than the box hero's keyframes do.
       if (this.made && !jumped && this.lastKey.startsWith('attack') && !key.startsWith('attack')) blend = Math.max(blend, 0.26);
       this.lastKey = key;
     }
@@ -612,13 +667,12 @@ export class Hero {
    * pinching the string drawing a bow, and otherwise loosely curled.
    */
   private grips(input: PoseInput): Record<Side, Grip> {
-    const inHand = this.weaponAt === 'hand';
-    const w = this.weaponShown;
+    const held = this.weaponAt === 'hand' ? weaponId(this.weaponShown) : '';
     const travelling = !!input.travel;
     // Loosely curled standing, a loose fist on the run.
     const relaxed = travelling ? 1 : 0.18 + 0.32 * Math.min(1, Math.max(0, input.run));
-    const blade = inHand && w >= 0 && w <= 2 ? this.rig.attachment(HERO_WEAPONS[w]) : null;
-    const bow = inHand && w === 3;
+    const bow = held === 'bow';
+    const blade = !bow && this.rig.def.attachments?.[held]?.joint === 'handR' ? this.rig.attachment(held) : null;
     return {
       R: blade ? { amount: 1, axis: GRIP_DOWN, held: [blade] } : { amount: bow ? 0.6 : relaxed },
       L: bow ? { amount: 1, axis: GRIP_ALONG, held: [this.rig.attachment('bow'), this.nockedArrow] } : { amount: relaxed },
@@ -726,8 +780,8 @@ export class Hero {
     });
   }
 
-  // Feedback the poses cannot do themselves, because it is not a joint.
-  private feedback(input: PoseInput, fb: PoseFeedback): void {
+  /** Feedback the poses cannot do themselves, because it is not a joint: a frame's own, or a kept one the content library shows again. */
+  feedback(input: PoseInput, fb: PoseFeedback): void {
     for (const arc of this.trails.values()) arc.hide();
     if (fb.trail && input.step) {
       const key = swingKey(input);
@@ -744,7 +798,7 @@ export class Hero {
       arc?.set(fb.trail.head, fb.trail.tail, fb.trail.alpha);
     }
     this.nockedArrow.visible = fb.arrow;
-    if (input.weapon === 3) this.bowstring(fb);
+    if (weaponId(input.weapon) === 'bow') this.bowstring(fb);
   }
 
   /** The string follows the drawing hand back, and the nocked arrow lies along it to the grip. */
@@ -776,7 +830,10 @@ export class Hero {
       // the hand as the bow does.
       const along = _v3.copy(nock).negate().normalize();
       this.nockedArrow.quaternion.setFromUnitVectors(DOWN_Y, along);
-      this.nockedArrow.position.copy(nock).sub(_v2.set(0, bow.arrowNock, 0).applyQuaternion(this.nockedArrow.quaternion)).add(held.position);
+      this.nockedArrow.position
+        .copy(nock)
+        .sub(_v2.set(0, bow.arrowNock, 0).applyQuaternion(this.nockedArrow.quaternion))
+        .add(held.position);
     }
   }
 }

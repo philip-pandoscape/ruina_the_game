@@ -1,0 +1,10 @@
+{
+  "id": "deed.ponyTrap",
+  "name": "Pony Trap Deed",
+  "icon": "🚜",
+  "cat": "deed",
+  "stack": 1,
+  "value": 0,
+  "vehicle": "ponyTrap",
+  "desc": "Summon your pony trap. Quicker than a farm cart; one seat and two pack slots."
+}

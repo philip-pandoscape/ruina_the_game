@@ -1,0 +1,10 @@
+{
+  "id": "sapling.apple",
+  "name": "Redcap Apple Sapling",
+  "icon": "🌳",
+  "cat": "seed",
+  "stack": 20,
+  "plants": "apple",
+  "value": 35,
+  "desc": "Grows into a tree that fruits again and again. Fell it for lumber when you are done."
+}

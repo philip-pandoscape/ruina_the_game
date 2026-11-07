@@ -1,0 +1,12 @@
+{
+  "id": "tonic.labor",
+  "name": "Hearty Tonic",
+  "icon": "🧪",
+  "cat": "consumable",
+  "stack": 20,
+  "value": 30,
+  "use": {
+    "labor": 250
+  },
+  "desc": "Restores 250 labor."
+}

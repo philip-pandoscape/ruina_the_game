@@ -1,0 +1,10 @@
+{
+  "id": "whistle.horse",
+  "name": "Horse Whistle",
+  "icon": "🐎",
+  "cat": "mount",
+  "stack": 1,
+  "value": 0,
+  "mount": "horse",
+  "desc": "Press R to call your horse. Fast, but no packs."
+}

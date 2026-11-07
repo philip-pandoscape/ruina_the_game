@@ -1,0 +1,28 @@
+{
+  "name": "bow",
+  "title": "Bow",
+  "icon": "🏹",
+  "tags": [
+    "ranged",
+    "attack",
+    "projectile"
+  ],
+  "combo": [
+    {
+      "startup": 9,
+      "active": 1,
+      "recovery": 9,
+      "damage": 12,
+      "lunge": 0,
+      "reach": 0,
+      "arcDeg": 0,
+      "hitstop": 0,
+      "knock": 1.5,
+      "playerKnock": 2,
+      "shake": 0.1,
+      "cancelAfter": 4,
+      "projectileSpeed": 38,
+      "projectileRange": 42
+    }
+  ]
+}

@@ -1,47 +1,75 @@
 import * as THREE from 'three';
-import { Heightfield, SURFACE, valueNoise } from '../../sim/terrain';
-import { NEW_LOOK, PALETTE } from '../look';
+import { Heightfield, SURFACE, valueNoise } from '../../engine/zone';
+import { GRAPHICS, PALETTE } from '../look';
 import { toon } from '../toon';
 import { splatWeights, texturedGround } from './ground';
 
-// The ground of an open world, drawn from the very grid the rules walk on, split into the same
+// The ground of a region, drawn from the very grid the rules walk on, split into the same
 // triangles (each quad along its a-d diagonal) so feet land on the drawn surface exactly.
-// Chunked so the camera only draws what it can see.
+// Chunked so the camera only draws what it can see; each chunk's vertices are round its own corner,
+// which stands where it is in the world, so they keep their precision far from the origin. Every
+// region's ground is drawn with one material (`groundMaterial`), its textures loaded once.
 
 const CHUNK = 64; // cells per chunk side
 
 // Ground colours per surface (src/render/look.ts): a pair to dither between, so big areas never look flat.
 const GROUND = PALETTE.ground;
 
+/** The ground's material, for every region's ground: vertex colours, and above low quality the surfaces' textures (src/render/open/ground.ts). */
+export function groundMaterial(): THREE.MeshToonMaterial {
+  const material = toon(0xffffff, { vertexColors: true });
+  if (GRAPHICS.groundTextures) texturedGround(material, GROUND[SURFACE.rock][0]);
+  return material;
+}
+
 export class TerrainView {
   readonly group = new THREE.Group();
-  private material: THREE.MeshToonMaterial;
   private chunks: THREE.Mesh[] = [];
+  /** The next chunk to build, while it's built a little at a time (`buildUntil`). */
+  private next = 0;
+  private readonly per: number;
 
-  constructor(private hf: Heightfield) {
-    this.material = toon(0xffffff, { vertexColors: true });
-    // The new look lays real textures over the surfaces (src/render/open/ground.ts).
-    if (NEW_LOOK) texturedGround(this.material, GROUND[SURFACE.rock][0]);
-    const per = Math.ceil(hf.cells / CHUNK);
-    for (let cj = 0; cj < per; cj++)
-      for (let ci = 0; ci < per; ci++) {
-        const mesh = this.buildChunk(ci * CHUNK, cj * CHUNK, Math.min(CHUNK, hf.cells - ci * CHUNK), Math.min(CHUNK, hf.cells - cj * CHUNK));
-        if (mesh) {
-          this.group.add(mesh);
-          this.chunks.push(mesh);
-        }
+  constructor(
+    private hf: Heightfield,
+    private material: THREE.MeshToonMaterial = groundMaterial(),
+    /** Built a little at a time by `buildUntil` (a region arriving as you travel), not all at once. */
+    later = false,
+  ) {
+    this.per = Math.ceil(hf.cells / CHUNK);
+    if (!later) this.buildUntil(Infinity);
+  }
+
+  /** Builds chunks until the clock (performance.now()) passes `until`: true once they're all built. */
+  buildUntil(until: number): boolean {
+    const hf = this.hf;
+    while (this.next < this.per * this.per) {
+      const ci = this.next % this.per;
+      const cj = Math.floor(this.next / this.per);
+      this.next++;
+      const mesh = this.buildChunk(ci * CHUNK, cj * CHUNK, Math.min(CHUNK, hf.cells - ci * CHUNK), Math.min(CHUNK, hf.cells - cj * CHUNK));
+      if (mesh) {
+        this.group.add(mesh);
+        this.chunks.push(mesh);
       }
+      if (performance.now() > until) break;
+    }
+    return this.next >= this.per * this.per;
   }
 
   get chunkCount(): number {
     return this.chunks.length;
   }
 
+  /** Lets go of its chunks' geometry (the material is every region's). */
+  dispose(): void {
+    for (const c of this.chunks) c.geometry.dispose();
+  }
+
   /** Colour of one vertex: the surfaces of the four cells around it, blended, then shaded by height. */
   private vertexColour(i: number, j: number, out: THREE.Color, tmp: THREE.Color, tmp2: THREE.Color): void {
     const hf = this.hf;
     const x = hf.vx(i);
-    const z = hf.vx(j);
+    const z = hf.vz(j);
     const h = hf.at(i, j);
     let r = 0;
     let g = 0;
@@ -83,8 +111,8 @@ export class TerrainView {
     const pos = new Float32Array(vx * vz * 3);
     const nor = new Float32Array(vx * vz * 3);
     const col = new Float32Array(vx * vz * 3);
-    const splatA = NEW_LOOK ? new Float32Array(vx * vz * 4) : null;
-    const splatB = NEW_LOOK ? new Float32Array(vx * vz * 4) : null;
+    const splatA = GRAPHICS.groundTextures ? new Float32Array(vx * vz * 4) : null;
+    const splatB = GRAPHICS.groundTextures ? new Float32Array(vx * vz * 4) : null;
     const around: number[] = [];
     const wa = [0, 0, 0, 0];
     const wb = [0, 0, 0, 0];
@@ -92,14 +120,17 @@ export class TerrainView {
     const t1 = new THREE.Color();
     const t2 = new THREE.Color();
     const cell = hf.cell;
+    // The chunk's corner, where its mesh stands: its vertices are round it.
+    const ox = hf.vx(i0);
+    const oz = hf.vz(j0);
     for (let j = 0; j < vz; j++)
       for (let i = 0; i < vx; i++) {
         const gi = i0 + i;
         const gj = j0 + j;
         const k = (j * vx + i) * 3;
-        pos[k] = hf.vx(gi);
+        pos[k] = hf.vx(gi) - ox;
         pos[k + 1] = hf.at(gi, gj);
-        pos[k + 2] = hf.vx(gj);
+        pos[k + 2] = hf.vz(gj) - oz;
         // Smooth normals from the grid itself, so neighbouring chunks agree along their seams.
         const hl = hf.at(Math.max(0, gi - 1), gj);
         const hr = hf.at(Math.min(hf.n - 1, gi + 1), gj);
@@ -161,8 +192,10 @@ export class TerrainView {
     geo.computeBoundingBox();
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.receiveShadow = true;
-    // In the new look hills shade the ground behind them too, which shows when the sun is low.
-    mesh.castShadow = NEW_LOOK;
+    // Hills shade the ground behind them too, which shows when the sun is low (not at low quality).
+    mesh.castShadow = GRAPHICS.shadow.hills;
+    mesh.position.set(ox, 0, oz);
+    mesh.updateMatrix();
     mesh.matrixAutoUpdate = false;
     return mesh;
   }

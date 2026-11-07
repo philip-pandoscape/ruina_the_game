@@ -1,0 +1,16 @@
+{
+  "id": "craft.tonic",
+  "bench": "mara",
+  "inputs": [
+    {
+      "item": "herbs",
+      "n": 5
+    }
+  ],
+  "coins": 20,
+  "labor": 5,
+  "makes": {
+    "item": "tonic.labor",
+    "n": 1
+  }
+}

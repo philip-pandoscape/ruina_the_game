@@ -1,0 +1,24 @@
+{
+  "id": "craft.sloop",
+  "bench": "ilsa",
+  "inputs": [
+    {
+      "item": "lumber",
+      "n": 30
+    },
+    {
+      "item": "flax",
+      "n": 10
+    },
+    {
+      "item": "ironOre",
+      "n": 6
+    }
+  ],
+  "coins": 800,
+  "labor": 60,
+  "makes": {
+    "item": "deed.sloop",
+    "n": 1
+  }
+}

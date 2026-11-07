@@ -1,0 +1,57 @@
+{
+  "id": "wayfarer",
+  "name": "Wayfarer",
+  "giver": "",
+  "after": [
+    "landfall"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "Fields, rise, spire, forest, quarry, strand and the far post: see them all.",
+  "steps": [
+    {
+      "text": "Set foot in every corner of Emberholm",
+      "objectives": [
+        {
+          "type": "reach",
+          "place": "barleybrook",
+          "r": 40
+        },
+        {
+          "type": "reach",
+          "place": "hearthside",
+          "r": 40
+        },
+        {
+          "type": "reach",
+          "place": "windspire",
+          "r": 40
+        },
+        {
+          "type": "reach",
+          "place": "thornwood",
+          "r": 50
+        },
+        {
+          "type": "reach",
+          "place": "quarry",
+          "r": 40
+        },
+        {
+          "type": "reach",
+          "place": "strand",
+          "r": 40
+        },
+        {
+          "type": "reach",
+          "place": "westwatch",
+          "r": 40
+        }
+      ]
+    }
+  ],
+  "outro": "There is no corner of the island you have not walked.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

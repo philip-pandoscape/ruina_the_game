@@ -1,0 +1,9 @@
+{
+  "comment": "Buildings and props the world is dressed with. w (along X) and d (along Z) are the footprint in metres, h the overall height. Each faces +Z (its front, door or counter side). collider: 'box' blocks the whole footprint, 'walls' blocks only the outer walls (with a door gap at the front, so you can walk in), 'none' is walkable decoration, 'post' a small round blocker of radius r. deck: a walkable platform top at this height (docks, launch decks), which the rules treat as ground. A region levels the ground under each to a pad unless it has a deck or pad is false (a farm plot, a scarecrow); seaLevel stands it at sea level rather than on the ground (a pier on its piles); clearMargin is how far round it trees and rocks are kept off (the zone's scatter.clearOfStructure if not given); surface is what the ground under it is made of (soil under a farm plot). Read by src/content/structures.ts and the zone builder; the models in src/render/models/structures.ts are built to these exact sizes.",
+  "structures": {
+    "$things": "structures"
+  },
+  "props": {
+    "$things": "props"
+  }
+}

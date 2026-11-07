@@ -1,13 +1,26 @@
 import * as THREE from 'three';
-import { SpeciesCrowd } from '../species/crowd';
-import { JellyCrowd } from '../species/jelly';
-import { NEW_LOOK } from './look';
-import { getSpecies } from '../species/registry';
-import { actorKind } from '../content/actors';
+import { SpeciesCrowd } from './creatures/crowd';
+import { JellyCrowd } from './creatures/jelly';
+import { getSpecies } from './creatures/registry';
+import { actorKind, type ActorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
-import { isAlive, type Actor } from '../sim/actor';
-import { behaviour, stateName, stateProgress } from '../sim/ai/brain';
-import type { NetActor } from '../net/netCrowd';
+import { isAlive, type Actor, behaviour, stateName, stateProgress } from '../engine/creatures';
+
+/** A monster as the server has it, as much as drawing it needs (src/net/worldFeed.ts's NetActor). */
+export interface ShownActor {
+  id: number;
+  /** Index into the kinds in shared/actors.json. */
+  kind: number;
+  x: number;
+  y: number;
+  z: number;
+  facing: number;
+  /** Which behaviour state it is in, and how far through it. */
+  state: number;
+  progress: number;
+  /** -1 while alive, otherwise frames since it went down. */
+  deadFrame: number;
+}
 
 // Draws every actor that has a species, whatever kind it is. One instanced crowd per species,
 // so a yard with five slimes and a yard with five hundred cost the same number of draw calls,
@@ -15,10 +28,10 @@ import type { NetActor } from '../net/netCrowd';
 
 const HIDDEN_Y = -1000; // where an actor waits out its respawn
 
-// One crowd per body, colouring and size: villagers in different clothes share the body, not the
-// paint, and a creature's sizes share the body but not the scale.
-const packKey = (k: { species: string | null; palette?: { teamA: number; teamB: number }; scale?: number }): string =>
-  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}`;
+// One crowd per body, colouring, size and look: villagers in different clothes share the body, not
+// the paint, and a creature's sizes share the body but not the scale or what floats inside them.
+const packKey = (k: ActorKind): string =>
+  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}:${k.look ? JSON.stringify(k.look) : ''}`;
 
 /** The neutral shape both the local rules and the server's snapshots are turned into. */
 interface Shown {
@@ -72,21 +85,22 @@ export class ActorView {
    * `capacity` is the most actors of any one species that can be on screen at once. `ground`, in
    * an open world, is the terrain height to stand them on.
    */
-  constructor(kinds: readonly string[], private capacity = 64, private ground: ((x: number, z: number) => number) | null = null) {
+  constructor(
+    kinds: readonly string[],
+    private capacity = 64,
+    private ground: ((x: number, z: number) => number) | null = null,
+  ) {
     for (const id of kinds) {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
-      // The new look's slimes are jelly (src/species/jelly.ts), on the same skeleton and clips.
+      // A kind whose look is jelly (the slimes: src/render/creatures/jelly.ts) is drawn as that, on
+      // its species' skeleton and clips.
+      const look = kind.look;
       const crowd =
-        NEW_LOOK && species.id === 'slime'
-          ? new JellyCrowd(species, capacity, { kind: kind.id, palette: kind.palette, scale: kind.scale })
-          : new SpeciesCrowd(species, capacity, {
-              tint: true,
-              outlineThickness: 0.015,
-              palette: kind.palette,
-              scale: kind.scale,
-            });
+        look?.body === 'jelly'
+          ? new JellyCrowd(species, capacity, { inside: look.inside, crown: look.crown, palette: kind.palette, scale: kind.scale })
+          : new SpeciesCrowd(species, capacity, { tint: true, palette: kind.palette, scale: kind.scale });
       crowd.setCount(capacity);
       this.group.add(crowd.group);
       const clipIndex = new Map<string, number>();
@@ -104,7 +118,7 @@ export class ActorView {
    * through it the actor is, which is all the clip choice needs - the rest the browser already
    * knows from shared/actors.json. `flash` says how white each one is (0..1) as a blow lands.
    */
-  fromNetwork(actors: readonly NetActor[], flash: (id: number) => number = () => 0): void {
+  fromNetwork(actors: readonly ShownActor[], flash: (id: number) => number = () => 0): void {
     this.draw(
       actors.map((a) => {
         const kind = actorKindAt(a.kind);

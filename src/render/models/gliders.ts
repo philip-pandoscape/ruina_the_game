@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GliderDef } from '../../content/vehicles';
 import { Cloth, PAL, Parts, beam, clothMaterial, cone, cyl, extrude, mesh, octa, pivot, rod, tor, type Rgb, type V3 } from './kit';
 import { grainify } from './detail';
+import { clamp } from '../../util/math';
 
 // Gliders. Origin is the pilot's feet: the hero hangs below the wing with hands up on the
 // control bar (y ~2.0); the wing sits at y ~2.4-2.7 and spans the data's `span`.
@@ -25,7 +26,6 @@ export interface GliderModel {
 const HANG = 2.45;
 const BAR = 1.8;
 const BAR_Z = 0.45;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /**
  * Where a hand holds the control bar (side +1 left, -1 right), in the glider's frame (the pilot's
@@ -93,12 +93,16 @@ function wayfarer(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
     for (const to of [nose, tail, [mid[0], mid[1] - 0.04, mid[2]] as V3]) trim.add(rod(bar, to, 0.006, 3), 0x5a4a3a);
   }
   controlFrame(frame, trim, { tube: wood, fitting: PAL.brass, grip: PAL.leatherDark });
-  mesh(wing, frame.build(), { outline: 0.02 });
+  mesh(wing, frame.build());
   mesh(wing, trim.build());
 
   // Canvas: warm stripes, a couple of patches, stretched between keel and leading edge.
   const stripes = [PAL.orange, PAL.cream, PAL.red, PAL.cream, PAL.mustard, PAL.cream, PAL.orange, PAL.red];
-  const patches = new Map([['2:3', 0x6f8fb3], ['5:1', 0xe9dcc0], ['6:4', 0x8fbf6a]]);
+  const patches = new Map([
+    ['2:3', 0x6f8fb3],
+    ['5:1', 0xe9dcc0],
+    ['6:4', 0x8fbf6a],
+  ]);
   const cloth = new Cloth(8, 6, (i, j) => patches.get(`${i}:${j}`) ?? stripes[i % stripes.length]);
   const sides = [1, -1].map((sx) => {
     const g = pivot(wing, 0, 0, 0);
@@ -162,8 +166,33 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
   frame.add(rod(nose, tailEnd, 0.038, 6), lacquer);
   frame.add(cone(0.05, 0.16, 6), PAL.gold, [0, 0.13, 1.05], [Math.PI / 2, 0, 0]);
   for (const sx of [-1, 1]) {
-    frame.add(extrude([[0, 0], [sx * 0.34, -0.62], [sx * 0.18, -0.6], [sx * 0.04, -0.2]], 0.025), teal, [0, 0.035, -0.85], [Math.PI / 2, 0, 0]);
-    frame.add(extrude([[sx * 0.3, -0.56], [sx * 0.34, -0.62], [sx * 0.2, -0.6]], 0.03), white, [0, 0.035, -0.85], [Math.PI / 2, 0, 0]);
+    frame.add(
+      extrude(
+        [
+          [0, 0],
+          [sx * 0.34, -0.62],
+          [sx * 0.18, -0.6],
+          [sx * 0.04, -0.2],
+        ],
+        0.025,
+      ),
+      teal,
+      [0, 0.035, -0.85],
+      [Math.PI / 2, 0, 0],
+    );
+    frame.add(
+      extrude(
+        [
+          [sx * 0.3, -0.56],
+          [sx * 0.34, -0.62],
+          [sx * 0.2, -0.6],
+        ],
+        0.03,
+      ),
+      white,
+      [0, 0.035, -0.85],
+      [Math.PI / 2, 0, 0],
+    );
   }
   // Leading-edge spar and lacquered ribs out to the feather tips (right half; mirrored below).
   const half1 = new Parts();
@@ -183,7 +212,7 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
     const bar: V3 = [sx * 0.5, BAR - HANG, BAR_Z];
     for (const to of [nose, tailEnd, le(0.45, 0)]) trim.add(rod(bar, [sx * Math.abs(to[0]), to[1], to[2]], 0.005, 3), 0x3a3a3a);
   }
-  mesh(wing, frame.build(), { outline: 0.018 });
+  mesh(wing, frame.build());
   mesh(wing, trim.build());
   const halfGeo = half1.build();
   // Silk: teal with white feather tips and a pale band near the leading edge.
@@ -194,7 +223,7 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
     g.scale.x = sx;
     const m = mesh(g, cloth.geometry, { mat: clothMaterial(), name: 'sail', receive: false });
     m.castShadow = true;
-    mesh(g, halfGeo, { outline: 0.016 });
+    mesh(g, halfGeo);
     tips.push(ribbon(g, le(1, 0), PAL.gold));
   }
   const shape = (time: number, ripple: number, flex: number) =>
@@ -215,14 +244,20 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
   };
 }
 
-/** Builds a glider; unknown ids get the canvas wayfarer at the data's span. */
+/** The gliders' bodies, by name: a glider's look names one. */
+const BODIES: Record<string, (def: GliderDef, root: THREE.Group) => GliderModel['animate']> = { wayfarer, swiftwing };
+
+/** The bodies a look can name. */
+export const gliderBodies = (): string[] => Object.keys(BODIES);
+
+/** Builds a glider: the body its look names, or the canvas wayfarer at the glider's span if it names none. */
 function buildGliderModel(def: GliderDef): GliderModel {
   const root = new THREE.Group();
   root.name = `glider:${def.id}`;
-  const animate = def.id === 'swiftwing' ? swiftwing(def, root) : wayfarer(def, root);
+  const body = def.look?.body;
+  const animate = ((body && BODIES[body]) || wayfarer)(def, root);
   return { root, animate };
 }
-
 
 export function buildGlider(def: GliderDef): GliderModel {
   const model = buildGliderModel(def);

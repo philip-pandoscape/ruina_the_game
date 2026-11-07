@@ -1,0 +1,28 @@
+{
+  "id": "harvestCrate",
+  "name": "Lanternwick Harvest Crate",
+  "icon": "📦",
+  "origin": "lanternwick",
+  "base": 260,
+  "labor": 20,
+  "fee": 20,
+  "inputs": [
+    {
+      "item": "sunroot",
+      "n": 6
+    },
+    {
+      "item": "barley",
+      "n": 4
+    }
+  ],
+  "look": {
+    "body": "harvestCrate",
+    "model": {
+      "files": [
+        "pack_harvestCrate"
+      ]
+    }
+  },
+  "kind": "trade"
+}

@@ -1,4 +1,4 @@
-import type { AttackStep } from '../tuning';
+import { DEFAULT_BUILD, type AttackStep } from './tuning';
 
 // What a pose needs to know, with nothing from the rules in it. The live renderer fills this in
 // from PlayerState every frame; the clip baker fills it in from a time along an animation. Same
@@ -39,6 +39,7 @@ export interface PoseInput {
   grounded: boolean;
   /** Vertical speed over jump speed, -1..1. */
   rise: number;
+  /** The weapon in hand, by its place in WEAPONS (which one it is: weaponId, src/content/tuning.ts). */
   weapon: number;
 
   /** Which combo step is swinging, or -1. */
@@ -125,7 +126,8 @@ export const NEUTRAL_POSE: PoseInput = {
   time: 0,
   grounded: true,
   rise: 0,
-  weapon: 0,
+  // The weapon a hero starts with.
+  weapon: DEFAULT_BUILD.weapon,
   attackIndex: -1,
   attackFrame: 0,
   step: null,
@@ -175,8 +177,9 @@ export interface PoseFeedback {
   /** 0..1 how firmly each foot (left, right) is planted on the ground, for keeping it there. */
   plant: [number, number];
   /**
-   * A weapon trail to draw, if the pose is mid-swing. `head` and `tail` run 0..1 through the
-   * strike's active frames; the trail's shape is traced from the swing itself.
+   * A weapon trail to draw, if the pose is mid-swing: whose swings (`set`: the weapon's id, or
+   * 'spin' for Whirlwind's) and which one. `head` and `tail` run 0..1 through the strike's active
+   * frames; the trail's shape is traced from the swing itself.
    */
-  trail: { set: 'sword' | 'club' | 'staff' | 'spin'; index: number; head: number; tail: number; alpha: number } | null;
+  trail: { set: string; index: number; head: number; tail: number; alpha: number } | null;
 }

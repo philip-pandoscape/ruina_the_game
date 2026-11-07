@@ -1,0 +1,11 @@
+{
+  "id": "inn",
+  "name": "The Lantern & Gull",
+  "w": 14,
+  "d": 8,
+  "h": 12.2,
+  "collider": "building",
+  "look": {
+    "body": "inn"
+  }
+}

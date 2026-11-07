@@ -1,0 +1,47 @@
+{
+  "id": "livestock",
+  "name": "Feathers and Fleece",
+  "giver": "sela",
+  "after": [
+    "patch"
+  ],
+  "intro": "Crops are all very well, but a farm wants animals. Here's a chick - raise her in a cell of your plot, keep her fed on barley, and she'll lay for you. Bring in her first eggs and I'll find you a lamb.",
+  "startItems": [
+    {
+      "item": "animal.chick",
+      "n": 1
+    }
+  ],
+  "steps": [
+    {
+      "text": "Raise the chick in your plot (Z picks what F plants)",
+      "objectives": [
+        {
+          "type": "raise",
+          "n": 1
+        }
+      ]
+    },
+    {
+      "text": "Keep her fed with barley and collect her eggs",
+      "objectives": [
+        {
+          "type": "harvest",
+          "crop": "chicken",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "outro": "Fresh eggs! Mara will buy them, or pack them in a Farmhouse Hamper and they'll fetch far more abroad. Take this lamb - the same rules apply.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 60,
+    "items": [
+      {
+        "item": "animal.lamb",
+        "n": 1
+      }
+    ]
+  }
+}

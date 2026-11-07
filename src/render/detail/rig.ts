@@ -6,7 +6,7 @@ import type { PartDef, RigDef, ShapeDef } from '../../content/rig';
 // Turns a rig description into meshes. The description itself lives in src/content/rig.ts, so
 // content never has to reach into the renderer.
 
-export type { JointDef, MaterialDef, PartDef, RigDef, ShapeDef, Vec3 } from '../../content/rig';
+export type { PartDef, RigDef } from '../../content/rig';
 
 function geometry(s: ShapeDef): THREE.BufferGeometry {
   switch (s.kind) {
@@ -35,12 +35,12 @@ export class DetailRig {
 
   constructor(readonly def: RigDef) {
     for (const [key, m] of Object.entries(def.materials)) {
-      this.materials.set(
-        key,
-        m.basic
-          ? new THREE.MeshBasicMaterial({ color: m.color, toneMapped: false })
-          : toon(m.color, m.emissive !== undefined ? { emissive: m.emissive } : {}),
-      );
+      const mat = m.basic
+        ? new THREE.MeshBasicMaterial({ color: m.color, toneMapped: false })
+        : toon(m.color, m.emissive !== undefined ? { emissive: m.emissive } : {});
+      // This rig's own, shared with no other body (a fading hero changes it in place: Hero.setFade).
+      mat.userData.ownRig = true;
+      this.materials.set(key, mat);
     }
     for (const j of def.joints) {
       const g = new THREE.Group();
@@ -66,7 +66,7 @@ export class DetailRig {
     const mat = this.materials.get(p.mat);
     if (!mat) throw new Error(`rig ${this.def.id}: part on "${p.joint}" wants material "${p.mat}", which is not in the palette`);
     const [x, y, z] = p.pos ?? [0, 0, 0];
-    const mesh = part(parent, g, mat, x, y, z, { outline: p.outline, castShadow: p.castShadow });
+    const mesh = part(parent, g, mat, x, y, z, { castShadow: p.castShadow });
     if (p.hidden) mesh.visible = false;
     this.built.push({ joint: p.joint, mat: p.mat, mesh });
   }

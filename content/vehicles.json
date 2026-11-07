@@ -1,0 +1,12 @@
+{
+  "comment": "Everything you can ride: land vehicles, boats, mounts and gliders. Read by src/content/vehicles.ts (and the server, later). Local frame: the vehicle faces +Z, +Y is up, and its right-hand side is -X (the same way the hero faces +Z). Distances in metres, speeds in m/s, rates per second. seats/cargo/wheels are anchor points the 3D models are built around, so moving one here moves it in both the rules and the art.",
+  "vehicles": {
+    "$things": "vehicles"
+  },
+  "mounts": {
+    "$things": "mounts"
+  },
+  "gliders": {
+    "$things": "gliders"
+  }
+}

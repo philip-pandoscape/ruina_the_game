@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../rng';
-import type { GameEvent } from '../sim/types';
-import { MOVEMENT_SKILLS } from '../tuning';
+import { makeRng, range } from '../util/rng';
+import type { GameEvent } from '../engine/rules';
+import { MOVEMENT_SKILLS } from '../content/tuning';
+import { findKind } from '../content/actors';
 import { toon } from './toon';
 
 // ---------- Slash trail ----------
@@ -129,7 +130,12 @@ class ParticlePool {
   /** Where particles come to rest: the ground under them (sea level when nobody says). */
   floor: (x: number, z: number) => number = () => 0;
 
-  constructor(geo: THREE.BufferGeometry, mat: THREE.Material, max: number, private stretch: boolean) {
+  constructor(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+    max: number,
+    private stretch: boolean,
+  ) {
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = false;
@@ -440,8 +446,8 @@ export class Vfx {
         break;
       }
       case 'actorDie': {
-        // Straw for a dummy; anything else bursts in its own colour once content says so.
-        if (e.kind !== 'dummy') {
+        // Straw for a kind whose look says so (the training dummy); anything else a puff of dust.
+        if (findKind(e.kind)?.look?.dies !== 'straw') {
           this.puff(e.x, Math.max(0.2, e.y), e.z, 10, 2.2, 0.26);
           break;
         }
@@ -456,7 +462,13 @@ export class Vfx {
         // Dying into pieces: a wet splash outward, more of it for a bigger one.
         const n = 6 + e.count * 3;
         this.puff(e.x, e.y, e.z, n, 2.6 + e.count * 0.3, 0.24, SLIME_GREEN);
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
+        for (const [dx, dz] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ])
+          this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
         break;
       }
       case 'actorGrow': {
@@ -560,7 +572,6 @@ export class Vfx {
       this.dust.spawn(this.v, this.w, range(this.rng, 0.4, 0.7), range(this.rng, 0.35, 0.55), -1, 1, SMOKE);
     }
   }
-
 
   // A small dust kick every few frames while sliding.
   slideDust(x: number, z: number, dirX: number, dirZ: number): void {

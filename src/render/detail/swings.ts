@@ -1,4 +1,5 @@
 import type { Side } from './body';
+import { weaponId } from '../../content/tuning';
 
 // How each weapon swings, as keyframes along the swing's own timeline: 0 is the start, 1 the end
 // of the wind-up (startup frames), 2 the end of the strike (active frames), 3 the end of the
@@ -231,19 +232,22 @@ export const AIR_SLASH: SwingDef = {
   ],
 };
 
-/** Jump attacks, by weapon: a swing begun in the air plays these instead of its combo step. */
-export const AIR_SWINGS: Partial<Record<number, SwingDef>> = { 0: AIR_SLASH };
+/** Each weapon's swings, by the weapon's id; a weapon with none of its own swings as the sword does. */
+const SWINGS: Record<string, SwingDef[]> = { sword: SWORD_SWINGS, club: CLUB_SWINGS, staff: STAFF_SWINGS };
 
-export const swingsFor = (weapon: number): SwingDef[] => (weapon === 1 ? CLUB_SWINGS : weapon === 2 ? STAFF_SWINGS : SWORD_SWINGS);
+/** Jump attacks, by the weapon's id: a swing begun in the air plays these instead of its combo step. */
+const AIR_SWINGS: Record<string, SwingDef> = { sword: AIR_SLASH };
 
 /**
- * Which swing a combo step uses: Whirlwind's spin replaces whatever was in its place, and a swing
- * begun in the air (`air`) is the weapon's jump attack, if it has one.
+ * Which swing a combo step of a weapon (by its place in WEAPONS) uses: Whirlwind's spin replaces
+ * whatever was in its place, and a swing begun in the air (`air`) is the weapon's jump attack, if it
+ * has one.
  */
 export function swingFor(weapon: number, index: number, pose: string | undefined, air = false): SwingDef {
   if (pose === 'spin') return WHIRLWIND;
-  const jump = air ? AIR_SWINGS[weapon] : undefined;
+  const id = weaponId(weapon);
+  const jump = air ? AIR_SWINGS[id] : undefined;
   if (jump) return jump;
-  const list = swingsFor(weapon);
+  const list = SWINGS[id] ?? SWORD_SWINGS;
   return list[Math.min(index, list.length - 1)];
 }

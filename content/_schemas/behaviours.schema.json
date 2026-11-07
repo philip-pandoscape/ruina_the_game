@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "behaviours",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "sight": {
+      "type": "number"
+    },
+    "keepAway": {
+      "type": "number"
+    },
+    "leash": {
+      "type": "number"
+    },
+    "states": {
+      "type": "array"
+    },
+    "anger": {
+      "type": "object"
+    },
+    "slamCooldown": {
+      "type": "array"
+    },
+    "call": {
+      "type": "object"
+    },
+    "gather": {
+      "type": "object"
+    },
+    "regroupAt": {
+      "type": "number"
+    },
+    "fleeWithin": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "sight",
+    "keepAway",
+    "leash",
+    "states"
+  ],
+  "additionalProperties": false
+}

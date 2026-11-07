@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ruina · UI Gallery</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* The page under the windows: the world's sky and grass, so the windows sit on what they sit on in play. */
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      body { background: linear-gradient(180deg, #bfe3f2 0%, #d6ecf2 52%, #8fc06a 52%, #6fa654 100%); }
+      .gal-list { position: absolute; inset: 0; overflow: auto; padding: 24px 32px; font: 15px/1.5 Georgia, serif; color: #2b1a0e; background: #f6ecd2; }
+      .gal-list h1 { margin: 0 0 4px; font-size: 26px; }
+      .gal-list h2 { margin: 18px 0 4px; font-size: 18px; }
+      .gal-list ul { margin: 0; padding-left: 18px; }
+      .gal-list span { color: #6b5238; }
+      .gal-error { position: absolute; left: 50%; top: 40%; transform: translateX(-50%); padding: 12px 18px; border-radius: 8px; font: 15px Georgia, serif; color: #fff; background: #7a1f26; }
+    </style>
+  </head>
+  <body>
+    <!-- A window of the game's interface in a made-up state, in an offline game (src/dev/ui/main.ts); the content library frames it. -->
+    <div id="ui">
+      <div id="skills" hidden></div>
+    </div>
+    <script type="module" src="/src/dev/ui/main.ts"></script>
+  </body>
+</html>

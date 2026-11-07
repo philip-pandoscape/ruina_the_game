@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "blueprints",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "structure": {
+      "type": "string"
+    },
+    "plot": {
+      "type": "number"
+    },
+    "taxPerDay": {
+      "type": "number"
+    },
+    "graceDays": {
+      "type": "number"
+    },
+    "stages": {
+      "type": "array"
+    },
+    "perks": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "structure",
+    "plot",
+    "taxPerDay",
+    "graceDays",
+    "stages",
+    "perks"
+  ],
+  "additionalProperties": false
+}

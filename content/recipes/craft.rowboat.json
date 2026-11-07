@@ -1,0 +1,16 @@
+{
+  "id": "craft.rowboat",
+  "bench": "ilsa",
+  "inputs": [
+    {
+      "item": "lumber",
+      "n": 8
+    }
+  ],
+  "coins": 40,
+  "labor": 20,
+  "makes": {
+    "item": "deed.rowboat",
+    "n": 1
+  }
+}

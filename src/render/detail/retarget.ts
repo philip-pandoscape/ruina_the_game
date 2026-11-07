@@ -10,29 +10,80 @@ import type { Body } from './body';
 // where the point between the source's hip joints goes, sized by leg length, and the clip's own
 // travel across the ground is taken off, so the rules carry the body and the feet a clip plants are
 // held where they stand (character.ts). Baked once, played by the pose code by the rules' frames
-// (humanoid.ts). The same method shown against each clip's source: /retarget.html.
+// (humanoid.ts). The same method shown against each clip's source: the content library's retarget subject (/dev/library.html#/retarget).
 
 /** The bones a humanoid clip moves, by what they are. */
 const CANON = [
-  'hips', 'spine1', 'spine2', 'spine3', 'neck', 'head',
-  'clavicleL', 'armL', 'forearmL', 'handL', 'clavicleR', 'armR', 'forearmR', 'handR',
-  'thighL', 'shinL', 'footL', 'toeL', 'thighR', 'shinR', 'footR', 'toeR',
+  'hips',
+  'spine1',
+  'spine2',
+  'spine3',
+  'neck',
+  'head',
+  'clavicleL',
+  'armL',
+  'forearmL',
+  'handL',
+  'clavicleR',
+  'armR',
+  'forearmR',
+  'handR',
+  'thighL',
+  'shinL',
+  'footL',
+  'toeL',
+  'thighR',
+  'shinR',
+  'footR',
+  'toeR',
 ] as const;
 export type Canon = (typeof CANON)[number];
 
 /** Our rig's joint for each. */
 export const JOINT: Record<Canon, string> = {
-  hips: 'hips', spine1: 'torso', spine2: 'chest', spine3: 'upperChest', neck: 'neck', head: 'head',
-  clavicleL: 'clavicleL', armL: 'armL', forearmL: 'elbowL', handL: 'handL',
-  clavicleR: 'clavicleR', armR: 'armR', forearmR: 'elbowR', handR: 'handR',
-  thighL: 'legL', shinL: 'kneeL', footL: 'footL', toeL: 'toeL', thighR: 'legR', shinR: 'kneeR', footR: 'footR', toeR: 'toeR',
+  hips: 'hips',
+  spine1: 'torso',
+  spine2: 'chest',
+  spine3: 'upperChest',
+  neck: 'neck',
+  head: 'head',
+  clavicleL: 'clavicleL',
+  armL: 'armL',
+  forearmL: 'elbowL',
+  handL: 'handL',
+  clavicleR: 'clavicleR',
+  armR: 'armR',
+  forearmR: 'elbowR',
+  handR: 'handR',
+  thighL: 'legL',
+  shinL: 'kneeL',
+  footL: 'footL',
+  toeL: 'toeL',
+  thighR: 'legR',
+  shinR: 'kneeR',
+  footR: 'footR',
+  toeR: 'toeR',
 };
 
 /** The bone each one points at: their directions at rest are lined up, ours onto the source's. */
 const NEXT: Partial<Record<Canon, Canon>> = {
-  hips: 'spine1', spine1: 'spine2', spine2: 'spine3', spine3: 'neck', neck: 'head',
-  clavicleL: 'armL', armL: 'forearmL', forearmL: 'handL', clavicleR: 'armR', armR: 'forearmR', forearmR: 'handR',
-  thighL: 'shinL', shinL: 'footL', footL: 'toeL', thighR: 'shinR', shinR: 'footR', footR: 'toeR',
+  hips: 'spine1',
+  spine1: 'spine2',
+  spine2: 'spine3',
+  spine3: 'neck',
+  neck: 'head',
+  clavicleL: 'armL',
+  armL: 'forearmL',
+  forearmL: 'handL',
+  clavicleR: 'armR',
+  armR: 'forearmR',
+  forearmR: 'handR',
+  thighL: 'shinL',
+  shinL: 'footL',
+  footL: 'toeL',
+  thighR: 'shinR',
+  shinR: 'footR',
+  footR: 'toeR',
 };
 
 export interface Library {
@@ -49,7 +100,12 @@ const side = (l: string, r: string, f: (s: string) => string) => ({ [l]: f('L'),
 export const LIBRARIES: Record<'meshy' | 'quaternius' | 'mixamo', Library> = {
   meshy: {
     bones: {
-      hips: 'Hips', spine1: 'Spine02', spine2: 'Spine01', spine3: 'Spine', neck: 'neck', head: 'Head',
+      hips: 'Hips',
+      spine1: 'Spine02',
+      spine2: 'Spine01',
+      spine3: 'Spine',
+      neck: 'neck',
+      head: 'Head',
       ...side('clavicleL', 'clavicleR', (s) => `${s === 'L' ? 'Left' : 'Right'}Shoulder`),
       ...side('armL', 'armR', (s) => `${s === 'L' ? 'Left' : 'Right'}Arm`),
       ...side('forearmL', 'forearmR', (s) => `${s === 'L' ? 'Left' : 'Right'}ForeArm`),
@@ -62,7 +118,12 @@ export const LIBRARIES: Record<'meshy' | 'quaternius' | 'mixamo', Library> = {
   },
   quaternius: {
     bones: {
-      hips: 'pelvis', spine1: 'spine_01', spine2: 'spine_02', spine3: 'spine_03', neck: 'neck_01', head: 'Head',
+      hips: 'pelvis',
+      spine1: 'spine_01',
+      spine2: 'spine_02',
+      spine3: 'spine_03',
+      neck: 'neck_01',
+      head: 'Head',
       ...side('clavicleL', 'clavicleR', (s) => `clavicle_${s.toLowerCase()}`),
       ...side('armL', 'armR', (s) => `upperarm_${s.toLowerCase()}`),
       ...side('forearmL', 'forearmR', (s) => `lowerarm_${s.toLowerCase()}`),
@@ -77,7 +138,12 @@ export const LIBRARIES: Record<'meshy' | 'quaternius' | 'mixamo', Library> = {
   },
   mixamo: {
     bones: {
-      hips: 'mixamorigHips', spine1: 'mixamorigSpine', spine2: 'mixamorigSpine1', spine3: 'mixamorigSpine2', neck: 'mixamorigNeck', head: 'mixamorigHead',
+      hips: 'mixamorigHips',
+      spine1: 'mixamorigSpine',
+      spine2: 'mixamorigSpine1',
+      spine3: 'mixamorigSpine2',
+      neck: 'mixamorigNeck',
+      head: 'mixamorigHead',
       ...side('clavicleL', 'clavicleR', (s) => `mixamorig${s === 'L' ? 'Left' : 'Right'}Shoulder`),
       ...side('armL', 'armR', (s) => `mixamorig${s === 'L' ? 'Left' : 'Right'}Arm`),
       ...side('forearmL', 'forearmR', (s) => `mixamorig${s === 'L' ? 'Left' : 'Right'}ForeArm`),
@@ -284,8 +350,12 @@ export function bake(scene: THREE.Object3D, clips: readonly THREE.AnimationClip[
     feetMid[f * 2 + 1] = (fl.z + fr.z) / 2;
     // A weapon in the right fist, as the source holds it.
     const turn = _q.copy(unturn).multiply(bone.handR.getWorldQuaternion(_q2)).multiply(_q2.copy(srcQ.handR).invert());
-    _v.copy(bladeRest).applyQuaternion(turn).toArray(blade, f * 3);
-    _v.copy(edgeRest).applyQuaternion(turn).toArray(edge, f * 3);
+    _v.copy(bladeRest)
+      .applyQuaternion(turn)
+      .toArray(blade, f * 3);
+    _v.copy(edgeRest)
+      .applyQuaternion(turn)
+      .toArray(edge, f * 3);
     const hand = inRoot(at(bone.handR));
     speed[f] = f ? lastHand.distanceTo(hand) / dt : 0;
     lastHand.copy(hand);
@@ -318,9 +388,19 @@ export function bake(scene: THREE.Object3D, clips: readonly THREE.AnimationClip[
   }
   // The body joint where it puts our hip joints' middle where the source's goes, sized by leg.
   for (let f = 0; f < frames; f++) {
-    const want = _v.fromArray(mids, f * 3).sub(srcMidRest).multiplyScalar(k).add(ourMidRest);
-    want.sub(hipsLocal).sub(midInHips.clone().applyQuaternion(hipsTurn[f])).toArray(body, f * 3);
-    hipsLocal.clone().add(torsoFromHips.clone().applyQuaternion(hipsTurn[f])).toArray(torso, f * 3);
+    const want = _v
+      .fromArray(mids, f * 3)
+      .sub(srcMidRest)
+      .multiplyScalar(k)
+      .add(ourMidRest);
+    want
+      .sub(hipsLocal)
+      .sub(midInHips.clone().applyQuaternion(hipsTurn[f]))
+      .toArray(body, f * 3);
+    hipsLocal
+      .clone()
+      .add(torsoFromHips.clone().applyQuaternion(hipsTurn[f]))
+      .toArray(torso, f * 3);
   }
   return { joints, frames, seconds, turns, body, torso, blade, edge, planted, strikes: findStrikes(speed, seconds, strikes) };
 }

@@ -1,0 +1,42 @@
+[package]
+name = "ruina-server"
+description = "Ruina's game server: accounts, characters and their lives in Postgres, the world's channels and dungeon copies, its WebSocket"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+ruina-engine.workspace = true
+# The wire for crowds: what a sim packs for others each tick, and each connection's viewer (crates/wire).
+ruina-wire.workspace = true
+# The messages between the tiers, their ids, ticks and epochs.
+ruina-world-api.workspace = true
+# The channels' policy, which the directory plays (crates/channels).
+ruina-channels.workspace = true
+# Links to the other processes when the world runs on several (crates/server/src/cluster).
+ruina-link.workspace = true
+# Accounts: password hashes and session tokens.
+argon2 = { version = "0.5.3", features = ["std"] }
+sha2 = "0.10.9"
+# One port for everything (Railway gives a service one): the game's files, the account API and
+# the world's WebSocket.
+axum = { version = "0.8.9", features = ["ws"] }
+tower-http = { version = "0.7.1", features = ["fs", "compression-gzip", "compression-br"] }
+# The same tower axum is built on: a guard in front of the game's files (the developer pages).
+tower = "0.5.3"
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# Postgres. Queries are checked at run time rather than build time, so building needs no database.
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "migrate", "macros", "json"] }
+# signal: a stop (a deploy) saves everyone's life before the server goes.
+tokio.workspace = true
+# One socket for IPv6 and IPv4 on every system (Windows keeps an IPv6 socket to IPv6 unless asked).
+socket2 = "0.6.5"
+# A channel's players stepped all at once on the machine's cores (play/stepping.rs), when the server
+# is started so. The engine itself stays on one thread.
+rayon = "1.12.0"
+
+[dev-dependencies]
+# The harness's players (tests/cluster.rs): a browser's WebSocket to a gate, as axum's own is built on.
+tokio-tungstenite = "0.29.0"

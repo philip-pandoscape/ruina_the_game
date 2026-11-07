@@ -1,0 +1,26 @@
+{
+  "id": "bertram",
+  "name": "Bertram Cogg",
+  "title": "Wainwright",
+  "place": "lanternwick",
+  "x": -30,
+  "z": -258.5,
+  "facing": 0,
+  "kind": "npc-crafter",
+  "look": {
+    "outfit": "wainwright",
+    "skin": "#f1c27d",
+    "w": 1.32,
+    "d": 1.3,
+    "arm": 1.3,
+    "shirt": "#5a7aa0",
+    "rolled": true,
+    "pants": "#4a3f36",
+    "boots": "#3a2a20",
+    "hair": "#6b4226",
+    "style": "short",
+    "beard": "bushy"
+  },
+  "portrait": "🧔",
+  "greeting": "A cart for the patient, a roadster for the bold, a hauler for the ambitious. Bring timber and iron."
+}

@@ -1,9 +1,7 @@
 import * as THREE from 'three';
-import { RUNNEL } from '../../sim/zone/generate';
-import type { WaterfallInfo } from '../../sim/zone/types';
-import { NEW_LOOK } from '../look';
+import type { WaterfallInfo } from '../../engine/zone';
 
-// The island's waterfalls (src/sim/zone/generate.ts cuts their slots): the spring pool spills down a
+// The world's waterfalls (the engine's generator cuts their slots, crates/engine/src/open/generate.rs): the spring pool spills down a
 // runnel to the lip, the water falls free in a curtain that fans out as it drops, and lands in the
 // plunge pool in a churn of foam and a cloud of mist. Two layers of water, streaked white and
 // scrolling down faster the further they fall, so it reads as thick, moving water from any side.
@@ -175,7 +173,7 @@ const mistFragment = /* glsl */ `
 function waterPath(f: WaterfallInfo): Array<{ s: number; y: number; half: number; down: number; fall: number }> {
   const level = f.spring.level - 0.03;
   const tEnd = Math.sqrt((2 * (level - f.plunge.level)) / G);
-  const top = RUNNEL - 0.2;
+  const top = f.runnel - 0.2;
   const bottom = f.width / 2 - 0.4;
   const rows: Array<{ s: number; y: number; half: number; down: number; fall: number }> = [];
   const from = f.spring.at + f.spring.r * 0.6;
@@ -231,13 +229,6 @@ export function splashPoint(f: WaterfallInfo): THREE.Vector3 {
   return new THREE.Vector3(f.cx + f.ux * s, f.plunge.level, f.cz + f.uz * s);
 }
 
-/** How far out along the bearing the falling water is as it passes a height (for whatever sits behind it). */
-export function curtainAt(f: WaterfallInfo, y: number): number {
-  const level = f.spring.level - 0.03;
-  const tau = Math.sqrt((2 * Math.max(0, level - y)) / G);
-  return f.lip + f.speed * tau;
-}
-
 export class FallsView {
   readonly group = new THREE.Group();
   private uniforms: Array<Record<string, THREE.IUniform>> = [];
@@ -267,7 +258,14 @@ export class FallsView {
         uGlowY: { value: new THREE.Vector2(f.shelf.top, f.roof.top - 1.5) },
       };
       this.uniforms.push(u);
-      const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: curtainVertex, fragmentShader: curtainFragment, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      const mat = new THREE.ShaderMaterial({
+        uniforms: u,
+        vertexShader: curtainVertex,
+        fragmentShader: curtainFragment,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
       const mesh = new THREE.Mesh(curtainGeometry(f, back, narrow), mat);
       mesh.name = layer ? 'falls-curtain' : 'falls-curtain-back';
       mesh.renderOrder = 3 + layer;
@@ -279,8 +277,8 @@ export class FallsView {
       const u: Record<string, THREE.IUniform> = {
         uTime: { value: 0 },
         uBright: { value: 1 },
-        uShallow: { value: new THREE.Color(NEW_LOOK ? 0x4fa9a4 : 0x63d6cf) },
-        uDeep: { value: new THREE.Color(NEW_LOOK ? 0x1f5f6a : 0x2c8fb4) },
+        uShallow: { value: new THREE.Color(0x4fa9a4) },
+        uDeep: { value: new THREE.Color(0x1f5f6a) },
         uFoam: { value: new THREE.Color(0xf2f7f8) },
         uSky: { value: new THREE.Color(0xbcd6e4) },
         uCentre: { value: new THREE.Vector3(x, level, z) },
@@ -295,7 +293,7 @@ export class FallsView {
       geo.rotateX(-Math.PI / 2);
       geo.scale(along, 1, wide);
       geo.rotateY(Math.atan2(-f.uz, f.ux));
-      const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: poolVertex, fragmentShader: poolFragment, transparent: true, depthWrite: NEW_LOOK });
+      const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: poolVertex, fragmentShader: poolFragment, transparent: true, depthWrite: true });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(x, level, z);
       mesh.renderOrder = 2;
@@ -340,7 +338,7 @@ export class FallsView {
 
   update(time: number, viewHeight: number, fov: number): void {
     for (const u of this.uniforms) u.uTime.value = time;
-    const scale = viewHeight / (2 * Math.tan(((fov * Math.PI) / 180) / 2));
+    const scale = viewHeight / (2 * Math.tan((fov * Math.PI) / 180 / 2));
     for (const u of this.mists) {
       u.uTime.value = time;
       u.uScale.value = scale;

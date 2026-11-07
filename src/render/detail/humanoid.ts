@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
+import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, weaponId, type AttackStep } from '../../content/tuning';
 import type { DetailRig } from './rig';
 import type { PoseFeedback, PoseInput } from '../../content/pose';
 import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, smooth, span, type Side } from './body';
@@ -9,7 +9,8 @@ import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { playPlanted, poseFromClip, strikeTime } from './retarget';
 import { gliderGrip } from '../models/gliders';
 import { DRAWING_HAND, stowedFor } from './stow';
-import { HERO_BOW } from '../../content/creatures/hero';
+import { HERO_BOW } from '../creatures/heroBody';
+import { TAU } from '../../util/math';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how
 // they are built (src/content/creatures), not in how they walk. Poses only ever touch named
@@ -19,8 +20,6 @@ import { HERO_BOW } from '../../content/creatures/hero';
 // Limbs are posed two ways (src/render/detail/body.ts): by angle, for swinging arms and tucked
 // legs, and by where the hand or foot should be, for planted feet, hands on a wheel or a bowstring.
 // Planted feet travel back under the body at exactly the ground speed, so they never skate.
-
-const TAU = Math.PI * 2;
 const HZ = 60;
 
 const _a = new THREE.Vector3();
@@ -66,8 +65,7 @@ function dir(az: number, el: number, out: THREE.Vector3): THREE.Vector3 {
 }
 
 /** A point in the torso's frame, in model space. */
-const torsoPoint = (b: Body, x: number, y: number, z: number, out: THREE.Vector3): THREE.Vector3 =>
-  b.toModel(b.torso, out.set(x, y, z), out);
+const torsoPoint = (b: Body, x: number, y: number, z: number, out: THREE.Vector3): THREE.Vector3 => b.toModel(b.torso, out.set(x, y, z), out);
 /** A direction in the torso's frame, in model space. */
 const torsoDir = (b: Body, v: THREE.Vector3): THREE.Vector3 => v.applyQuaternion(b.quaternionOf(b.torso, _q));
 
@@ -176,8 +174,12 @@ export function settle(rig: DetailRig, p: PoseInput): void {
   keepBladeUp(b, p.weapon, p.attackIndex >= 0 ? -0.1 : 0.02);
 }
 
-/** How far a held weapon reaches past the hand, metres (its tip, down the hand's -Y). */
-const REACH = [1.1, 0.65, 0, 0];
+/**
+ * How far a held weapon reaches past the hand, metres (its tip, down the hand's -Y), by the weapon's
+ * id. The poses know each weapon by its id (weaponId: a PoseInput has its place in WEAPONS), as each
+ * is held, swung and put away in a way of its own.
+ */
+const REACH: Record<string, number> = { sword: 1.1, club: 0.65 };
 const _tip = new THREE.Vector3();
 
 /**
@@ -185,7 +187,7 @@ const _tip = new THREE.Vector3();
  * it up just enough. Swings allow a little bite into the ground (a smash); held weapons none.
  */
 function keepBladeUp(b: Body, weapon: number, floor: number): void {
-  const reach = REACH[weapon] ?? 0;
+  const reach = REACH[weaponId(weapon)] ?? 0;
   if (!reach) return;
   const hand = b.positionOf(b.arm.R.end, _b);
   const along = b.toModel(b.arm.R.end, _tip.set(0, -1, 0), _tip).sub(hand);
@@ -251,7 +253,19 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
   const pelvis = lerp(dirs.pelvisAhead, dirs.pelvisBehind, back) * twist * moving;
   // A made body's planted foot centres a little behind its hips, as a person's does.
   const centre = stride.made ? -0.04 - 0.06 * run : 0.015 * run;
-  const shape: GaitShape = { speed: v, crouch: c, carry: p.carry, back: 0, centre, width: 0, ankleHeight: b.ankleHeight, heel: b.heel, ball: b.ball, stride, low: stride.made ? 0.6 * Math.abs(Math.sin(p.heading)) : 0 };
+  const shape: GaitShape = {
+    speed: v,
+    crouch: c,
+    carry: p.carry,
+    back: 0,
+    centre,
+    width: 0,
+    ankleHeight: b.ankleHeight,
+    heel: b.heel,
+    ball: b.ball,
+    stride,
+    low: stride.made ? 0.6 * Math.abs(Math.sin(p.heading)) : 0,
+  };
   const width = stride.made ? lerp(lerp(0.1, 0.06, run) - 0.01 * sprint, 0.16, c) : lerp(lerp(0.115, 0.085, run) - 0.012 * sprint, 0.17, c);
   const hold = { L: 1, R: 1 };
   const onGround = { L: 1, R: 1 };
@@ -394,7 +408,6 @@ function captured(m: Motion, joint: string, phase: number, run: number, weight: 
 
 // ---------- what the hands carry ----------
 
-const WEAPON_NAMES = ['sword', 'club', 'staff', 'bow'];
 const _up = new THREE.Vector3(0, 1, 0);
 const _drawDir = new THREE.Vector3();
 const _hilt = new THREE.Vector3();
@@ -414,7 +427,7 @@ const _qTurn = new THREE.Quaternion();
 function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
   const u = clamp01(p.stow);
   if (u <= 0) return holdArmed(b, p, g);
-  const name = WEAPON_NAMES[p.weapon] ?? 'sword';
+  const name = weaponId(p.weapon) || 'sword';
   const st = stowedFor(b.rig.def)[name];
   const s = DRAWING_HAND[name] ?? 'R';
   const free = b.save(b.buf(6));
@@ -453,7 +466,8 @@ function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
 function holdArmed(b: Body, p: PoseInput, g: Gait): void {
   const move = g.moving;
   const t = p.time;
-  if (p.weapon === 0 && b.stride.made) {
+  const w = weaponId(p.weapon);
+  if (w === 'sword' && b.stride.made) {
     // A made body holds a sword as a person does, the blade square to the forearm across the fist:
     // hanging at the side, point down and a little forward, at rest; on the move the arm swinging
     // half as far as the free one and the blade trailing back and down past the leg; up in front on
@@ -463,13 +477,19 @@ function holdArmed(b: Body, p: PoseInput, g: Gait): void {
     const at = move * smooth((ahead - 0.5) / 0.4);
     const guard = move * (1 - smooth((ahead - 0.5) / 0.4));
     const pace = 0.6 + 0.4 * g.run;
-    b.setArmOut('R', lerp(0.14 + 0.04 * move, 0.05, guard), lerp(lerp(-0.1, -0.08 - 0.32 * swing * pace, at), -0.5, guard), 0, -lerp(lerp(0.28, 0.45 + 0.3 * g.run, at), 1.25, guard));
+    b.setArmOut(
+      'R',
+      lerp(0.14 + 0.04 * move, 0.05, guard),
+      lerp(lerp(-0.1, -0.08 - 0.32 * swing * pace, at), -0.5, guard),
+      0,
+      -lerp(lerp(0.28, 0.45 + 0.3 * g.run, at), 1.25, guard),
+    );
     // Swung round the outside (the hero's right), never across the legs. On guard, a low one: the
     // hand at the waist in front, the point up and forward toward the middle.
     const az = lerp(lerp(-0.12, -(Math.PI - 0.3), at), 0.32, guard);
     const el = lerp(lerp(-0.85, -0.62, at), 0.62, guard) + 0.02 * Math.sin(t * 2.2);
     b.aimHand('R', torsoDir(b, dir(az, el, _a)));
-  } else if (p.weapon === 0) {
+  } else if (w === 'sword') {
     // Sword: low and forward at rest; running ahead, carried ready - elbow bent, hand at the waist,
     // the blade up and forward, bobbing with the stride; held up in front on guard while strafing
     // or backing off.
@@ -481,15 +501,15 @@ function holdArmed(b: Body, p: PoseInput, g: Gait): void {
     const az = lerp(lerp(0.38, -0.3, at), 0.3, guard);
     const el = lerp(lerp(-0.45, 0.62 + 0.05 * swing, at), 0.25, guard) + 0.02 * Math.sin(t * 2.2);
     b.aimHand('R', torsoDir(b, dir(az, el, _a)));
-  } else if (p.weapon === 1) {
+  } else if (w === 'club') {
     // Club: carried on the shoulder.
     b.handTo('R', torsoPoint(b, -0.23, 0.35 + 0.01 * Math.sin(TAU * 2 * g.cycle) * move, 0.2, _a), torsoDir(b, _pole.set(-0.5, -0.8, 0.1)));
     b.aimHand('R', torsoDir(b, dir(-2.75, 0.55, _b)));
-  } else if (p.weapon === 2) {
+  } else if (w === 'staff') {
     // Staff: planted upright at the side when still, slanted forward like a lance at a run.
     b.handTo('R', torsoPoint(b, lerp(-0.36, -0.33, move), lerp(0.1, 0.2, move), lerp(0.1, 0.22, move), _a), torsoDir(b, _pole.set(-0.6, -0.3, -0.7)));
     b.aimHand('R', torsoDir(b, dir(lerp(0.04, 0.18, move), lerp(1.36, 0.6, move * g.run), _b)));
-  } else if (p.weapon === 3) {
+  } else if (w === 'bow') {
     // Bow: held low in the left hand, upright, the arm swinging less.
     const swing = Math.cos(TAU * (g.cycle + 0.5));
     b.setArmOut('L', 0.16, lerp(-0.25, -0.35 * swing * move - 0.1, move), 0, -0.55);
@@ -623,7 +643,7 @@ function frameAt(step: AttackStep, at: number): number {
   return step.startup + step.active + (at - 2) * step.recovery;
 }
 
-/** Speed the lunge gives you on frame f of a swing, as src/sim/player/attacks.ts sets it. */
+/** Speed the lunge gives you on frame f of a swing, as the rules set it (crates/engine/src/player.rs). */
 export function lungeSpeed(step: AttackStep, f: number): number {
   if (f <= step.startup) return step.lunge * 0.5;
   if (f <= step.startup + step.active) return step.lunge;
@@ -767,7 +787,7 @@ function reachArm(b: Body, az: number, el: number, straight: number): void {
 
 function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   const step = p.step!;
-  if (p.weapon === 3) return bowShot(b, p, step, out);
+  if (weaponId(p.weapon) === 'bow') return bowShot(b, p, step, out);
   const move = p.airSwing || step.pose ? undefined : moveFor(b, p.weapon, Math.max(0, p.attackIndex));
   if (move) return clipAttack(b, p, step, move, out);
   const def = swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose, p.airSwing);
@@ -792,7 +812,9 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   // Feet: footwork on the ground (turning with a spin), or tucked up in the air. A jump attack that
   // comes down before it's done lands square, feet under you, and finishes there.
   if (p.grounded) {
-    const feet = jump ? footwork(def, step, startStance(p.weapon, 0, step.pose, legs), f, false, legs) : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose, legs), f, true, legs);
+    const feet = jump
+      ? footwork(def, step, startStance(p.weapon, 0, step.pose, legs), f, false, legs)
+      : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose, legs), f, true, legs);
     if (spin) {
       const c = Math.cos(spin);
       const sn = Math.sin(spin);
@@ -832,7 +854,7 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
 
 /** A made body's clip for a combo hit, if its weapon plays one. */
 function moveFor(b: Body, weapon: number, index: number): Move | undefined {
-  return b.stride.made ? motionOf(b.rig.def)?.moves?.get(`${weapon}:${index}`) : undefined;
+  return b.stride.made ? motionOf(b.rig.def)?.moves?.get(`${weaponId(weapon)}:${index}`) : undefined;
 }
 
 /**
@@ -857,7 +879,7 @@ function trail(out: PoseFeedback, weapon: number, index: number, spin: 'spin' | 
   const head = clamp01((f - S) / A);
   const fade = clamp01((f - S - A) / 7);
   if (fade >= 1) return;
-  const set = spin ?? (weapon === 1 ? 'club' : weapon === 2 ? 'staff' : 'sword');
+  const set = spin ?? weaponId(weapon);
   out.trail = { set, index, head, tail: lerp(Math.max(0, head - 0.6), 1, fade), alpha: 1 - fade * 0.6 };
 }
 
@@ -917,14 +939,25 @@ function bowShot(b: Body, p: PoseInput, step: AttackStep, out: PoseFeedback): vo
   // body (the head reaches 0.23 in front of the neck, the chest 0.15).
   const aim = _d.set(0, 0.04, 1).normalize();
   const front = torsoDir(b, _front.set(0, 0, 1)).multiplyScalar(0.26 * on);
-  const grip = b.positionOf(b.shoulder.L, _g).addScaledVector(aim, 0.42).add(_pole.set(-0.03, 0.03 + 0.06 * on, 0)).add(front);
+  const grip = b
+    .positionOf(b.shoulder.L, _g)
+    .addScaledVector(aim, 0.42)
+    .add(_pole.set(-0.03, 0.03 + 0.06 * on, 0))
+    .add(front);
   b.handTo('L', _a.lerpVectors(grip, restL, 1 - on), _pole.set(0.6, -0.5, -0.2));
   b.frameHand('L', _a.copy(aim).lerp(_b.set(0.1, -0.45, 1).normalize(), 1 - on), _c.set(-0.15, 1, 0));
   // Draw hand: to the string, back to the chin, and away on the release.
   const nock = b.toModel(b.arm.L.end, _a.set(...(b.rig.def.bow ?? HERO_BOW).nock), _a);
-  const anchor = _b.copy(grip).addScaledVector(aim, -0.66).add(_pole.set(0, 0.02, 0));
+  const anchor = _b
+    .copy(grip)
+    .addScaledVector(aim, -0.66)
+    .add(_pole.set(0, 0.02, 0));
   const hand = _c.lerpVectors(nock, anchor, pull);
-  if (loosed) hand.copy(anchor).addScaledVector(aim, -0.13 * after).add(_pole.set(-0.08 * after, 0.04 * after, 0));
+  if (loosed)
+    hand
+      .copy(anchor)
+      .addScaledVector(aim, -0.13 * after)
+      .add(_pole.set(-0.08 * after, 0.04 * after, 0));
   hand.lerp(restR, Math.max(1 - on * smooth(f / (S * 0.35)), relax));
   b.handTo('R', hand, _pole.set(-0.35, 0.25, -1));
   b.aimHand('R', aim);
@@ -952,7 +985,9 @@ function cast(b: Body, p: PoseInput): void {
       b.setArmOut(s, 0.62 + pulse, -2.55 - pulse, 0.2, -0.28);
       const sky = b.positionOf(b.arm[s].end, _e);
       const chest = torsoPoint(b, k(s) * 0.07, 0.3, 0.27, _b);
-      const at = torsoPoint(b, k(s) * 0.34, 0.02, 0.06, _c).lerp(chest, gather).lerp(sky, rise);
+      const at = torsoPoint(b, k(s) * 0.34, 0.02, 0.06, _c)
+        .lerp(chest, gather)
+        .lerp(sky, rise);
       b.handTo(s, at, torsoDir(b, _pole.set(k(s) * 0.7, -0.6, -0.4)));
     }
     cape(b, 0.25 + 0.5 * rise + 0.05 * Math.sin(t * 7), 0.15 + 0.3 * rise);
@@ -1076,14 +1111,15 @@ function block(b: Body, p: PoseInput, S: number, A: number, R: number): void {
   _feet.R.yaw = -0.6;
   for (const s of SIDES) _feet[s].lift = _feet[s].pitch = 0;
   plant(b, _feet, 0.2);
-  if (p.weapon === 3) {
+  const w = weaponId(p.weapon);
+  if (w === 'bow') {
     // Bow up in front like a shield.
     b.handTo('L', torsoPoint(b, 0.08, 0.5, 0.36, _a), torsoDir(b, _pole.set(0.7, -0.6, 0)));
     b.frameHand('L', torsoDir(b, _a.set(0, 0.1, 1)), torsoDir(b, _b.set(0.2, 1, 0)));
     b.setArmOut('R', 0.2, -1.2, 0, -1.7);
   } else {
     // Weapon held across, high; the left palm on the flat of it.
-    const staff = p.weapon === 2;
+    const staff = w === 'staff';
     b.handTo('R', torsoPoint(b, -0.2, staff ? 0.38 : 0.44, 0.3, _a), torsoDir(b, _pole.set(-0.7, -0.6, -0.1)));
     b.aimHand('R', torsoDir(b, dir(staff ? 1.5 : 1.15, staff ? 0.12 : 0.6, _b)));
     const brace = b.toModel(b.arm.R.end, _c.set(0, staff ? -0.42 : -0.38, 0.04), _c);
@@ -1145,7 +1181,7 @@ function hurt(b: Body, p: PoseInput): void {
   const aft = Math.max(0, -Math.cos(h)); // shoved back: hit from the front
   const side = Math.sin(h); // + shoved to the left: hit from the right
   const pose = b.save(b.buf(2));
-  const held = p.weapon !== 3 && REACH[p.weapon] && p.stow < 0.5 ? bladeDir(b, _held) : null;
+  const held = REACH[weaponId(p.weapon)] && p.stow < 0.5 ? bladeDir(b, _held) : null;
   b.torso.rotation.x += 0.45 * fore - 0.5 * aft;
   b.torso.rotation.y += 0.35 * side;
   b.torso.rotation.z -= 0.4 * side;
@@ -1184,7 +1220,10 @@ const _aim = new THREE.Vector3();
 /** Which way the weapon in a hand (the right, unless told) points, in model space. */
 function bladeDir(b: Body, out: THREE.Vector3, s: Side = 'R'): THREE.Vector3 {
   const hand = b.positionOf(b.arm[s].end, _b);
-  return b.toModel(b.arm[s].end, out.set(0, -1, 0), out).sub(hand).normalize();
+  return b
+    .toModel(b.arm[s].end, out.set(0, -1, 0), out)
+    .sub(hand)
+    .normalize();
 }
 
 /** Part way round the great circle from one direction to another (they're unit vectors). */
@@ -1269,7 +1308,9 @@ function travel(b: Body, p: PoseInput): void {
       } else {
         // No vehicle to ask: a wheel ~0.3 up and 0.41 ahead of the seat, tipped back.
         const a = Math.PI / 2 - k(s) * 1.05 - turn;
-        _a.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0).applyAxisAngle(_b.set(1, 0, 0), -0.85).add(_c.set(0, 0.3, 0.41));
+        _a.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0)
+          .applyAxisAngle(_b.set(1, 0, 0), -0.85)
+          .add(_c.set(0, 0.3, 0.41));
       }
       b.handTo(s, _a, torsoDir(b, _pole.set(k(s) * 0.8, -0.7, -0.3)));
     }
@@ -1333,7 +1374,7 @@ function swim(b: Body, p: PoseInput): void {
 /** Hanging from the control bar: hands on its grips wherever the wing tilts it. */
 function glide(b: Body, p: PoseInput): void {
   const t = p.time;
-  // The wing's own tilt, as src/render/open/life.ts animates it.
+  // The wing's own tilt, as src/render/open/land.ts animates it.
   const bank = clamp(p.bank * 0.6, -0.9, 0.9);
   const pitch = clamp((p.rise * JUMP.velocity) / 12, -0.35, 0.3);
   // Hanging just behind the bar, which is out in front of the chin (gliders.ts), arms reaching to it,

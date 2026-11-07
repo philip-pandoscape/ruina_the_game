@@ -12,9 +12,10 @@ import {
   movementStaminaFor,
   MOVEMENT_SKILLS,
   pierceTargets,
+  shoots,
   WEAPONS,
-} from '../../tuning';
-import { BOOK, LEVEL_XP, MAX_LEVEL, NODES, TREES, type BookSkill, type Levels, type ResolvedSkills, type SkillMod, type SkillNode } from '../../skills';
+} from '../../content/tuning';
+import { BOOK, LEVEL_XP, MAX_LEVEL, NODES, TREES, type BookSkill, type Levels, type ResolvedSkills, type SkillMod, type SkillNode } from '../../content/skills';
 
 // Words for what skills and the tree do, drawn from the same numbers the rules use, so the text can
 // never promise something the game doesn't do.
@@ -30,13 +31,14 @@ const abilityName = (id: string) => ABILITIES.find((a) => a.id === id)?.name ?? 
 export function describeMod(m: SkillMod): string {
   const t = m.tags ?? [];
   const w = m.weapon;
+  // A weapon that shoots (the bow) does its damage with arrows, and is drawn rather than swung.
   switch (m.stat) {
     case 'attack.damage': {
-      const what = w === 3 ? 'arrow' : w !== undefined ? weaponWord(w) : t.includes('melee') ? 'melee' : t.includes('ranged') ? 'ranged' : 'weapon';
+      const what = w !== undefined ? (shoots(w) ? 'arrow' : weaponWord(w)) : t.includes('melee') ? 'melee' : t.includes('ranged') ? 'ranged' : 'weapon';
       return `${signed(m.value)} ${what} damage`;
     }
     case 'attack.startup': {
-      const who = w === 3 ? 'Bow draws' : w !== undefined ? `${cap(weaponWord(w))} attacks` : t.includes('melee') ? 'Melee attacks' : 'Attacks';
+      const who = w !== undefined ? `${cap(weaponWord(w))} ${shoots(w) ? 'draws' : 'attacks'}` : t.includes('melee') ? 'Melee attacks' : 'Attacks';
       return `${who} ${pct(m.value)} ${m.value < 0 ? 'faster' : 'slower'}`;
     }
     case 'melee.maxTargets':

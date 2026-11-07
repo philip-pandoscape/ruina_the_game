@@ -1,0 +1,190 @@
+// Housing: written from its rules (`rules` below); every number from the content and the rules.
+
+import { BLUEPRINTS, NEGLECT, PLOT_MARKER, type BlueprintDef } from '../../content/housing';
+import { claimsPlot, ITEMS, RECIPES, VENDORS } from '../../content/items';
+import { LABOR, packDef } from '../../content/trade';
+import { DAY, HOUSE_SETBACK } from '../../engine/life';
+import { EMBERHOLM } from '../../engine/zone';
+import { coins, count, duration, metres, speed } from '../format';
+import { join, system, table } from '../kit';
+import { type Html, link, md, phrase, raw } from '../md';
+import { sourceNumber } from '../source';
+import housingSource from '../../../crates/engine/src/life/housing.rs?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
+
+/** The numbers the housing rules keep in their source. */
+const RULE = {
+  /** How many days of tax one payment covers. */
+  week: () => sourceNumber(housingSource, /let week = bp\.tax_per_day \* (\d+(?:\.\d+)?);/, 'how many days a tax payment covers'),
+  /** The stage from which the floor is solid, and the walls. */
+  floorFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && world\.added\.insert\(key\("floor"\)\)/, 'the stage the floor is laid at'),
+  wallsFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && world\.added\.insert\(key\("walls"\)\)/, 'the stage the walls go up at'),
+  /** How near a plot's middle (along either side) its prompts reach. */
+  plotReach: () => sourceNumber(interactSource, /if lx\.abs\(\) > (\d+(?:\.\d+)?) \|\| lz\.abs\(\) > \d/, 'how near a plot its prompts reach'),
+  /** How near the bed and the chest you stand to use them: one reach for both. */
+  furnitureReach: () =>
+    sourceNumber(
+      interactSource,
+      /for what in \["bed", "chest"\] \{[\s\S]*?pick\.consider\(f, dd, (\d+(?:\.\d+)?)\);/,
+      'how near the bed and the chest you use them',
+    ),
+  /** How far in front of or behind the plot's middle the tax prompt shows. */
+  taxFrom: () => sourceNumber(interactSource, /if lz\.abs\(\) > (\d+(?:\.\d+)?) \{\s*let detail = if due_in/, 'where the tax prompt shows'),
+  /** Moving faster than this gets you out of bed. */
+  restBreak: () =>
+    sourceNumber(
+      interactSource,
+      /js_hypot\(p\.vel\.x, p\.vel\.z\) > (\d+(?:\.\d+)?) \|\| p\.mode != Mode::Normal \{\s*life\.resting = false;/,
+      'how fast a move ends a rest',
+    ),
+};
+
+const packsOf = (bp: BlueprintDef): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const s of bp.stages) for (const [p, n] of Object.entries(s.needs)) out[p] = (out[p] ?? 0) + n;
+  return out;
+};
+
+const packList = (needs: Record<string, number>): Html =>
+  raw(
+    Object.entries(needs)
+      .map(([p, n]) => phrase`${n} × ${link(`packs/${p}`, packDef(p).name)}`.html)
+      .join('<br>'),
+  );
+
+/** Where a material pack is made: the workbench whose recipe makes it. */
+const benchOf = (pack: string): Html | string => {
+  const r = RECIPES.find((x) => x.makes.pack === pack);
+  return r ? link(`workbenches/${r.bench}`) : '';
+};
+
+/** Everything one house takes: the packs hauled, the labor to build, and what the packs are made from. */
+function allIn(bp: BlueprintDef): Html {
+  const packs = packsOf(bp);
+  const buildLabor = bp.stages.reduce((t, s) => t + s.labor, 0);
+  let packLabor = 0;
+  let fees = 0;
+  const materials: Record<string, number> = {};
+  for (const [p, n] of Object.entries(packs)) {
+    const def = packDef(p);
+    packLabor += def.labor * n;
+    fees += def.fee * n;
+    for (const i of def.inputs) materials[i.item] = (materials[i.item] ?? 0) + i.n * n;
+  }
+  const hauls = Object.values(packs).reduce((a, b) => a + b, 0);
+  const items = Object.entries(materials).map(([id, n]) => phrase`${n} ${link(`items/${id}`, ITEMS.find((i) => i.id === id)?.name ?? id)}`.html);
+  const fee = fees ? phrase`, ${coins(fees)} in workbench fees,` : '';
+  return md`All in, the ${bp.name.toLowerCase()} takes ${count(hauls, 'pack')} hauled to the site and ${buildLabor} labor to build; making those packs takes ${packLabor} labor more${fee} and ${raw(
+    items.join(', '),
+  )} gathered or bought.`;
+}
+
+export const housing = system({
+  id: 'housing',
+  title: 'Housing',
+  summary: 'Claiming a plot with a blueprint, building a house stage by stage, storage, rest, tax, and losing a neglected house.',
+  icon: '🏡',
+  keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build', 'land', 'claim', 'neglect', 'demolish'],
+  rules: ['crates/engine/src/life/housing.rs', 'crates/engine/src/life/land.rs', 'crates/server/src/sim/lands.rs'],
+  content: ['shared/housing.json#blueprints', 'shared/housing.json#plotMarker', 'shared/housing.json#neglect', 'shared/regions/*.json#housePlots'],
+  body: () => {
+    const bp = BLUEPRINTS[0];
+    const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).filter(({ s }) => claimsPlot(s.item));
+    const week = RULE.week();
+    return join(
+      md`
+A house is earned with your hands, never bought outright. A blueprint claims an empty plot; then the house goes up a stage at a time, each stage finished by hauling its material packs to the site and putting in the labor. Finished, it is yours: a chest to keep things in, a bed that brings your labor back faster, and a tax bill to keep paid. Plots are scarce and the world's, not yours to keep whatever happens: a house whose tax goes unpaid long enough comes down, and its plot goes to whoever claims it next. There ${BLUEPRINTS.length === 1 ? 'is' : 'are'} ${count(
+        BLUEPRINTS.length,
+        'blueprint',
+      )} so far: ${raw(BLUEPRINTS.map((b) => link(`blueprints/${b.id}`).html).join(', '))}.
+
+## The Blueprint
+
+A blueprint is an item in your bag. ${raw(
+        sale
+          .map(
+            ({ v, s }) =>
+              phrase`${link(`npcs/${v.npc}`)} sells the ${link(`items/${s.item}`)} for ${coins(s.price)}${
+                s.seals ? phrase` and ${count(s.seals, 'Charter Seal')}` : ''
+              } (${link(`vendors/${v.npc}`, v.name)}).`.html,
+          )
+          .join(' '),
+      )} Charter Seals come only from trade ([[systems/trade]]), so a house is something you work toward.
+
+## Claiming a Plot
+
+${EMBERHOLM.name} has ${count(EMBERHOLM.housePlots.length, 'house plot')} at [[places/hearthside]], each ${metres(bp.plot)} square${
+        PLOT_MARKER ? phrase` and, until it is claimed, marked out as a ${link(`buildings/${PLOT_MARKER}`)}` : ''
+      }. Walk onto one with a blueprint in your bag: within ${metres(
+        RULE.plotReach(),
+      )} of its middle along either side, F offers to place it. Pressing it checks, in this order:
+
+1. If a house already stands on the plot, nothing happens.
+2. Online, if someone else holds the plot, it says whose it is. A plot is claimed once in the whole world, by whoever claims it first, so one another settler holds is theirs whichever channel you're in.
+3. If you already have a house, you can't have another: one house per settler, for now.
+4. Otherwise the blueprint leaves your bag and the plot is yours. The house will stand ${metres(
+        -HOUSE_SETBACK,
+      )} back from the plot's middle, leaving a front yard, and its tax is paid for the first ${count(bp.graceDays, 'day')}.
+
+Online, the Land Registry (the server's record of who holds each plot) confirms the claim a moment later, and until it has, nothing can be delivered or built there. If someone in another channel claimed the same plot a moment before you, theirs is the claim it keeps: your house comes down again, the blueprint is back in your bag, and the plot is shown as theirs.
+
+## Building It, Stage by Stage
+
+Each stage wants its own material packs. Carry a pack to the site on your back (a cart's bed can bring several: unload one onto your back there) and F delivers it. Only a pack the current stage still wants is taken, and each delivery uses the pack up. When every pack of the stage is in, F builds it, which costs the stage's labor; then the next stage begins.
+
+${table(
+  ['Stage', 'What It Is', 'Haul to the Site', 'Labor'],
+  bp.stages.map((s) => [s.name, s.desc, packList(s.needs), s.labor]),
+  [3],
+)}
+
+The material packs are made at the workbenches where their materials are: ${raw(
+        Object.keys(packsOf(bp))
+          .map((p) => phrase`${link(`packs/${p}`, packDef(p).name)} with ${benchOf(p)}`.html)
+          .join(', '),
+      )}.
+
+As it goes up, the house becomes solid: from the end of stage ${RULE.floorFrom()} its floor is something to stand on, and from the end of stage ${RULE.wallsFrom()} its walls are, with a doorway left open in front.
+`,
+      allIn(bp),
+      md`
+## A Finished House
+
+- **The chest.** F beside it (within ${metres(RULE.furnitureReach())}) opens your storage. It holds ${count(
+        bp.perks.storageSlots,
+        'kind',
+      )} of thing and as many of each kind as you like; once it holds that many kinds, only more of a kind already in it can go in.
+- **The bed.** F beside it (within ${metres(RULE.furnitureReach())}) lies you down to rest. While you rest your labor comes back ${LABOR.restMultiplier} times as fast, ${
+        LABOR.perMinute * LABOR.restMultiplier
+      } a minute instead of ${LABOR.perMinute}. Moving faster than ${speed(
+        RULE.restBreak(),
+      )}, or doing anything but standing there, gets you up. The bed you rest in is remembered as your home.
+- **The house.** Walk in through its doorway; it is yours to stand in.
+
+## Property Tax
+
+The tax is ${coins(bp.taxPerDay)} a day, paid a week at a time: ${coins(bp.taxPerDay * week)} for ${count(
+        week,
+        'day',
+      )}. Pay it at the plot: stand in the front yard or behind the house, more than ${metres(
+        RULE.taxFrom(),
+      )} in front of or behind the plot's middle, and F pays. A payment adds ${count(
+        week,
+        'day',
+      )} to whichever is later, the day your tax is paid until or today, so you can pay ahead. The first ${count(
+        bp.graceDays,
+        'day',
+      )} after you claim the plot are paid for you.
+
+A day is ${duration(DAY)} of the world's clock, the same for everyone, which runs whether or not you play: a week paid lasts a real week.
+
+## A Neglected House
+
+Land is contested. Once what you've paid runs out, the tax prompt at the plot says the tax is overdue and how long the house has left. ${count(
+        NEGLECT.demolishAfterDays,
+        'day',
+      )} after what was paid runs out, the house comes down, whether you're playing or away: its walls and floor, its chest and everything in it, and the blueprint that built it. The plot is free from that moment, for anyone to claim, first come. Paying before then saves it: the week you pay starts from today.
+`,
+    );
+  },
+});

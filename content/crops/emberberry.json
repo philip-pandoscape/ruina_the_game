@@ -1,0 +1,21 @@
+{
+  "id": "emberberry",
+  "name": "Emberberry",
+  "kind": "crop",
+  "climate": "warm",
+  "icon": "🍒",
+  "growSeconds": 260,
+  "stages": 4,
+  "seed": "seed.emberberry",
+  "produce": "emberberry",
+  "yield": [
+    4,
+    7
+  ],
+  "seedChance": 0.25,
+  "harvestLabor": 3,
+  "plantLabor": 0,
+  "look": {
+    "body": "emberberry"
+  }
+}

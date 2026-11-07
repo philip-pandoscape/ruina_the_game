@@ -1,0 +1,229 @@
+{
+  "id": "slimelet",
+  "sight": 9,
+  "keepAway": 2,
+  "leash": 7,
+  "anger": {
+    "frames": 900,
+    "radius": 0,
+    "calmBeyond": 25
+  },
+  "regroupAt": 90,
+  "states": [
+    {
+      "name": "scatter",
+      "act": "advance",
+      "toward": "keep",
+      "frames": [
+        24,
+        24
+      ],
+      "gait": {
+        "distance": 2.5,
+        "height": 0.35,
+        "airStart": 0.05,
+        "airSpan": 0.85
+      },
+      "next": [
+        {
+          "if": "fuseLow",
+          "to": "regroup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "threatened",
+          "to": "flee"
+        },
+        {
+          "if": "angry",
+          "to": "huddle"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "flee",
+      "act": "advance",
+      "toward": "away",
+      "frames": [
+        24,
+        24
+      ],
+      "gait": {
+        "distance": 0.9,
+        "height": 0.3,
+        "airStart": 0.15,
+        "airSpan": 0.65
+      },
+      "next": [
+        {
+          "if": "fuseLow",
+          "to": "regroup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "threatened",
+          "to": "flee"
+        },
+        {
+          "if": "angry",
+          "to": "huddle"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "regroup",
+      "act": "advance",
+      "toward": "group",
+      "frames": [
+        18,
+        18
+      ],
+      "gait": {
+        "distance": 0.8,
+        "height": 0.25,
+        "airStart": 0.15,
+        "airSpan": 0.65
+      },
+      "next": "regroup"
+    },
+    {
+      "name": "huddle",
+      "act": "advance",
+      "toward": "group",
+      "frames": [
+        26,
+        26
+      ],
+      "gait": {
+        "distance": 0.6,
+        "height": 0.25,
+        "airStart": 0.15,
+        "airSpan": 0.65
+      },
+      "next": [
+        {
+          "if": "fuseLow",
+          "to": "regroup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "threatened",
+          "to": "flee"
+        },
+        {
+          "if": "angry",
+          "to": "huddle"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "idle",
+      "act": "wait",
+      "frames": [
+        20,
+        50
+      ],
+      "next": "move",
+      "interrupt": [
+        {
+          "if": "fuseLow",
+          "to": "regroup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        }
+      ]
+    },
+    {
+      "name": "move",
+      "act": "advance",
+      "frames": [
+        30,
+        30
+      ],
+      "gait": {
+        "distance": 0.7,
+        "height": 0.3,
+        "airStart": 0.18,
+        "airSpan": 0.6
+      },
+      "next": [
+        {
+          "if": "fuseLow",
+          "to": "regroup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "threatened",
+          "to": "flee"
+        },
+        {
+          "if": "angry",
+          "to": "huddle"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "rally",
+      "act": "advance",
+      "toward": "caller",
+      "frames": [
+        22,
+        22
+      ],
+      "gait": {
+        "distance": 1,
+        "height": 0.3,
+        "airStart": 0.15,
+        "airSpan": 0.65
+      },
+      "next": [
+        {
+          "if": "fuseLow",
+          "to": "regroup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "threatened",
+          "to": "flee"
+        },
+        {
+          "if": "angry",
+          "to": "huddle"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    }
+  ],
+  "fleeWithin": 5
+}

@@ -1,0 +1,24 @@
+{
+  "id": "slide",
+  "name": "Slide",
+  "icon": "🏂",
+  "desc": "Drop into a slide you can steer, and jump out of it to go further.",
+  "tags": [
+    "movement"
+  ],
+  "builtin": true,
+  "cooldownFrames": 12,
+  "action": {
+    "startup": 0,
+    "active": 26,
+    "recovery": 0,
+    "speed": 15,
+    "endSpeed": 7,
+    "direction": "input",
+    "steer": 2.5,
+    "jumpCarry": 0.85,
+    "bufferFrames": 5,
+    "groundOnly": true,
+    "pose": "slide"
+  }
+}

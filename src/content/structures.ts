@@ -1,4 +1,5 @@
 import data from '../../shared/structures.json' with { type: 'json' };
+import type { Look } from './looks';
 
 // Buildings and props, as content: footprint, height and how they block you. The zone generator
 // builds colliders from these and the models in src/render/models are made to the same sizes.
@@ -22,7 +23,16 @@ export interface StructureDef {
   floor?: number;
   /** A walkable platform top this high above the origin. */
   deck?: number;
-  look: string;
+  /** false: set on the ground as it lies (a farm plot, a scarecrow); otherwise the ground under it is levelled to a pad. */
+  pad?: boolean;
+  /** Stands at sea level rather than on the ground (a pier on its piles). */
+  seaLevel?: boolean;
+  /** How far round it a region keeps trees and rocks off (the zone's scatter.clearOfStructure if not given). */
+  clearMargin?: number;
+  /** What the ground under it is made of (src/engine/world/terrain.ts SURFACE: tilled soil under a farm plot). */
+  surface?: string;
+  /** What it is drawn as (src/content/looks.ts): none, a plain block with a roof. */
+  look?: Look;
   stages?: string[];
   interior?: Record<string, { x: number; z: number }>;
 }
@@ -34,7 +44,8 @@ export interface PropDef {
   h: number;
   collider: 'box' | 'post' | 'none';
   r?: number;
-  look: string;
+  /** What it is drawn as (src/content/looks.ts): none, a crate its size. */
+  look?: Look;
 }
 
 const STRUCTURES = new Map((data.structures as unknown as StructureDef[]).map((s) => [s.id, s]));
@@ -53,4 +64,3 @@ export function propDef(id: string): PropDef {
 }
 
 export const structureIds = (): string[] => [...STRUCTURES.keys()];
-export const propIds = (): string[] => [...PROPS.keys()];

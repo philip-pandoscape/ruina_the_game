@@ -1,0 +1,38 @@
+[
+  {
+    "id": "goblin",
+    "name": "Goblin",
+    "faction": 1,
+    "maxHp": 30,
+    "radius": 0.3,
+    "hitHeight": 1,
+    "hitCeiling": 1.6,
+    "solid": false,
+    "brain": "goblin",
+    "respawnFrames": 1800,
+    "poise": 8,
+    "species": "goblin",
+    "clips": {
+      "idle": "idle",
+      "wander": "walk",
+      "spot": "spot",
+      "engage": "ready",
+      "circle": "strafe",
+      "close": "run",
+      "stab": "stab",
+      "backoff": "backoff",
+      "throw": "throw",
+      "retreat": "run",
+      "drink": "drink",
+      "flinch": "flinch",
+      "return": "walk",
+      "dead": "die"
+    },
+    "cycles": {
+      "walk": 1.1,
+      "run": 2,
+      "strafe": 1.2,
+      "backoff": 1
+    }
+  }
+]

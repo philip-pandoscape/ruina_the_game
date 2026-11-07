@@ -1,6 +1,7 @@
-import { assignMovement, assignSlot, movementName, swapSlots } from '../../build';
-import { BOOK, bookContext, hasSkill, MAX_LEVEL, modApplies, NODES, resolveSkills, skillCount, type BookSkill } from '../../skills';
-import { ABILITIES, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, WEAPONS, type Build } from '../../tuning';
+import { assignMovement, assignSlot, movementName, swapSlots } from '../../content/build';
+import { BOOK, bookContext, hasSkill, MAX_LEVEL, modApplies, NODES, skillCount, type BookSkill } from '../../content/skills';
+import { resolveSkills } from '../../engine/rules';
+import { ABILITIES, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, WEAPONS, type Build } from '../../content/tuning';
 import type { MenuPress } from '../../input/input';
 import { iconHtml, uiIcon } from '../theme/icons';
 import { esc, type SkillsContext } from './context';
@@ -91,7 +92,13 @@ export class SkillBook {
     const w = BOOK.findIndex((b) => b.kind === 'weapon' && b.index === this.build.weapon);
     if (w >= 0) {
       this.selected = w;
-      this.focus = { row: 0, col: Math.max(0, bookEntries('weapon').findIndex((x) => x.i === w)) };
+      this.focus = {
+        row: 0,
+        col: Math.max(
+          0,
+          bookEntries('weapon').findIndex((x) => x.i === w),
+        ),
+      };
     }
     this.render();
   }
@@ -208,7 +215,8 @@ export class SkillBook {
 
   private clickMove(i: number): void {
     const s = BOOK[this.selected];
-    if (s?.kind === 'movement' && this.known(this.selected) && !MOVEMENT_SKILLS[s.index]?.builtin && this.build.movement[i] !== s.index) return this.bindMovement(this.selected, i);
+    if (s?.kind === 'movement' && this.known(this.selected) && !MOVEMENT_SKILLS[s.index]?.builtin && this.build.movement[i] !== s.index)
+      return this.bindMovement(this.selected, i);
     const m = this.build.movement[i];
     if (m !== NO_MOVEMENT) this.select(BOOK.findIndex((x) => x.kind === 'movement' && x.index === m));
   }
@@ -218,7 +226,8 @@ export class SkillBook {
     const b = this.bookAt(t);
     const slot = t.closest('[data-slot]') as HTMLElement | null;
     const move = t.closest('[data-move]') as HTMLElement | null;
-    if (b !== null && this.known(b) && (BOOK[b].kind === 'ability' || (BOOK[b].kind === 'movement' && !MOVEMENT_SKILLS[BOOK[b].index]?.builtin))) this.dragging = { book: b };
+    if (b !== null && this.known(b) && (BOOK[b].kind === 'ability' || (BOOK[b].kind === 'movement' && !MOVEMENT_SKILLS[BOOK[b].index]?.builtin)))
+      this.dragging = { book: b };
     else if (slot && this.build.abilities[Number(slot.dataset.slot)] !== NO_ABILITY) this.dragging = { slot: Number(slot.dataset.slot) };
     else if (move && this.build.movement[Number(move.dataset.move)] !== NO_MOVEMENT) this.dragging = { move: Number(move.dataset.move) };
     else {
@@ -352,7 +361,12 @@ export class SkillBook {
         ${known ? `<span class="xp"><i style="width:${p.max ? 100 : Math.round((p.have / p.need) * 100)}%"></i></span>` : `<span class="lock">${uiIcon('lock', 20)}</span>`}
         <span class="nm">${esc(bookName(s))}</span></button>`;
     };
-    const groups = BOOK_GROUPS.map((g) => `<div class="sb-group">${g.title}</div><div class="sb-grid">${bookEntries(g.kind).map((x) => tile(x.i)).join('')}</div>`).join('');
+    const groups = BOOK_GROUPS.map(
+      (g) =>
+        `<div class="sb-group">${g.title}</div><div class="sb-grid">${bookEntries(g.kind)
+          .map((x) => tile(x.i))
+          .join('')}</div>`,
+    ).join('');
     const left = this.ctx.budget() - skillCount(b.skills);
     const pad = this.ctx.device() === 'gamepad';
     const points = `<button class="sb-pts" data-act="tree">${uiIcon('star', 22)}<span>${
@@ -369,7 +383,12 @@ export class SkillBook {
       const s = m === NO_MOVEMENT ? null : BOOK.find((x) => x.kind === 'movement' && x.index === m)!;
       return `<button class="hs${s ? ' on' : ''}${focused('move', i)}" data-move="${i}" draggable="${!!s}" style="--c:${s ? treeColor(bookTree(s)) : '#000'}"${s ? ` data-tip="book:${s.id}"` : ''}>${s ? iconHtml(bookIcon(s), undefined, 30) : ''}<span class="k">${pad ? PAD_MOVE_KEYS[i] : MOVE_KEYS[i]}</span></button>`;
     };
-    const hint = this.assigning !== null ? 'Hold a trigger and press a face button' : pad ? 'Y puts the selected skill on a slot' : 'Drag skills onto slots · right-click a slot to clear it';
+    const hint =
+      this.assigning !== null
+        ? 'Hold a trigger and press a face button'
+        : pad
+          ? 'Y puts the selected skill on a slot'
+          : 'Drag skills onto slots · right-click a slot to clear it';
 
     this.el.innerHTML = `<div class="sb-dim"></div>
       <div class="sb">
@@ -449,7 +468,10 @@ export class SkillBook {
       btns = `<button class="lui-btn" disabled>Always Ready · C, or B on a Controller</button>`;
     } else {
       const at = b.movement.indexOf(s.index);
-      btns = MOVE_KEYS.map((k, m) => `<button class="lui-btn${at === m ? ' gold' : ''}" data-act="bind${m}"${at === m ? ' disabled' : ''}>${at === m ? `On ${k}` : `Bind to ${k}`}</button>`).join('');
+      btns = MOVE_KEYS.map(
+        (k, m) =>
+          `<button class="lui-btn${at === m ? ' gold' : ''}" data-act="bind${m}"${at === m ? ' disabled' : ''}>${at === m ? `On ${k}` : `Bind to ${k}`}</button>`,
+      ).join('');
       if (at >= 0) btns = `<button class="lui-btn" data-act="clear">Unbind</button>` + btns;
     }
     return `${head}<div class="sd-stats">${stats.map(([k, v]) => `<div class="r"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>${exp}

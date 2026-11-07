@@ -1,0 +1,14 @@
+[
+  "melee.maxTargets",
+  "projectile.pierce",
+  "attack.startup",
+  "attack.damage",
+  "cast.frames",
+  "ability.damage",
+  "ability.radius",
+  "ability.amount",
+  "ability.cooldown",
+  "movement.cooldown",
+  "movement.stamina",
+  "ability.mp"
+]

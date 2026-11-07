@@ -1,0 +1,22 @@
+{
+  "id": "sheep",
+  "name": "Sheep",
+  "icon": "🐑",
+  "young": "Lamb",
+  "item": "animal.lamb",
+  "growSeconds": 240,
+  "feed": "barley",
+  "feedN": 3,
+  "feedSeconds": 360,
+  "produce": "wool",
+  "yield": [
+    2,
+    4
+  ],
+  "produceSeconds": 200,
+  "collectLabor": 2,
+  "verb": "Shear wool",
+  "look": {
+    "body": "sheep"
+  }
+}

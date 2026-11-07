@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": ["src/**/*.ts", "tests/**/*.ts", "tools/**/*.ts", "tools/**/*.mjs", "design/**/*.ts", "*.config.ts", "!src/ui/theme/icons.gen.ts"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 160
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always",
+      "arrowParentheses": "always"
+    }
+  },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off",
+        "useExponentiationOperator": "off",
+        "useImportType": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "useIterableCallbackReturn": "off",
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "noFocusedTests": "off"
+      },
+      "correctness": {
+        "noVoidTypeReturn": "off",
+        "noUnusedFunctionParameters": "off",
+        "usePlaywrightValidDescribeCallback": "off"
+      },
+      "complexity": {
+        "noCommaOperator": "off",
+        "useOptionalChain": "off",
+        "useMathMinMax": "off"
+      },
+      "performance": {
+        "useDomNodeTextContent": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["tests/unit/tools/moves.test.ts"],
+      "linter": { "rules": { "suspicious": { "noTemplateCurlyInString": "off" } } }
+    }
+  ]
+}

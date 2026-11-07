@@ -1,0 +1,23 @@
+{
+  "id": "ysolde",
+  "name": "Ysolde Windward",
+  "title": "Wingwright",
+  "place": "windspire",
+  "x": 31,
+  "z": 238,
+  "facing": 3.14159,
+  "kind": "npc-sailor",
+  "look": {
+    "outfit": "wingwright",
+    "skin": "#f1c27d",
+    "shirt": "#8a5a34",
+    "pants": "#7a7458",
+    "boots": "#3a2618",
+    "tallBoots": true,
+    "belt": "#3a2618",
+    "hair": "#e8c46a",
+    "style": "short"
+  },
+  "portrait": "🧝",
+  "greeting": "Jump, jump again, then once more to open your wings. The warm air at the cliff's foot will lift you."
+}
