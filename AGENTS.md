@@ -36,7 +36,7 @@ out, read and played: `docs/world.md`. The refactor's Phase 10 lays the foundati
 ```sh
 npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
 npm run engine          # the engine's WebAssembly (crates/engine-wasm), which dev, build and the tests load
-npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test)
+npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test, ?offline=<instance>)
 npm run typecheck
 npm run check           # typecheck, format and lint (Biome, rustfmt, clippy), dead code (knip), the unit tier (Vitest tests/unit, cargo test): run after every change
 npm run format          # formats the TypeScript (biome.json) and the Rust (rustfmt.toml): run before committing

@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { test as base } from 'vitest';
 import { defaultBuild, validBuild } from '../../src/content/build';
-import { SKILL_POINTS } from '../../src/content/skills';
+import { NODES, SKILL_POINTS } from '../../src/content/skills';
 import type { Build } from '../../src/content/tuning';
 import { readOptions } from '../../src/app/options';
 import { savedIsland } from '../../src/app/save';
@@ -12,6 +12,8 @@ import { makeTestApi } from '../../src/app/testApi';
 import { YardPractice } from '../../src/app/yardPractice';
 import { Engine } from '../../src/engine/engine';
 import { skillBudget, type Command } from '../../src/engine/island';
+import { dungeonDef } from '../../src/engine/zone';
+import { DungeonVisit } from '../../src/app/dungeonVisit';
 import { FollowCamera } from '../../src/render/camera';
 import { AutoWalk } from '../../src/input/autoWalk';
 import type { NetActor } from '../../src/net/worldFeed';
@@ -85,6 +87,10 @@ function start(url: string) {
     build = defaultBuild();
     engine.setBuild(build);
   }
+  // As main.ts: into a copy of a dungeon and out again, with nothing to draw; started in a copy of
+  // an instance the address names (?test=yard), as if through its door.
+  const visit = life ? new DungeonVisit({ engine, stage: null, place: (x, y, z, facing) => engine.place(x, z, facing, y) }) : null;
+  if (opt.space) visit?.enterDungeonHere(opt.space, true);
   const follow = new FollowCamera(16 / 9, 320, opt.openWorld ? 40 : 14);
   follow.reset(world.spawn.facing);
   const walker = life ? new AutoWalk({ sim, world, life }) : null;
@@ -95,7 +101,12 @@ function start(url: string) {
     follow.update(at.set(p.x, p.y, p.z), dt);
   };
   // What main.ts does with these offline.
-  const skillPoints = (): number => (life ? skillBudget(life.state) : SKILL_POINTS);
+  // A developer zone is for trying weapons and skills: the whole tree.
+  const skillPoints = (): number => {
+    const inside = engine.inside ? dungeonDef(engine.inside) : undefined;
+    if (inside?.developer) return NODES.length;
+    return life ? skillBudget(life.state) : SKILL_POINTS;
+  };
   const applyBuild = (b: Build): void => {
     build = b;
     engine.setBuild(b);
@@ -149,7 +160,7 @@ function start(url: string) {
     peers: null,
     minigames: null,
     party: null,
-    visit: null,
+    visit,
     bugs: null,
     lifeUI: null,
     openStage: null,

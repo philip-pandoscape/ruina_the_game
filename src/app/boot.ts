@@ -15,7 +15,7 @@ import { migrateStorage } from './storage';
 // HUD and everything else) is fetched once a character is chosen, while the world link opens, and
 // the island's files stream in after it (src/assets/loader.ts). Straight in (?as=name, a reload into
 // the world) a character is chosen at once; the offline modes the tests use (?test, ?world&test,
-// ?yard) have no way in, and fetch the game at once.
+// ?test=<instance>, ?offline, ?yard) have no way in, and fetch the game at once.
 
 // What this browser kept under the game's old name moves to its new one, before anything reads it.
 migrateStorage(localStorage);
@@ -24,7 +24,7 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
 const opt = readOptions();
-if (opt.openWorld && !opt.test) {
+if (opt.openWorld && !opt.test && !opt.offline) {
   void goOnline(opt);
   await chosen;
 }

@@ -10,6 +10,7 @@ import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
 import { NO_ACTIONS, type Actions } from '../engine/rules';
 import { IslandView } from '../engine/island';
+import { arrivalOf, dungeonDef } from '../engine/zone';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
 import { BOOK } from '../content/skills';
@@ -64,8 +65,11 @@ export function makeTestApi(g: GameRefs) {
       g.draw(1, 0, 0);
     },
     reset(opts: { x?: number; z?: number; facing?: number; camYaw?: number } = {}): void {
-      const facing = opts.facing ?? g.world.spawn.facing;
-      g.engine.reset({ x: opts.x ?? g.world.spawn.x, z: opts.z ?? g.world.spawn.z, facing }, g.build);
+      // From where the copy you're in is entered, or the world's spawn.
+      const inside = g.engine.inside ? dungeonDef(g.engine.inside) : undefined;
+      const start = inside ? arrivalOf(inside) : g.world.spawn;
+      const facing = opts.facing ?? start.facing;
+      g.engine.reset({ x: opts.x ?? start.x, z: opts.z ?? start.z, facing }, g.build);
       g.vfx.reset();
       g.hud.clear();
       g.follow.reset(opts.camYaw ?? facing);

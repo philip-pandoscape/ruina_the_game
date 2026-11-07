@@ -15,7 +15,12 @@ interface OptionDoc {
 
 /** Every option of the game's page (`?name` or `&name=value`). */
 export const OPTION_DOCS: readonly OptionDoc[] = [
-  { name: 'test', what: 'Starts paused, so automated tests step the game frame by frame (the yard, unless world is given too).', developer: true },
+  {
+    name: 'test',
+    what: 'Starts paused and offline, so automated tests step the game frame by frame: the yard, unless world is given too, or test=<instance> in a copy of that instance (test=yard, test=goblinCamp).',
+    developer: true,
+  },
+  { name: 'offline', what: 'Plays offline in real time: the open world, or offline=<instance> in a copy of that instance.', developer: true },
   { name: 'world', what: 'With test: the open world, offline and paused, instead of the yard.', developer: true },
   { name: 'load', what: 'With world and test: the island kept in this browser (bug-report replays).', developer: true },
   { name: 'yard', what: 'The training yard, offline.', developer: true },
@@ -39,8 +44,12 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
 export interface Options {
   /** Paused for automated tests, stepped frame by frame. */
   test: boolean;
-  /** The training yard (also what test opens, unless world is given). */
+  /** The training yard (also what test opens, unless world or an instance is given). */
   yard: boolean;
+  /** Offline in real time (`?offline`). */
+  offline: boolean;
+  /** Offline, the instance to start in a copy of (`?test=<id>`, `?offline=<id>`); null in the world. */
+  space: string | null;
   /** Emberholm, the open world. */
   openWorld: boolean;
   /** A war-band in the yard (`?goblins=`: that many goblins). */
@@ -68,10 +77,13 @@ const bandOf = (count: number): Options['band'] => (count > 0 ? { kind: 'goblin'
 export function readOptions(search: string = typeof location === 'undefined' ? '' : location.search): Options {
   const q = new URLSearchParams(search);
   const test = q.has('test');
-  const yard = q.has('yard') || (test && !q.has('world'));
+  const space = q.get('test') || q.get('offline') || null;
+  const yard = q.has('yard') || (test && !q.has('world') && !space);
   return {
     test,
     yard,
+    offline: q.has('offline'),
+    space,
     openWorld: !yard,
     band: bandOf(yard ? clamp(Math.floor(Number(q.get('goblins')) || 0), 0, 24) : 0),
     lag: clamp(Number(q.get('lag')) || 0, 0, 2000),

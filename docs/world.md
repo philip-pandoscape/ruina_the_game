@@ -135,6 +135,10 @@ out).
 - **Creatures** a copy brings (`spawns`) stand on its floor. Their heights, and every height in a
   fight, are measured from the copy's floor where it has one (`DungeonDef::floor_at`, the highest
   piece no more than 0.6 m tall under a point; `floorAt` in the browser).
+- **Offline** the browser plays a copy itself (`crates/engine/src/session.rs`, `enter_dungeon`):
+  through a dungeon's portal, or from the start with `?test=<instance>` (paused, for tests) or
+  `?offline=<instance>`. The copy brings its creatures, numbered on from the world's, which wait
+  outside until you come back out. Its bots are the server's alone.
 
 ### An Instance's File
 
@@ -253,6 +257,9 @@ what's near the player (R10.16, R10.23).
   pieces within its edge, and every dungeon has a door in the world and a way out.
 - `crates/server/src/play/spaces.rs`: copies made, kept and let go; admins in, players kept out; the
   yard's creatures on its floor; the goblin camp's war-band.
+- `crates/engine/src/session.rs` and `tests/unit/rules/instances.test.ts`: offline, a copy of the yard
+  with its own creatures on its floor (the world's back as they were when you come out), where it's
+  entered, and blows landing on its dummy.
 - `tests/integration/admin.spec.ts`: an admin goes into the battlefield (its bots, the arena, out at
   its door) and into the yard from character select (its dummy and slimes on the floor, blows
   landing); a player is kept out.

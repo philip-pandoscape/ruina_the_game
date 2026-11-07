@@ -9,6 +9,7 @@ use serde::Serialize;
 use crate::actors::Actors;
 use crate::event::Event;
 use crate::jsmath::{JsMath, js_hypot, len};
+use crate::open::dungeon::DungeonDef;
 use crate::open::map::WorldMap;
 use crate::player::{DEG, Player, angle_diff};
 use crate::tuning::{AttackStep, ability, effect_damage, effect_radius, melee_targets, tuning};
@@ -34,16 +35,37 @@ pub struct Target {
     pub hit_ceiling: f64,
 }
 
-/// Everything standing that an attack could land on: on an island
-/// their heights are raised onto the ground under them.
-pub fn targets(actors: &Actors, terrain: Option<&WorldMap>) -> Vec<Target> {
+/// The ground creatures stand on, for their heights in world terms: a copy's floor where it has
+/// one, else the world's terrain. On the yard's flat ground there is neither, and heights are as
+/// they are kept.
+#[derive(Clone, Copy, Default)]
+pub struct Footing {
+    pub floor: Option<&'static DungeonDef>,
+    pub terrain: Option<&'static WorldMap>,
+}
+
+impl Footing {
+    /// Whether heights stand on a ground (everywhere but the yard's flat ground).
+    pub fn raised(&self) -> bool {
+        self.floor.is_some() || self.terrain.is_some()
+    }
+
+    /// The ground's height under (x, z): the copy's floor where it has one there, or the terrain.
+    pub fn height(&self, x: f64, z: f64) -> f64 {
+        self.floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| self.terrain.map_or(0.0, |hf| hf.height(x, z)))
+    }
+}
+
+/// Everything standing that an attack could land on: on an island or in a copy their heights are
+/// raised onto the ground under them.
+pub fn targets(actors: &Actors, footing: Footing) -> Vec<Target> {
     let mut out = Vec::new();
     for a in &actors.list {
         if !a.is_alive() || a.faction == NEUTRAL {
             continue;
         }
-        let g = terrain.map_or(0.0, |hf| hf.height(a.x, a.z));
-        let raise = |v: f64| if terrain.is_some() { v + g } else { v };
+        let g = footing.height(a.x, a.z);
+        let raise = |v: f64| if footing.raised() { v + g } else { v };
         out.push(Target { id: a.id, x: a.x, y: raise(a.y), z: a.z, radius: a.radius, hit_height: raise(a.hit_height), hit_ceiling: raise(a.hit_ceiling) });
     }
     out
@@ -106,7 +128,7 @@ pub fn point_hit(targets: &[Target], x: f64, y: f64, z: f64, pad: f64) -> Option
 pub struct Blows<'a> {
     pub actors: &'a mut Actors,
     pub player: &'a Player,
-    pub terrain: Option<&'a WorldMap>,
+    pub footing: Footing,
     pub events: &'a mut Vec<Event>,
 }
 
@@ -135,7 +157,7 @@ impl Blows<'_> {
         }
         let died = self.actors.damage(id, amount, nx, nz, knock).is_some();
         let Some(a) = self.actors.list.iter().find(|a| a.id == id) else { return };
-        let ground = self.terrain.map_or(0.0, |hf| hf.height(a.x, a.z));
+        let ground = self.footing.height(a.x, a.z);
         self.events.push(Event::Hit {
             index,
             damage: amount,
@@ -153,7 +175,7 @@ impl Blows<'_> {
 
     /// A blast: everything standing inside the circle takes it, pushed out from its middle.
     pub fn damage_circle(&mut self, x: f64, z: f64, radius: f64, amount: f64, knock: f64, index: usize) {
-        for t in circle_hits(&targets(self.actors, self.terrain), x, z, radius) {
+        for t in circle_hits(&targets(self.actors, self.footing), x, z, radius) {
             let (dx, dz) = (t.x - x, t.z - z);
             let dist = len(dx, dz);
             let (nx, nz) = if dist > 0.01 { (dx / dist, dz / dist) } else { (1.0, 0.0) };
@@ -165,14 +187,14 @@ impl Blows<'_> {
 /// A swing's blow, on a frame it could land: whatever is in
 /// its arc and reach takes it, and everything pauses a moment. `above` is how high you are over
 /// the ground; returns the frames of hit pause, if it landed.
-pub fn check_hit(actors: &mut Actors, terrain: Option<&WorldMap>, events: &mut Vec<Event>, player: &mut Player, step: &AttackStep, above: f64) -> Option<i32> {
+pub fn check_hit(actors: &mut Actors, footing: Footing, events: &mut Vec<Event>, player: &mut Player, step: &AttackStep, above: f64) -> Option<i32> {
     // Too far up in the air to reach anything.
     if above > 2.0 {
         return None;
     }
-    let mut list = targets(actors, terrain);
+    let mut list = targets(actors, footing);
     // On hills a swing only reaches feet within 2 m of your own.
-    if terrain.is_some() {
+    if footing.raised() {
         list.retain(|t| (t.y - player.pos.y).abs() <= 2.0);
     }
     let hits = cone_hits(&list, player.pos.x, player.pos.z, player.facing, step.reach, step.arc_deg, melee_targets(player.weapon, &player.resolved));
@@ -181,7 +203,7 @@ pub fn check_hit(actors: &mut Actors, terrain: Option<&WorldMap>, events: &mut V
     }
     player.attack_hit = true;
     let (index, weapon) = (player.attack_index, player.weapon);
-    let mut blows = Blows { actors, player: &*player, terrain, events };
+    let mut blows = Blows { actors, player: &*player, footing, events };
     for t in hits {
         blows.damage(t.id, step.damage, step.knock, index, Some(weapon));
     }
@@ -267,7 +289,7 @@ impl Range {
                 }
                 a.x += (a.dir_x * travel) / hops as f64;
                 a.z += (a.dir_z * travel) / hops as f64;
-                if let Some(hit) = point_hit(&targets(b.actors, b.terrain), a.x, a.y, a.z, ARROW_PAD) {
+                if let Some(hit) = point_hit(&targets(b.actors, b.footing), a.x, a.y, a.z, ARROW_PAD) {
                     a.spent = true;
                     b.damage_from(hit.id, a.damage, a.dir_x, a.dir_z, ARROW_KNOCK, 0, Some(a.weapon));
                 }

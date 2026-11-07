@@ -87,10 +87,10 @@ const { test: testMode, openWorld, lag: lagMs } = opt;
 const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
 
 // Emberholm is played on the game server: sign in and choose a character, and it hands over their
-// island and build, and keeps them from then on. Automated tests and the training yard stay
-// offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island
-// being built and then fades into the game.
-const online = openWorld && !testMode ? await goOnline(opt) : null;
+// island and build, and keeps them from then on. Automated tests, the training yard and ?offline
+// stay offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the
+// island being built and then fades into the game.
+const online = openWorld && !testMode && !opt.offline ? await goOnline(opt) : null;
 if (splash) {
   splash.say('Raising the Island…');
   splash.toward('world', 3);
@@ -297,6 +297,9 @@ const visit = life
       },
     })
   : null;
+// Offline, the address can start you in a copy of an instance (?test=yard, ?offline=goblinCamp),
+// as if you had come through its door.
+if (!online && opt.space) visit?.enterDungeonHere(opt.space, true);
 // Offline, fallen out of the bottom of a copy, the rules put you back where it's entered: the
 // camera and auto-run follow.
 engine.onPlaced = (facing) => {

@@ -54,7 +54,9 @@ it even starts.
   or reshaped call fails `npm run typecheck`. Step the game a frame at a time with `__game.advance`;
   never wait a fixed time for the game to notice something.
 - `/?world&test` opens the island offline and paused, `/?test` the training yard paused, `/?yard` the
-  yard running.
+  yard running. `/?test=<instance>` opens a copy of that instance offline and paused, as if you'd come
+  through its door (`?test=yard`, `?test=goblinCamp`: its pieces, and the creatures it brings on its
+  floor), and `/?offline` or `/?offline=<instance>` plays the world or a copy offline, running.
 - A spec whose tests share nothing says so: `test.describe.configure({ mode: 'parallel' })`.
 - Tags: `@gpu` for tests that need a real GPU to keep up (CI skips them); `@alone` for tests that race
   the clock in a way other pages drawing would upset (they run one at a time, after the rest).

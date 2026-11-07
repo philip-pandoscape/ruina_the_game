@@ -27,12 +27,12 @@ use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{Spot, dungeon};
 use crate::open::map::WorldMap;
-use crate::open::spawns::band_around;
+use crate::open::spawns::{band_around, instance_spawns};
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
 use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
 use crate::skills::{Levels, resolve_skills};
-use crate::training::{Arrow, Blows, Meteor, Range, check_hit, targets};
+use crate::training::{Arrow, Blows, Footing, Meteor, Range, check_hit, targets};
 use crate::tuning::tuning;
 use crate::world::{Spawn, World};
 use crate::yard::{SpawnPoint, YARD_SEED, Yard, island_spawns, yard};
@@ -78,6 +78,9 @@ pub struct Session {
     /// In a copy of an instance, the world you came into it from (its ground, its colliders, what's
     /// been built in it), to come back out to.
     outside: Option<Box<OpenWorld>>,
+    /// Offline in a copy, the world's creatures and who stands about it, set aside until you come
+    /// back out (the copy brings its own).
+    outside_creatures: Option<(Actors, Vec<SpawnPoint>)>,
     /// The instances you've been in a copy of (the tests ask which you're in now).
     visited: BTreeSet<String>,
     /// How many times you've gone from one space to another, so the page reads what's solid again.
@@ -129,6 +132,7 @@ impl Session {
             dungeon: None,
             respawn_at: None,
             outside: None,
+            outside_creatures: None,
             visited: BTreeSet::new(),
             crossings: 0,
             drawn_from: None,
@@ -150,6 +154,12 @@ impl Session {
             s.life = Some(life);
         }
         s
+    }
+
+    /// The ground creatures stand on: the floor of the copy you're in, the world's terrain, or
+    /// neither on the yard's flat ground.
+    fn footing(&self) -> Footing {
+        Footing { floor: self.dungeon.as_deref().and_then(dungeon), terrain: self.terrain() }
     }
 
     /// The world's ground (none on the yard's flat ground).
@@ -176,6 +186,11 @@ impl Session {
         if !self.training() {
             return;
         }
+        self.spawn_all();
+    }
+
+    /// Whoever stands about here (`spawns`), into the crowd as it is.
+    fn spawn_all(&mut self) {
         let mut bands: BTreeMap<u32, u32> = BTreeMap::new();
         for point in self.spawns.clone() {
             let band = if point.band != 0 { *bands.entry(point.band).or_insert_with(|| self.actors.new_band()) } else { 0 };
@@ -198,22 +213,22 @@ impl Session {
             self.hitstop -= 1;
         } else {
             self.player.count_down(a);
-            self.player.aim_assist = training.then(|| targets(&self.actors, self.terrain()).iter().map(|t| (t.x, t.z)).collect());
+            self.player.aim_assist = training.then(|| targets(&self.actors, self.footing()).iter().map(|t| (t.x, t.z)).collect());
             self.act(a);
             self.take_player_events();
             if training && let Some(step) = self.player.swing_due.take() {
                 let above = self.height_above_ground();
-                let terrain = self.terrain();
-                if let Some(pause) = check_hit(&mut self.actors, terrain, &mut self.events, &mut self.player, &step, above) {
+                let footing = self.footing();
+                if let Some(pause) = check_hit(&mut self.actors, footing, &mut self.events, &mut self.player, &step, above) {
                     self.hitstop = pause;
                 }
             }
             self.player.update_crouch_frame();
             self.player.bodies.clear();
             if training {
-                let terrain = self.terrain();
+                let footing = self.footing();
                 for a in self.actors.list.iter().filter(|a| a.solid && a.is_alive()) {
-                    let y = terrain.map_or(a.y, |hf| hf.height(a.x, a.z) + a.y);
+                    let y = if footing.raised() { footing.height(a.x, a.z) + a.y } else { a.y };
                     self.player.bodies.push(Body { x: a.x, z: a.z, r: a.radius, y });
                 }
             }
@@ -244,8 +259,8 @@ impl Session {
         self.catch_fall();
         if training {
             let seen = self.events.len();
-            let terrain = self.terrain();
-            let mut blows = Blows { actors: &mut self.actors, player: &self.player, terrain, events: &mut self.events };
+            let footing = self.footing();
+            let mut blows = Blows { actors: &mut self.actors, player: &self.player, footing, events: &mut self.events };
             self.range.step(&mut blows, seen);
             self.observe();
         }
@@ -338,8 +353,10 @@ impl Session {
     /// Offline, every creature's frame: their blows and
     /// slams land on you as they happen.
     fn step_actors(&mut self) {
-        let terrain = self.terrain();
-        let ground = move |x: f64, z: f64| terrain.map_or(0.0, |hf| hf.height(x, z));
+        // In a copy of a dungeon or a developer zone, its creatures stand on its floor, as the
+        // server's do.
+        let footing = self.footing();
+        let ground = move |x: f64, z: f64| footing.height(x, z);
         let foes: Vec<Foe> = if self.player.down_frame >= 0 {
             Vec::new()
         } else {
@@ -488,6 +505,15 @@ impl Session {
         if let Some(life) = self.life.as_mut() {
             life.dungeon = Some(id.to_string());
         }
+        // Offline the copy brings its creatures (the server's copy does online), numbered on from
+        // the world's, which wait for you outside.
+        if self.training() {
+            let inside = self.actors.numbering_on();
+            let world = std::mem::replace(&mut self.actors, inside);
+            let spawns = std::mem::replace(&mut self.spawns, instance_spawns(def));
+            self.outside_creatures = Some((world, spawns));
+            self.spawn_all();
+        }
         true
     }
 
@@ -503,6 +529,10 @@ impl Session {
         self.respawn_at = None;
         if let Some(life) = self.life.as_mut() {
             life.dungeon = None;
+        }
+        if let Some((actors, spawns)) = self.outside_creatures.take() {
+            self.actors = actors;
+            self.spawns = spawns;
         }
     }
 
@@ -759,9 +789,10 @@ impl Session {
         self.player.set_levels(&self.levels.clone());
         self.populate();
         if let Ground::Open(w) = &self.ground {
-            let hf = w.terrain();
             let (x, z) = (self.player.pos.x, self.player.pos.z);
-            self.player.pos.y = ground_at(hf, &w.index, x, z, hf.height(x, z) + 1.2, 1.2);
+            // From just above the ground there: the floor of the copy you're in, or the terrain.
+            let from = self.ground_y(x, z) + 1.2;
+            self.player.pos.y = ground_at(w.terrain(), &w.index, x, z, from, 1.2);
             self.player.prev_pos = self.player.pos;
         }
         if let Some(life) = self.life.as_mut() {
@@ -858,8 +889,8 @@ impl Session {
     /// A blow from you to an actor, as if your weapon had landed it.
     pub fn hurt_actor(&mut self, id: u32, amount: f64) {
         let weapon = self.player.weapon;
-        let terrain = self.terrain();
-        Blows { actors: &mut self.actors, player: &self.player, terrain, events: &mut self.events }.damage(id, amount, 0.0, 0, Some(weapon));
+        let footing = self.footing();
+        Blows { actors: &mut self.actors, player: &self.player, footing, events: &mut self.events }.damage(id, amount, 0.0, 0, Some(weapon));
         self.observe();
         self.stamp();
     }
@@ -1209,4 +1240,44 @@ pub fn player_state_json(p: &Player) -> Value {
         "modeFrame": p.mode_frame,
         "gustFrames": p.gust_frames,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn crowd(s: &Session) -> Vec<(u32, String)> {
+        s.actors.list.iter().map(|a| (a.id, a.kind.clone())).collect()
+    }
+
+    #[test]
+    fn offline_a_copy_brings_its_creatures_and_the_world_keeps_its_own() {
+        let mut s = Session::new(true, false, None, Build::default());
+        let world = crowd(&s);
+        assert!(!world.is_empty(), "Emberholm's slimes and dummy");
+        assert!(s.enter_dungeon("yard"));
+        let inside = crowd(&s);
+        let kinds: Vec<&str> = inside.iter().map(|(_, k)| k.as_str()).collect();
+        assert_eq!(kinds, ["dummy", "slime", "slime", "slime"], "the yard's spawns");
+        let last = world.iter().map(|(id, _)| *id).max().unwrap_or(0);
+        assert!(inside.iter().all(|(id, _)| *id > last), "numbered on from the world's");
+
+        // They stand on its floor: a blow on the dummy lands at its height above the floor, not
+        // down in the nothing under the copy.
+        for _ in 0..10 {
+            s.step(&Actions::default());
+        }
+        let dummy = s.actors.list.iter().find(|a| a.kind == "dummy").expect("the dummy");
+        let (id, x, z) = (dummy.id, dummy.x, dummy.z);
+        let floor = s.floor_at(x, z).expect("the yard's floor under the dummy");
+        s.take_events();
+        s.hurt_actor(id, 1.0);
+        let hit = s.take_events().into_iter().find_map(|(_, e)| if let Event::Hit { y, .. } = e { Some(y) } else { None });
+        let y = hit.expect("the blow landed");
+        assert!(y > floor && y < floor + 3.0, "hit at {y}, the floor at {floor}");
+
+        // Back out, the world's creatures are as they were.
+        s.leave_dungeon();
+        assert_eq!(crowd(&s), world);
+    }
 }

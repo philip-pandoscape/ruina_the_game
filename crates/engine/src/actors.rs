@@ -177,6 +177,12 @@ impl Actors {
         Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
     }
 
+    /// A new crowd for somewhere else that numbers on from this one: none of its creatures, groups,
+    /// bands or missiles shares an id with these, so a page drawing both by id never mixes them up.
+    pub fn numbering_on(&self) -> Self {
+        Self { next_id: self.next_id, next_group: self.next_group, next_band: self.next_band, next_missile: self.next_missile, calm: self.calm, ..Self::new() }
+    }
+
     /// Everything gone, and the numbering started again (Actors.clear in src/engine/actors/actor.ts).
     pub fn clear(&mut self) {
         let calm = self.calm;
