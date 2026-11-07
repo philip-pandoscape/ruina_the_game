@@ -2,7 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import { readFileSync } from 'node:fs';
 import { onlineReady as waitOnline } from '../support/game';
 
-// Parties and dungeons on the game server (crates/server/src/play/parties.rs, crates/server/src/play/spaces.rs): two players
+// Parties and dungeons on the game server (crates/server/src/social/parties.rs, crates/server/src/directory/mod.rs): two players
 // form a party by name, see each other in the party frame, and go through Goblin's Dread's portal
 // into one copy of it; someone on their own gets a copy of their own; leaving, you're back outside
 // its door, and the copy is still there when you come back. These play the real game against the

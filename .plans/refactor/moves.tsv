@@ -150,3 +150,14 @@ src/sim/actor.ts	src/engine/actors/actor.ts
 src/sim/ai/brain.ts	src/engine/actors/brains.ts
 src/sim/combat/hit.ts	src/engine/actors/hits.ts
 src/sim/combat/missiles.ts	src/engine/actors/missiles.ts
+crates/server/src/play/socket.rs	crates/server/src/gate/socket.rs
+crates/server/src/play/mod.rs	crates/server/src/sim/mod.rs
+crates/server/src/play/spaces.rs	crates/server/src/directory/mod.rs
+crates/server/src/play/parties.rs	crates/server/src/social/parties.rs
+crates/server/src/play/channels.rs	crates/server/src/sim/channels.rs
+crates/server/src/play/bots.rs	crates/server/src/sim/bots.rs
+crates/server/src/play/tables.rs	crates/server/src/sim/tables.rs
+crates/server/src/play/stepping.rs	crates/server/src/sim/stepping.rs
+crates/server/src/play/clock.rs	crates/server/src/sim/clock.rs
+crates/server/src/db.rs	crates/server/src/store/db.rs
+crates/server/src/combat.rs	crates/server/src/gate/encode.rs

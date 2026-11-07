@@ -1266,6 +1266,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruina-world-api"
+version = "0.1.0"
+dependencies = [
+ "ruina-engine",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rustls"
 version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"

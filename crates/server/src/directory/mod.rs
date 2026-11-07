@@ -6,7 +6,7 @@
 //! minute. A party that forms takes over its leader's copy; one that breaks up leaves its copy to
 //! whoever was left in it.
 //!
-//! A copy is a game like a channel (crate::play::ChannelGame, its `space` a Copy): ticked by
+//! A copy is a game like a channel (crate::sim::ChannelGame, its `space` a Copy): ticked by
 //! the same world thread, saving islands the same way (as standing outside its door). Moving between
 //! games takes the player out of one whole, with their connection and island, and into the other;
 //! their browser hears `space` and starts afresh with what it sees.
@@ -18,8 +18,8 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use crate::open::dungeon::{Spot, door_into, dungeon};
-use crate::play::parties::{Changed, Parties};
-use crate::play::{Arrival, ChannelGame, Owner, Save, client};
+use crate::sim::{Arrival, ChannelGame, Owner, Save, client};
+use crate::social::parties::{Changed, Parties};
 
 /// How long a copy of a dungeon is kept once the last player has left it.
 pub const COPY_KEPT: Duration = Duration::from_secs(30 * 60);
@@ -341,7 +341,7 @@ impl Spaces {
         }
     }
 
-    // ---------- Parties (crate::play::parties) ----------
+    // ---------- Parties (crate::social::parties) ----------
 
     /// `from` invites someone playing: by id, or by name (in any channel or dungeon).
     pub fn party_invite(&mut self, from: i64, to: Option<i64>, name: Option<&str>) -> Result<(), String> {
@@ -502,7 +502,7 @@ fn invite_json(inv: Option<(i64, &str, Instant)>) -> String {
 mod tests {
     use super::*;
     use crate::open::zone::emberholm;
-    use crate::play::Arrival;
+    use crate::sim::Arrival;
 
     /// Ada (1) and Bo (2) playing in channel 1, each with what their browser hears.
     fn two_in_channel_one() -> (Spaces, mpsc::Receiver<String>, mpsc::Receiver<String>) {
@@ -615,7 +615,7 @@ mod tests {
     fn any_build_goes_in_a_developer_zone_and_only_an_earned_one_back_on_the_island() {
         let (mut sp, _a, _b) = two_in_channel_one();
         let all = crate::skills::skills_from(&["sword", "cleave", "whirlwind"]);
-        let wanted = crate::play::build_json(&crate::player::Build { skills: all, ..crate::player::Build::default() });
+        let wanted = crate::sim::build_json(&crate::player::Build { skills: all, ..crate::player::Build::default() });
         // On the island a newcomer hasn't the points for it.
         assert!(sp.game_of(1).unwrap().set_build(1, &wanted).is_none());
         sp.enter_zone(1, "yard", true, None).unwrap();

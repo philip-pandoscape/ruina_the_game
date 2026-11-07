@@ -19,9 +19,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use ruina_server::db;
+use ruina_server::gate::socket;
 use ruina_server::http::{self, AppState};
-use ruina_server::play::{socket, stepping};
+use ruina_server::sim::stepping;
+use ruina_server::store::db;
 
 struct Args {
     port: u16,
@@ -73,7 +74,7 @@ fn main() {
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
     let admin_users = http::admin_users(&std::env::var("ADMIN_USERS").unwrap_or_default());
-    // Faster from a few hundred players a channel; slower below (crates/server/src/play/stepping.rs).
+    // Faster from a few hundred players a channel; slower below (crates/server/src/sim/stepping.rs).
     stepping::set_parallel(args.parallel);
     println!("players: {}", if args.parallel { "stepped all at once (--parallel on)" } else { "stepped one after another" });
     if dev_login && admin_users.is_empty() {

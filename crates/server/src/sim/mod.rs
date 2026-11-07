@@ -17,7 +17,9 @@ use tokio::sync::mpsc;
 
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::Brain;
-use crate::combat::{OPEN_INPUT, Players, effects_json, open_actions_from};
+use crate::gate::encode::{OPEN_INPUT, Players, effects_json, open_actions_from};
+use crate::gate::socket::parse_build;
+use crate::ids::EntityId;
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
@@ -28,9 +30,8 @@ use crate::open::dungeon::{DungeonDef, Spot};
 use crate::open::spawns::{instance_spawns, region_spawns};
 use crate::open::zone::{DungeonDoor, Zone, emberholm};
 use crate::open::{OpenWorld, Sim};
-use crate::play::channels::{Channel, estate_of};
-use crate::play::socket::parse_build;
 use crate::player::{Actions, Build, Mode, Player};
+use crate::sim::channels::{Channel, estate_of};
 use crate::skills::{allowed, build_from_saved};
 use crate::world::{Spawn, World};
 
@@ -40,12 +41,6 @@ mod bots;
 pub mod channels;
 /// The world's clock: ticks numbered from the world's epoch.
 pub mod clock;
-/// Parties: who plays with whom.
-pub mod parties;
-/// A player's connection: sign-in, the welcome, inputs and commands in, ticks out.
-pub mod socket;
-/// Every channel and every party's copy of a dungeon, and moving between them.
-pub mod spaces;
 /// How a channel's players are stepped each tick: one after another, or all at once.
 pub mod stepping;
 /// Mini-games here: challenges, tables and the money on them.
@@ -166,11 +161,11 @@ pub struct ChannelGame {
     pub members: HashMap<i64, Member>,
     world: World,
     pub open: OpenWorld,
-    players: Players,
-    actors: Actors,
+    pub(crate) players: Players,
+    pub(crate) actors: Actors,
     tick: u64,
     last_tick: Instant,
-    /// Challenges and the tables they became (crates/server/src/play/tables.rs).
+    /// Challenges and the tables they became (crates/server/src/sim/tables.rs).
     pub tables: Minigames,
     /// When the channel began: games' clocks run from here.
     started: Instant,
@@ -182,7 +177,7 @@ pub struct ChannelGame {
     /// The server's queue of islands to write (socket.rs spawn_world), if it has one.
     pub saver: Option<mpsc::UnboundedSender<Vec<Save>>>,
     /// Bots playing here (bots.rs), and how many have ever joined (their ids and names count on).
-    bots: Vec<bots::BotSlot>,
+    pub(crate) bots: Vec<bots::BotSlot>,
     bot_count: u32,
     /// How long a tick takes to run (ms, smoothed), for the admins' stats.
     step_ms: f64,
@@ -193,9 +188,9 @@ pub struct ChannelGame {
 /// Ticks between the stats an admin is sent (once a second).
 const STATS_EVERY: u64 = TICK_HZ as u64;
 
-/// A player's id on the wire (Players numbers its clients with u32).
-fn client(character: i64) -> u32 {
-    character as u32
+/// A character among the players (crate::ids).
+pub(crate) fn client(character: i64) -> EntityId {
+    EntityId::character(character)
 }
 
 impl ChannelGame {

@@ -1,0 +1,15 @@
+[package]
+name = "ruina-world-api"
+description = "The messages between the server's tiers (gate, simulations, store, social, directory), with their ids, ticks and epochs: serde types and no I/O"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# Types and pure functions only: no clocks, threads, sockets or databases. Every message is Serialize
+# and Deserialize, so a transport between processes carries the same ones the server's tiers pass
+# each other in one process.
+[dependencies]
+ruina-engine.workspace = true
+# rc: a tick's records travel to the gates as one Arc, shared by every connection there.
+serde = { workspace = true, features = ["rc"] }
+serde_json.workspace = true

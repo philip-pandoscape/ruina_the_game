@@ -13,7 +13,7 @@
 //!                       your characters (crates/server/src/accounts/characters.rs)
 //!   POST /api/dev/stop  development only (DEV_LOGIN=1), an admin signed in: stops the server as a
 //!                       deploy does (tests)
-//!   GET  /ws/world      the open world (crates/server/src/play/socket.rs); ?character=<id>
+//!   GET  /ws/world      the open world (crates/server/src/gate/socket.rs); ?character=<id>
 //!   /dev/, /design/     the developer pages, for admins only (ADMIN_USERS); "not found" to anyone else
 
 use std::collections::{HashMap, HashSet};
@@ -36,7 +36,7 @@ use tower_http::compression::Compression;
 use tower_http::services::ServeDir;
 
 use crate::accounts::{self, characters};
-use crate::play::socket;
+use crate::gate::socket;
 
 pub struct AppState {
     /// None when no DATABASE_URL was given: then accounts and the open world are off.
