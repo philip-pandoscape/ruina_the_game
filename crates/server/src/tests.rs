@@ -196,7 +196,7 @@ impl Player {
 
     /// Through Goblin's Dread's portal (standing at it, on the ledge behind the falls) into their
     /// copy: where they are now.
-    async fn into_goblins_dread(&mut self) -> SpaceView {
+    async fn through_the_portal(&mut self) -> SpaceView {
         let door = door_into("goblinsDread").expect("its door");
         self.stand("at the portal", door.outside.x, door.outside.z).await;
         self.ask(Ask::Dungeon { id: "goblinsDread".into(), enter: true });
@@ -304,17 +304,17 @@ async fn a_party_goes_into_one_copy_and_someone_else_into_their_own() {
     assert_eq!(a.error().await, "You're too far from the way into Goblin's Dread.");
     // Through it: into a copy, played by a simulation of its own, mid-connection.
     let channel = a.sim();
-    let into = a.into_goblins_dread().await;
+    let into = a.through_the_portal().await;
     assert_ne!(a.sim(), channel, "played by another simulation now");
     let me = a.me().await;
     let arrive = dungeon("goblinsDread").unwrap().arrival();
     assert!((me.you.p.pos.x - arrive.x).abs() < 1.0 && (me.you.p.pos.z - arrive.z).abs() < 1.0, "where it's entered");
     // Bo follows: the same copy, and the party sees two inside it.
-    assert_eq!(b.into_goblins_dread().await, into);
+    assert_eq!(b.through_the_portal().await, into);
     b.party("two inside", |p| p.as_ref().is_some_and(|p| p.dungeons.first().is_some_and(|d| d.inside == 2 && d.closes_in.is_none()))).await;
     // Cy, on his own, gets a copy of his own.
     let mut c = w.join(3, "Cy").await;
-    let theirs = c.into_goblins_dread().await;
+    let theirs = c.through_the_portal().await;
     assert_ne!(copy_of(&theirs), copy_of(&into));
 }
 
@@ -323,7 +323,7 @@ async fn inputs_sent_to_where_a_player_was_follow_them_into_their_copy() {
     let w = World::new();
     let mut a = w.join(1, "Ada").await;
     let channel = a.sim();
-    a.into_goblins_dread().await;
+    a.through_the_portal().await;
     let inputs: Vec<ruina_world_api::input::Input> = (1..=6).map(|k| ruina_world_api::input::Input { seq: 1000 + k, view: 0, raw: [0; 10] }).collect();
     // Sent to the channel's simulation, as a browser that hadn't heard yet would: passed on.
     w.post().sim(channel, ToSim::Inputs { conn: a.conn(), inputs });
@@ -334,7 +334,7 @@ async fn inputs_sent_to_where_a_player_was_follow_them_into_their_copy() {
 async fn a_copy_is_kept_a_while_after_the_last_player_leaves_then_closed() {
     let w = World::with(Duration::from_millis(1500), EXPEL_AFTER);
     let mut a = w.join(1, "Ada").await;
-    let copy = copy_of(&a.into_goblins_dread().await);
+    let copy = copy_of(&a.through_the_portal().await);
     // Not at the way out yet: still inside.
     a.ask(Ask::Dungeon { id: "goblinsDread".into(), enter: false });
     assert_eq!(a.error().await, "You're too far from the way out.");
@@ -346,11 +346,11 @@ async fn a_copy_is_kept_a_while_after_the_last_player_leaves_then_closed() {
     let me = a.me().await;
     assert!((me.you.p.pos.x - door.outside.x).abs() < 1e-6 && (me.you.p.pos.z - door.outside.z).abs() < 1e-6, "outside the door");
     // Back in while it's kept: the same copy.
-    assert_eq!(copy_of(&a.into_goblins_dread().await), copy);
+    assert_eq!(copy_of(&a.through_the_portal().await), copy);
     a.out_of("goblinsDread").await;
     // Once it's been empty long enough it closes, and the next time in is a fresh copy.
     tokio::time::sleep(Duration::from_millis(2500)).await;
-    assert_ne!(copy_of(&a.into_goblins_dread().await), copy, "a fresh copy");
+    assert_ne!(copy_of(&a.through_the_portal().await), copy, "a fresh copy");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -359,8 +359,8 @@ async fn whoever_leaves_the_party_inside_is_put_out_after_a_while() {
     let mut a = w.join(1, "Ada").await;
     let mut b = w.join(2, "Bo").await;
     party(&mut a, &mut b, "Bo").await;
-    let copy = a.into_goblins_dread().await;
-    assert_eq!(b.into_goblins_dread().await, copy);
+    let copy = a.through_the_portal().await;
+    assert_eq!(b.through_the_portal().await, copy);
     // Bo leaves the party: it breaks up, and the copy is Ada's alone now. Bo is warned, then put out.
     b.social(ToSocial::Leave { conn: b.conn() });
     b.until("the warning", |_, me| toasted(me, "belongs to another party")).await;
@@ -375,10 +375,10 @@ async fn a_party_formed_inside_takes_over_its_leaders_copy() {
     let w = World::with(COPY_KEPT, Duration::from_millis(500));
     let mut a = w.join(1, "Ada").await;
     let mut b = w.join(2, "Bo").await;
-    let copy = a.into_goblins_dread().await;
+    let copy = a.through_the_portal().await;
     party(&mut a, &mut b, "Bo").await;
     // Bo follows Ada in: her copy is the party's now.
-    assert_eq!(b.into_goblins_dread().await, copy);
+    assert_eq!(b.through_the_portal().await, copy);
     // And nobody is put out of it.
     let t = Instant::now();
     while t.elapsed() < Duration::from_millis(1200) {
@@ -390,7 +390,7 @@ async fn a_party_formed_inside_takes_over_its_leaders_copy() {
 async fn a_connection_back_soon_is_back_inside_its_copy() {
     let w = World::new();
     let mut a = w.join(1, "Ada").await;
-    let copy = a.into_goblins_dread().await;
+    let copy = a.through_the_portal().await;
     a.tick().await;
     drop(a);
     // Saved as standing outside the door, in the world, in case the copy is gone when they're back.
@@ -409,7 +409,7 @@ async fn a_connection_back_soon_is_back_inside_its_copy() {
 async fn starting_over_inside_a_dungeon_starts_you_over_outside_it() {
     let w = World::new();
     let mut a = w.join(1, "Ada").await;
-    a.into_goblins_dread().await;
+    a.through_the_portal().await;
     a.ask(Ask::Reset);
     assert_eq!(a.moved().await, SpaceView::Channel { channel: 1 });
     a.heard("the life started over and written", |m| matches!(m, ToConn::Reset).then_some(())).await;
@@ -492,9 +492,9 @@ async fn a_party_of_five_all_get_into_one_copy() {
         rest.push(p);
     }
     // Everyone in the party gets in (a party is never bigger than a copy holds).
-    let copy = leader.into_goblins_dread().await;
+    let copy = leader.through_the_portal().await;
     for p in &mut rest {
-        assert_eq!(p.into_goblins_dread().await, copy);
+        assert_eq!(p.through_the_portal().await, copy);
     }
     assert_eq!(1 + rest.len(), def.max_players.min(5));
 }
@@ -505,7 +505,7 @@ async fn a_party_spans_simulations_each_member_seen_where_they_are() {
     let mut a = w.join(1, "Ada").await;
     let mut b = w.join(2, "Bo").await;
     party(&mut a, &mut b, "Bo").await;
-    let copy = a.into_goblins_dread().await;
+    let copy = a.through_the_portal().await;
     // Bo, in the channel's simulation, sees Ada where she is: in her copy, played by another.
     let p = b.party("Ada in the copy", |p| p.as_ref().is_some_and(|p| p.members.iter().any(|m| m.id == 1 && m.place.as_ref() == Some(&copy)))).await.unwrap();
     assert!(p.members.iter().any(|m| m.id == 2 && m.place == Some(SpaceView::Channel { channel: 1 })));
