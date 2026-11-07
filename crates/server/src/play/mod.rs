@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::Brain;
 use crate::combat::{OPEN_INPUT, Players, effects_json, open_actions_from};
+use crate::ids::EntityId;
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
@@ -193,9 +194,9 @@ pub struct ChannelGame {
 /// Ticks between the stats an admin is sent (once a second).
 const STATS_EVERY: u64 = TICK_HZ as u64;
 
-/// A player's id on the wire (Players numbers its clients with u32).
-fn client(character: i64) -> u32 {
-    character as u32
+/// A character among the players (crate::ids).
+fn client(character: i64) -> EntityId {
+    EntityId::character(character)
 }
 
 impl ChannelGame {

@@ -9,8 +9,9 @@ use rayon::prelude::*;
 use serde_json::json;
 
 use super::stepping::Stepping;
-use super::{ChannelGame, TICK_HZ, client};
+use super::{ChannelGame, TICK_HZ};
 use crate::bots::{Bot, Brain, FoeSeen};
+use crate::ids::EntityId;
 use crate::jsmath::JsMath;
 use crate::life::Life;
 use crate::open::colliders::ground_at;
@@ -19,6 +20,8 @@ use crate::world::Spawn;
 
 /// A bot playing here.
 pub struct BotSlot {
+    /// Who it is among the players (crate::ids).
+    pub entity: EntityId,
     pub id: i64,
     pub name: String,
     brain: Bot,
@@ -61,11 +64,12 @@ impl ChannelGame {
             player.grounded = true;
             // An island of its own, empty: the rules step every open-world player with one.
             let life = Box::new(Life::new(self.open.zone, None, None));
-            if !self.players.join_open(client(id), id, player, life) {
+            let entity = EntityId::bot(u64::from(self.id.unsigned_abs()), self.bot_count);
+            if !self.players.join_open(entity, id, player, life) {
                 break;
             }
             let name = format!("{} {}", if brain == Brain::Wanderer { "Wanderer" } else { "Skirmisher" }, self.bot_count);
-            self.bots.push(BotSlot { id, name, brain: Bot::new(brain, 0x5eed_0000 ^ self.bot_count, (x, z)), seq: 0 });
+            self.bots.push(BotSlot { entity, id, name, brain: Bot::new(brain, 0x5eed_0000 ^ self.bot_count, (x, z)), seq: 0 });
             joined += 1;
         }
         joined
@@ -88,7 +92,7 @@ impl ChannelGame {
     /// Every bot here gone.
     pub fn remove_bots(&mut self) {
         for b in std::mem::take(&mut self.bots) {
-            self.players.leave(client(b.id));
+            self.players.leave(b.entity);
             self.send_all(&json!({ "t": "left", "id": b.id }).to_string(), None);
         }
     }
@@ -115,7 +119,7 @@ impl ChannelGame {
         }
         let players = &self.players;
         let think = |b: &mut BotSlot| {
-            let (me, _, _) = players.open_view(client(b.id))?;
+            let (me, _, _) = players.open_view(b.entity)?;
             Some(b.brain.think(me, foes.get(&me.team).map_or(&[], Vec::as_slice)))
         };
         let decided: Vec<Option<Actions>> = match self.stepping {
@@ -130,7 +134,7 @@ impl ChannelGame {
             // A press counts once: on the first of the tick's steps.
             let held = Actions { attack_pressed: false, jump_pressed: false, slide_pressed: false, ability_slot: 0, movement_slot: 0, ..a };
             // A bot sees everyone where they are: nothing to rewind.
-            self.players.queue_actions(client(b.id), (0..steps).map(|k| (first + k, f64::INFINITY, if k == 0 { a } else { held })));
+            self.players.queue_actions(b.entity, (0..steps).map(|k| (first + k, f64::INFINITY, if k == 0 { a } else { held })));
         }
     }
 }
@@ -147,7 +151,7 @@ mod tests {
         let s = &emberholm().recipe.spawn;
         assert_eq!(ch.spawn_bots(4, Brain::Wanderer, s.x, s.z, 0), 4);
         assert_eq!(ch.bots.len(), 4);
-        let start: Vec<(f64, f64)> = ch.bots.iter().map(|b| ch.players.open_view(client(b.id)).map(|(p, _, _)| (p.pos.x, p.pos.z)).unwrap()).collect();
+        let start: Vec<(f64, f64)> = ch.bots.iter().map(|b| ch.players.open_view(b.entity).map(|(p, _, _)| (p.pos.x, p.pos.z)).unwrap()).collect();
         // A tick at a time as step() runs them, with a tick's worth of inputs whatever the clock says.
         for tick in 0..60 {
             ch.drive_bots();
@@ -159,12 +163,12 @@ mod tests {
             .bots
             .iter()
             .zip(&start)
-            .filter(|(b, s)| ch.players.open_view(client(b.id)).is_some_and(|(p, _, _)| (p.pos.x - s.0).hypot(p.pos.z - s.1) > 0.5))
+            .filter(|(b, s)| ch.players.open_view(b.entity).is_some_and(|(p, _, _)| (p.pos.x - s.0).hypot(p.pos.z - s.1) > 0.5))
             .count();
         assert!(moved >= 2, "{moved} of 4 moved");
         ch.remove_bots();
         assert!(ch.bots.is_empty());
-        assert!(ch.players.open_view(client(FIRST_BOT - 1)).is_none());
+        assert!(ch.players.each_open().all(|(e, _, _, _)| e.as_bot().is_none()), "no bot left among the players");
     }
 
     #[test]
@@ -173,7 +177,7 @@ mod tests {
         let s = &emberholm().recipe.spawn;
         ch.spawn_bots(1, Brain::Skirmisher, s.x, s.z, 0);
         ch.spawn_bots(1, Brain::Skirmisher, s.x + 4.0, s.z, 1);
-        let hp = |ch: &ChannelGame| -> Vec<f64> { ch.bots.iter().map(|b| ch.players.open_view(client(b.id)).map_or(0.0, |(p, _, _)| p.hp)).collect() };
+        let hp = |ch: &ChannelGame| -> Vec<f64> { ch.bots.iter().map(|b| ch.players.open_view(b.entity).map_or(0.0, |(p, _, _)| p.hp)).collect() };
         let full = hp(&ch);
         for tick in 0..200 {
             ch.drive_bots();
@@ -192,12 +196,12 @@ mod tests {
         let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
         let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
         ch.zone_bots_in();
-        let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
+        let ids: Vec<EntityId> = ch.bots.iter().map(|b| b.entity).collect();
         for (k, id) in ids.into_iter().enumerate() {
             let name = ["sword", "club", "staff", "bow"][k % 4];
             let weapon = crate::tuning::weapon_index(name).expect("its weapon");
             let skills = crate::skills::skills_from(&[name]);
-            if let Some((p, _)) = ch.players.open_mut(client(id)) {
+            if let Some((p, _)) = ch.players.open_mut(id) {
                 p.apply_build(Build { skills, weapon, ..Build::default() });
             }
         }
@@ -294,12 +298,12 @@ mod tests {
         let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
         ch.stepping = stepping;
         ch.zone_bots_in();
-        let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
+        let ids: Vec<EntityId> = ch.bots.iter().map(|b| b.entity).collect();
         for (k, id) in ids.into_iter().enumerate() {
             let name = ["sword", "club", "staff", "bow"][k % 4];
             let weapon = crate::tuning::weapon_index(name).expect("its weapon");
             let skills = crate::skills::skills_from(&[name]);
-            if let Some((p, _)) = ch.players.open_mut(client(id)) {
+            if let Some((p, _)) = ch.players.open_mut(id) {
                 p.apply_build(Build { skills, weapon, ..Build::default() });
             }
         }

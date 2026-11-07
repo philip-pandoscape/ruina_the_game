@@ -12,7 +12,7 @@
 #![recursion_limit = "256"]
 
 // The rules, reached from here as they always were (crate::player, crate::life...).
-pub use ruina_engine::{actor, actors, ai, bots, content, creatures, jsmath, life, minigames, missiles, open, pack, player, rng, skills, tuning, world};
+pub use ruina_engine::{actor, actors, ai, bots, content, creatures, ids, jsmath, life, minigames, missiles, open, pack, player, rng, skills, tuning, world};
 
 pub mod accounts;
 pub mod combat;
