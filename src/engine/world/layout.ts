@@ -58,11 +58,3 @@ export function regionsNear(l: WorldLayout, x: number, z: number, reach: number)
     .sort((a, b) => a.d - b.d || a.i - b.i)
     .map((e) => e.i);
 }
-
-/** The place of the region a point is in, or null out at sea. */
-export function regionAt(l: WorldLayout, x: number, z: number): number | null {
-  const cx = Math.floor(x / l.chunk);
-  const cz = Math.floor(z / l.chunk);
-  const i = l.regions.findIndex((r) => cx >= r.chunks.x && cx < r.chunks.x + r.chunks.w && cz >= r.chunks.z && cz < r.chunks.z + r.chunks.d);
-  return i < 0 ? null : i;
-}

@@ -8,7 +8,7 @@ import { type MapFrame, PICTURE_PX, paintMap } from './mapPaint';
 // time a map wants it), and the marks they draw over it.
 
 export type { MapFrame } from './mapPaint';
-export { fromMapPx, PICTURE_PX, toMapPx } from './mapPaint';
+export { PICTURE_PX, toMapPx } from './mapPaint';
 
 /** A region of the world as the maps know it: where it stands, its places, and its picture once painted. */
 export interface MapRegion {

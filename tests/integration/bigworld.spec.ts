@@ -203,6 +203,9 @@ test('what you leave behind is let go, and grown again as you come back', async 
   expect(r.log.filter((e) => e.t === 'arrived' && e.id === 'saltmere').length).toBe(2);
   expect(await page.evaluate(() => window.__game.ground(1700, 0))).toBe(ground);
   expect(r.unheld).toBe(0);
+  // How long each took: grown in the worker, all of it there (its sea's depths and map too), and taken in by the page.
+  for (const e of r.log.filter((x) => x.t === 'arrived'))
+    console.log(`${e.id}: grown in ${e.growMs?.toFixed(0)} ms, ${e.allMs?.toFixed(0)} ms in the worker, taken in by the page in ${e.takeMs?.toFixed(1)} ms`);
   expect(errors).toEqual([]);
 });
 

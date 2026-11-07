@@ -118,8 +118,9 @@ if (fixture) useContent(fixture);
 const engine = new Engine({ openWorld, online: !!online, band: opt.band, build });
 // The world's regions grow in a worker as you travel (src/app/grower.ts, regions.ts): an engine of
 // its own, given the same content.
+// A world of one region (Emberholm alone, as shipped) has nothing to grow: no worker.
 const grower =
-  engine.layout && typeof Worker === 'function'
+  engine.layout && engine.layout.regions.length > 1 && typeof Worker === 'function'
     ? new RegionGrower(new Worker(new URL('./app/grower.worker.ts', import.meta.url), { type: 'module' }) as unknown as GrowerPort, fixture)
     : null;
 const { world, sim, range } = engine;

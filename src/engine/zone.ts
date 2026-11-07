@@ -7,8 +7,8 @@
 export { Heightfield, SURFACE, hash2, valueNoise } from './world/terrain';
 export type { Ground } from './world/terrain';
 export { WorldGround } from './world/worldGround';
-export { distanceTo, regionAt, regionBounds, regionsNear, worldLayout } from './world/layout';
-export type { RegionPlace, WorldLayout } from './world/layout';
+export { distanceTo, regionBounds, regionsNear, worldLayout } from './world/layout';
+export type { WorldLayout } from './world/layout';
 export { groundAt, inRect } from './world/colliders';
 export { DUNGEONS, arrivalOf, dungeonDef, dungeonDoor } from './world/dungeons';
 export type { DungeonDef, DungeonPiece } from './world/dungeons';
