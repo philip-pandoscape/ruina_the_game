@@ -86,3 +86,40 @@ assist) become engine rules an instance switches on in its file.
   game, world and hotbar specs (39, all passing).
 - **Next:** merge `refactor/first`, `npm run check`, rebuild the rig's server (the content's hash
   moved), and the whole integration tier.
+
+## 2026-11-07 01:00: Done
+
+**Landed** (branch `refactor/offline`): 820cbfe the tests off the old options, `?test` alone the world,
+R10.11's leftovers (the hotbar's health beside the portrait, the skills specs on a developer zone's
+whole tree); 9861ec9 the flat yard gone (`Ground::Flat`, `yard.rs`, the Engine's `openWorld`/`band`,
+the yard's practice and drawing, `#player-hp`, `trainedBy`), 2cb0255 a format fix; 065687b
+`world.rs`'s battlefield layout gone, the flat step and `World` with it, respawn from data
+(`OpenWorld::spawn_point`); 49a5046 the practice rules (`hitPause`, `aimAssist`) in instance files;
+merges of `refactor/first` 8f1e76c, 5196624 (tiers), b1036eb (bigworld), 596a8af (borders, scale),
+and the last at the head, each with `npm run check` green (273 TypeScript tests; the engine's 214,
+order 5, WebAssembly 4, server 90, link 4, world-api 6). Before the tiers merge the whole integration
+tier passed against this slot's rig: 203 passed, 1 skipped, none failed (15.7 min, three workers).
+
+**Golden answers:** only the 11 golden player scenarios moved, on purpose (they play in the
+battlefield instance now); the balance harness writes the same output byte for byte.
+
+**What others must know:**
+- Options: `?test` (the world, paused), `?test=<instance>`, `?offline[=<instance>]`, `?test&load`,
+  `&fixture=`; `?yard`, `?world`, `?goblins=` are gone (`?yard&test&goblins=6` is `?test=goblinCamp`).
+- An instance's practice rules: `"practice": { "hitPause": true, "aimAssist": true }` in its file
+  (yard and goblin camp on; the world, Goblin's Dread, the battlefield none); offline only, as the
+  server never stops a shared world or turns a swing (online the page's drawn pause and aim stay
+  everywhere, unchanged).
+- Engine API: `Players::step_in(actors, tick, &mut OpenWorld)`, `step_by(.., tick, &mut OpenWorld,
+  drive)`, `work_out(actors, tick, &OpenWorld, drive)`; `Players::join`/`step` gone (`join_at`);
+  `ruina_engine::world` keeps only `Spawn`; `ruina_engine::yard` gone (`SpawnPoint` in
+  `open::spawns`); `OpenWorld::spawn_point()`; `Session::new(online, build)`, the session's `world`
+  is the space you're in. The Engine's options are `{ online, build }` and `Engine.life` is never null.
+- The golden player scenarios name their `instance`; the balance harness's scenario names its `arena`.
+
+**What's left:** the practice rules online (server-side aim assist, predicted by the browser) were
+decided against; the guides in the end pass (the docs here were kept up as the work went, bigworld's
+and borders' merged words included); the TypeScript `World`'s optional fields and the session's
+`Option<Life>` could tighten now that every world has them. Known flaky under load, not this work's:
+`battlefield.spec.ts:376` (two windows racing). This slot's rig (server on 7874, container
+`ruina-wt-offline-db`) is stopped.
