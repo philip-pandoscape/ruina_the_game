@@ -5,6 +5,12 @@
 //! browser has always read: `crates/server/src/gate/encode.rs`).
 //!
 //! The field names are the browser's (camelCase), so the JSON encoding of a record is the record.
+//!
+//! The entity records here (presence, creatures, arrows, meteors, effects) are the JSON path's:
+//! the wire workstream's packed records (crates/wire: a frame of records per cell, assembled per
+//! client by a viewer) take the place of  when the gate sends its binary protocol,
+//! and these go. [] (a player's own state, their life, what was said to them) and
+//! [] stay.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
