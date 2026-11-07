@@ -1,17 +1,21 @@
-//! The open-world systems: trade, farming, housing, vehicles and quests. Players' islands change
-//! only here: the browser sends key presses and commands, the server runs them through these rules,
-//! and what comes out is what is kept in Postgres and shown to everyone. The browser runs the same
-//! rules through the WebAssembly to run its commands ahead and to play offline.
+//! The open-world systems: trade, farming, housing, vehicles and quests. A character's life (what
+//! is theirs alone: crate::life::state) and their land (what they've built and planted in the
+//! world: crate::life::land) change only here: the browser sends key presses and commands, the
+//! server runs them through these rules, and what comes out is what is kept in Postgres and shown to
+//! everyone. The browser runs the same rules through the WebAssembly to run its commands ahead and
+//! to play offline.
 //!
 //! A Life changes only inside step(), from the commands queued since the last one, so the same
-//! commands on the same frames always give the same island.
+//! commands on the same frames always give the same life and land.
 
 pub mod content;
 pub mod contracts;
 pub mod farming;
 pub mod housing;
 pub mod interact;
+pub mod land;
 pub mod livestock;
+pub mod market;
 pub mod progress;
 pub mod quests;
 pub mod shipyard;
@@ -28,7 +32,9 @@ use crate::open::zone::Zone;
 use crate::open::{OpenWorld, Sim};
 use crate::player::{Actions, Mode, Player};
 use content::{ItemCount, bag_slots, item_def, labor};
-use state::{LIFE_VERSION, LifeState, new_life_state};
+use land::{Change, Land};
+use market::Market;
+use state::{LIFE_VERSION, LifeState, Weather, new_life_state};
 
 /// One fixed step of the rules (shared/tuning.json's simHz).
 pub fn step_seconds() -> f64 {
@@ -274,7 +280,7 @@ pub struct Focus {
 pub struct OthersVehicle {
     pub host: i64,
     pub name: String,
-    pub vehicle: state::Vehicle,
+    pub vehicle: land::Vehicle,
     pub taken: Vec<i64>,
 }
 
@@ -302,9 +308,19 @@ pub struct Placement {
     pub problem: Option<String>,
 }
 
-/// One character's island: their state, and what is going on around them right now.
+/// One character's life (their own state), the land of theirs they're tending, and what is going on
+/// around them right now.
 pub struct Life {
     pub state: LifeState,
+    /// Their land: houses, farms, ships on the slipways, packs and vehicles, wherever each stands.
+    /// It's the world's (crate::life::land), lent to the life while its character plays: only they
+    /// change it, through these rules.
+    pub land: Land,
+    /// The trading posts' demand as the world had it when this step began (crate::life::market):
+    /// a sale here lowers it here at once, and goes to whoever keeps the world's (`changes`).
+    pub market: Market,
+    /// The weather where you are this step, worked out from the world's clock (crate::life::weather).
+    pub weather: Weather,
     pub zone: &'static Zone,
     pub focus: Option<Focus>,
     pub placing: Option<Placement>,
@@ -330,8 +346,13 @@ pub struct Life {
     pub others_vehicles: Vec<OthersVehicle>,
     /// Online, everyone else in your channel, for the prompt to offer a mini-game.
     pub others_around: Vec<OtherPlayer>,
+    /// Online, a plot claimed here waits for the registry to confirm it (housing::confirm_claim)
+    /// before anything is built on it. Offline the browser's session is the registry: claims hold at once.
+    pub claims_wait: bool,
     queue: Vec<Command>,
     events: Vec<LifeEvent>,
+    /// What steps did that whoever keeps the world's land and market must hear (`take_changes`).
+    changes: Vec<Change>,
 }
 
 impl Life {
@@ -340,6 +361,9 @@ impl Life {
         let state = new_life_state(coins.unwrap_or(200.0), start_labor.unwrap_or(labor().start), zone.recipe.seed);
         let mut life = Life {
             state,
+            land: Land::default(),
+            market: Market::default(),
+            weather: Weather::initial(),
             zone,
             focus: None,
             placing: None,
@@ -351,46 +375,63 @@ impl Life {
             remote: false,
             others_vehicles: Vec::new(),
             others_around: Vec::new(),
+            claims_wait: false,
             queue: Vec::new(),
             events: Vec::new(),
+            changes: Vec::new(),
         };
         // The first quest is waiting the moment you arrive.
         quests::start_quests(&mut life);
         life
     }
 
-    /// Makes the island's houses and farm posts solid in `world` as far as they're built, its ground
+    /// Makes the land's houses and farm posts solid in `world` as far as they're built, its ground
     /// cleared (each piece once: `OpenWorld::added`), under the character `owner`. A step that builds
-    /// changes only the island, which bumps its `revision`: whoever stepped it makes the building
-    /// solid once the step is over (crate::combat once everyone in a channel has stepped, the
-    /// browser's session after its own), so the world is the same for everyone while they step.
+    /// changes only the life and its land, which bumps its `revision`: whoever stepped it makes the
+    /// building solid once the step is over (crate::combat once everyone in a channel has stepped,
+    /// the browser's session after its own), so the world is the same for everyone while they step.
     pub fn make_solid(&self, world: &mut OpenWorld, owner: i64) {
-        for h in &self.state.houses {
-            housing::add_house_colliders(world, owner, h);
-        }
-        for sc in &self.state.scarecrows {
-            farming::add_scarecrow_collider(world, owner, sc);
+        self.land.make_solid(world, owner);
+    }
+
+    /// What the steps since the last time did that the keeper of the world's land and market must
+    /// hear: plots claimed and let go, packs sold.
+    pub fn take_changes(&mut self) -> Vec<Change> {
+        std::mem::take(&mut self.changes)
+    }
+
+    /// Something the keeper of the world's land and market must hear (`take_changes`). A remote
+    /// life (the browser's copy of one the server runs) tells nobody: the server's does.
+    pub fn change(&mut self, c: Change) {
+        if !self.remote {
+            self.changes.push(c);
         }
     }
 
-    /// Squares the player with the island after a reset or a load: a pack the island says is on
-    /// your back is on your back, nobody is left sitting in a vehicle, and your glider is yours.
+    /// Squares the player with the life after a reset or a load: a pack the land says is on your
+    /// back is on your back, nobody is left sitting in a vehicle, and your glider is yours.
     pub fn after_reset(&mut self, p: &mut Player) {
-        p.pack = self.state.packs.iter().find(|pk| pk.at == "back").map(|pk| pk.id).unwrap_or(0);
+        p.pack = self.land.packs.iter().find(|pk| pk.at == "back").map(|pk| pk.id).unwrap_or(0);
         p.vehicle = 0;
         p.seat = 0;
         p.host = 0;
         p.glider = self.state.glider.clone();
-        for v in &mut self.state.vehicles {
+        for v in &mut self.land.vehicles {
             v.ridden = false;
         }
         self.placing = None;
         self.resting = false;
     }
 
-    /// Replaces the whole state (loading a saved island), filling in what an older one lacks.
-    pub fn load(&mut self, mut state: LifeState) {
+    /// Replaces the whole life and its land (loading a saved one), filling in what an older one
+    /// lacks. The land keeps the run of ids it was given, if it was given one (online); otherwise it
+    /// counts on from the highest it has.
+    pub fn load(&mut self, mut state: LifeState, mut land: Land) {
         state.version = LIFE_VERSION;
+        if land.ids == land::Ids::default() {
+            land.own_ids();
+        }
+        self.land = land;
         // Gathering spots were kept by their place in the island's list before they had ids: those,
         // and any spot the world no longer has, are simply back.
         let world = crate::open::map::world_map();
@@ -476,7 +517,6 @@ impl Life {
         self.regen_labor(dt, resting, false);
         weather::step_weather(self, dt);
         farming::step_farms(self, dt);
-        trade::step_trade(self, dt);
         contracts::step_contracts(self);
         vehicles::step_vehicles(self, sim, a);
         housing::step_housing(self);

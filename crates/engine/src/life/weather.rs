@@ -11,7 +11,7 @@ use super::content::{farm, storm};
 use crate::jsmath::JsMath;
 
 pub fn raining(life: &Life) -> bool {
-    life.state.clock < life.state.weather.rain_until
+    life.state.clock < life.weather.rain_until
 }
 
 /// The clock the weather runs on, in seconds: the world's when the channel has set it
@@ -72,9 +72,9 @@ pub fn step_weather(life: &mut Life, _dt: f64) {
     let c = life.state.clock;
     let t = weather_clock(life);
     let r = rain_at(t);
-    let was = c < life.state.weather.rain_until;
+    let was = c < life.weather.rain_until;
     // Kept in the island's own clock, which everything that asks about the rain counts in.
-    let w = &mut life.state.weather;
+    let w = &mut life.weather;
     w.rain_until = if r.raining { c + (r.end - t) } else { w.rain_until.min(c) };
     w.next_rain = c + (r.next - t);
     // Said as it starts, not on arriving in the middle of one.
@@ -87,7 +87,7 @@ pub fn step_weather(life: &mut Life, _dt: f64) {
 /// Smooth and deterministic: the same clock always has the same wind.
 pub fn step_wind(life: &mut Life) {
     let c = weather_clock(life);
-    let w = &mut life.state.weather;
+    let w = &mut life.weather;
     w.wind_dir = 0.9 + 0.75 * (c / 190.0).js_sin() + 0.3 * (c / 57.0 + 1.3).js_sin();
     w.wind_speed = 0.72 + 0.22 * (c / 97.0 + 0.4).js_sin();
 }
@@ -99,7 +99,7 @@ pub fn storm_at(life: &Life, depth: f64) -> f64 {
     }
     let s = storm();
     let k = ((depth - s.from_depth) / (s.full_depth - s.from_depth)).clamp(0.0, 1.0);
-    k * (0.6 + 0.4 * life.state.weather.wind_speed)
+    k * (0.6 + 0.4 * life.weather.wind_speed)
 }
 
 #[cfg(test)]
@@ -158,8 +158,8 @@ mod tests {
             step_weather(life, 1.0 / 60.0);
         }
         assert!(raining(&a) && raining(&b));
-        assert_eq!(a.state.weather.rain_until - a.state.clock, b.state.weather.rain_until - b.state.clock);
-        assert_eq!((a.state.weather.wind_dir, a.state.weather.wind_speed), (b.state.weather.wind_dir, b.state.weather.wind_speed));
+        assert_eq!(a.weather.rain_until - a.state.clock, b.weather.rain_until - b.state.clock);
+        assert_eq!((a.weather.wind_dir, a.weather.wind_speed), (b.weather.wind_dir, b.weather.wind_speed));
         // Arriving in the middle of a shower isn't news.
         let said = |l: &mut Life| l.drain_events().into_iter().any(|e| matches!(e, LifeEvent::Toast { ref text, .. } if text.starts_with("🌧️")));
         assert!(!said(&mut a));

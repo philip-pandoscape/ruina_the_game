@@ -155,7 +155,7 @@ mod tests {
         let (mut coins, mut seals) = (0.0, 0.0);
         for n in 1..=k.count {
             sim.player.pack = make_pack(&mut life, &k.pack, "lanternwick");
-            let q = quote(&life, &life.state.packs[0], "westwatch").unwrap();
+            let q = quote(&life, &life.land.packs[0], "westwatch").unwrap();
             coins += q.coins;
             seals += q.seals;
             assert!(sell_pack(&mut life, &mut sim, "westwatch"));

@@ -8,14 +8,18 @@ use std::collections::{BTreeMap, HashMap};
 
 use serde_json::{Value, json};
 
+use crate::life::land::Land;
+
 /// Characters who call one channel home.
 pub const CHANNEL_CAP: i64 = 24;
 
-/// What of an island everyone else sees while its owner is away. Vehicles and packs move, so they
-/// travel with the owner's presence instead (and only while they're online).
-pub fn estate_of(state: &Value) -> Value {
-    let list = |k: &str| state.get(k).filter(|v| v.is_array()).cloned().unwrap_or_else(|| json!([]));
-    json!({ "houses": list("houses"), "scarecrows": list("scarecrows"), "ships": list("ships") })
+/// What of someone's land everyone else sees while its owner is away. Vehicles and packs move, so
+/// they travel with the owner's presence instead (and only while they're online).
+pub fn estate_of(land: &Land) -> Value {
+    serde_json::to_value(land.standing()).map_or_else(
+        |_| json!({ "houses": [], "scarecrows": [], "ships": [] }),
+        |v| json!({ "houses": v["houses"], "scarecrows": v["scarecrows"], "ships": v["ships"] }),
+    )
 }
 
 /// The house plots an estate stands on.
@@ -113,8 +117,8 @@ mod tests {
 
     #[test]
     fn an_estate_is_the_built_things() {
-        let state = json!({ "coins": 5, "houses": [house("p1")], "scarecrows": [], "vehicles": [{ "id": 3 }] });
-        let e = estate_of(&state);
+        let land: Land = serde_json::from_value(json!({ "houses": [house("p1")], "scarecrows": [], "vehicles": [{ "id": 3 }] })).unwrap();
+        let e = estate_of(&land);
         assert_eq!(plots_of(&e), vec!["p1".to_string()]);
         assert!(e.get("vehicles").is_none());
         assert_eq!(e["ships"], json!([]));

@@ -8,7 +8,9 @@ use std::cell::RefCell;
 
 use std::collections::BTreeMap;
 
-use ruina_engine::life::state::{House, LifeState, Scarecrow};
+use ruina_engine::life::land::{House, Land, Scarecrow};
+use ruina_engine::life::market::Market;
+use ruina_engine::life::state::LifeState;
 use ruina_engine::life::{Command, OtherPlayer, OthersVehicle, Placement};
 use ruina_engine::open::Mover;
 use ruina_engine::player::{Actions, Build};
@@ -136,8 +138,9 @@ pub extern "C" fn session_world_clock(h: u32, t: f64) {
     with(h, |s| s.set_world_clock(if t.is_nan() { None } else { Some(t) }));
 }
 
-/// Your island as a tick has it (src/net/worldLink.ts WorldTick.life: JSON `{state, placing,
-/// resting}`), read straight from the text: it comes up to 20 times a second. True if it could be read.
+/// Your life as a tick has it (src/net/worldLink.ts WorldTick.life: JSON `{state, land, market,
+/// placing, resting}`), read straight from the text: it comes up to 20 times a second. True if it
+/// could be read.
 ///
 /// # Safety
 /// `p..p + n` lies in room `alloc` gave.
@@ -147,12 +150,16 @@ pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> 
     struct Sent {
         state: LifeState,
         #[serde(default)]
+        land: Land,
+        #[serde(default)]
+        market: Market,
+        #[serde(default)]
         placing: Option<Placement>,
         #[serde(default)]
         resting: bool,
     }
     let Ok(sent) = serde_json::from_str::<Sent>(unsafe { text(p, n) }) else { return 0 };
-    with(h, |s| s.take_island(sent.state, sent.placing, sent.resting)).is_some() as u32
+    with(h, |s| s.take_island(sent.state, sent.land, sent.market, sent.placing, sent.resting)).is_some() as u32
 }
 
 /// Everything the page reads after a step (`events` 1: with what happened, taken) or a call (0),
@@ -246,7 +253,8 @@ pub extern "C" fn session_actors(h: u32) -> usize {
     give(with(h, |s| s.actors_json().to_string()).unwrap_or_default())
 }
 
-/// The island as the page shows it (JSON `{state, focus, placing, resting, revision}`, null in the yard).
+/// The life as the page shows it (JSON `{state, land, market, weather, focus, placing, resting,
+/// revision}`, null in the yard).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_life(h: u32) -> usize {
     give(with(h, |s| s.life_json().to_string()).unwrap_or_default())

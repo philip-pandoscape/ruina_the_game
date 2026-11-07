@@ -26,8 +26,8 @@ use crate::ai::Foe;
 use crate::content::kind_at;
 use crate::jsmath::{JsMath, js_hypot};
 use crate::life::content::rideable;
+use crate::life::land::Vehicle;
 use crate::life::progress::{Observed, sync_levels};
-use crate::life::state::Vehicle;
 use crate::life::{Command, Life, vehicles};
 use crate::open::dungeon::DungeonDef;
 use crate::open::zone::Heightfield;
@@ -1177,7 +1177,7 @@ impl Players {
         movers.clear();
         for s in self.slots.iter().flatten() {
             if let Some(l) = s.life.as_deref() {
-                for v in &l.state.vehicles {
+                for v in &l.land.vehicles {
                     movers.extend(vehicles::bodies(s.owner, v));
                 }
             }
@@ -1189,7 +1189,7 @@ impl Players {
     pub fn vehicle_of(&self, host: i64, vehicle: i64) -> Option<Vehicle> {
         let s = self.slots.iter().flatten().find(|s| s.owner == host)?;
         let life = s.life.as_deref()?;
-        vehicles::vehicle_index(life, vehicle).map(|i| life.state.vehicles[i].clone())
+        vehicles::vehicle_index(life, vehicle).map(|i| life.land.vehicles[i].clone())
     }
 
     /// Open worlds: climbs `client_id`'s player into the free seat of the character `host`'s

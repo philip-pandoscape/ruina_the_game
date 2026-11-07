@@ -17,11 +17,13 @@ use crate::actors::{Actors, Blow, LEAN_DAMPING, LEAN_SPRING};
 use crate::ai::{Foe, Sighting};
 use crate::event::Event;
 use crate::jsmath::{JsMath, len};
+use crate::life::land::{self, Change, House, Land, Scarecrow, Vehicle};
+use crate::life::market::Market;
 use crate::life::progress::Observed;
-use crate::life::state::{House, Scarecrow, Vehicle, Weather};
+use crate::life::state::Weather;
 use crate::life::state::{LIFE_VERSION, LifeState};
 use crate::life::{
-    Command, Focus, Life, LifeEvent, OtherPlayer, OthersVehicle, Placement, content::clock, farming, housing, interact, interact::short_time, trade, vehicles,
+    Command, Focus, Life, LifeEvent, OtherPlayer, OthersVehicle, Placement, content::clock, farming, housing, interact, interact::short_time, vehicles,
 };
 use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
@@ -88,9 +90,9 @@ pub struct Session {
     /// Online, where you were drawn from when the server's word on you came (`take_player`), for a
     /// `replay` with nothing to run again.
     drawn_from: Option<V3>,
-    /// Online, your island as the server last sent it, while `life.state` has moved on from it
-    /// (commands run ahead of the server work on a copy); while `is_sent`, `life.state` is it.
-    sent: Option<LifeState>,
+    /// Online, your life and land as the server last sent them, while the life has moved on from
+    /// them (commands run ahead of the server work on a copy); while `is_sent`, the life's are them.
+    sent: Option<(LifeState, Land)>,
     is_sent: bool,
 }
 
@@ -253,6 +255,7 @@ impl Session {
                     life.make_solid(world, 0);
                 }
             }
+            self.keep_land();
             self.take_player_events();
             self.player.end_step();
         }
@@ -578,18 +581,38 @@ impl Session {
         }
     }
 
-    /// Restores a saved island (a test's, or a bug report's): its state, the time you were away
-    /// (`now` on the clock `savedAt` was measured on, in ms), where you stood. False, changing
-    /// nothing, for a save from a newer game than this one.
+    /// Offline the session keeps the world's land and market itself: what a step did that their
+    /// keeper must hear is done already (a sale lowered the demand here, a claim holds at once),
+    /// but a house taken down for its unpaid tax leaves walls standing until what's solid is made
+    /// again.
+    fn keep_land(&mut self) {
+        let Some(life) = self.life.as_mut() else { return };
+        let changes = life.take_changes();
+        if !changes.iter().any(|c| matches!(c, Change::Freed { .. })) {
+            return;
+        }
+        let world: &mut OpenWorld = match (self.outside.as_deref_mut(), &mut self.ground) {
+            (Some(w), _) => w,
+            (None, Ground::Open(w)) => w,
+            _ => return,
+        };
+        *world = OpenWorld::on(world.map, world.zone);
+        life.make_solid(world, 0);
+        self.crossings += 1;
+    }
+
+    /// Restores a saved life and its land (a test's, or a bug report's), in the shape kept now or
+    /// the one before land was kept apart: what was saved, the time you were away (`now` on the
+    /// clock `savedAt` was measured on, in ms), where you stood. False, changing nothing, for a save
+    /// from a newer game than this one.
     pub fn load_island(&mut self, data: &Value, now: f64) -> bool {
         let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return false };
-        let Some(state) = data.get("state") else { return false };
-        if state.get("version").and_then(Value::as_i64).unwrap_or(0) > LIFE_VERSION {
+        if data.get("state").and_then(|s| s.get("version")).and_then(Value::as_i64).unwrap_or(0) > LIFE_VERSION {
             return false;
         }
-        let Ok(state) = serde_json::from_value::<LifeState>(state.clone()) else { return false };
-        life.load(state);
-        for v in &mut life.state.vehicles {
+        let Ok((state, land)) = land::read_saved(data) else { return false };
+        life.load(state, land);
+        for v in &mut life.land.vehicles {
             v.ridden = false;
         }
         // A stake still on a table when this was saved: back in the purse, as the server does.
@@ -604,7 +627,6 @@ impl Session {
         if away > 1.0 {
             life.state.clock += away;
             farming::grow_for(life, away);
-            trade::recover_demand(life, away);
             life.regen_labor(away, false, true);
             if away > 60.0 {
                 life.toast(format!("Welcome back - {} passed on Emberholm while you were away", short_time(away)), "info");
@@ -668,10 +690,13 @@ impl Session {
         }
     }
 
-    /// Online, your island as a tick has it: its state, and whether you're placing something or resting.
-    pub fn take_island(&mut self, state: LifeState, placing: Option<Placement>, resting: bool) {
+    /// Online, your life as a tick has it: its state, your land, the world's market, and whether
+    /// you're placing something or resting.
+    pub fn take_island(&mut self, state: LifeState, land: Land, market: Market, placing: Option<Placement>, resting: bool) {
         let Some(life) = self.life.as_mut() else { return };
         life.state = state;
+        life.land = land;
+        life.market = market;
         life.placing = placing;
         life.resting = resting;
         self.sent = None;
@@ -683,7 +708,7 @@ impl Session {
     pub fn run_ahead(&mut self, c: &Command) {
         let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return };
         if self.is_sent {
-            self.sent = Some(life.state.clone());
+            self.sent = Some((life.state.clone(), life.land.clone()));
             self.is_sent = false;
         }
         let revision = life.revision;
@@ -710,17 +735,17 @@ impl Session {
         let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return };
         if !ahead.is_empty() {
             if self.is_sent {
-                self.sent = Some(life.state.clone());
+                self.sent = Some((life.state.clone(), life.land.clone()));
                 self.is_sent = false;
-            } else if let Some(sent) = &self.sent {
-                life.state = sent.clone();
+            } else if let Some((state, land)) = &self.sent {
+                life.state = state.clone();
+                life.land = land.clone();
             }
         }
-        let s = &mut life.state;
-        s.clock = clock;
-        s.labor = labor;
-        s.weather = weather;
-        s.vehicles = vehicles;
+        life.state.clock = clock;
+        life.state.labor = labor;
+        life.weather = weather;
+        life.land.vehicles = vehicles;
         life.resting = resting;
         life.placing = placing;
         let revision = life.revision;
@@ -951,10 +976,20 @@ impl Session {
         json!({ "list": self.actors.list, "missiles": self.actors.missiles, "arrows": self.range.arrows, "meteors": self.range.meteors })
     }
 
-    /// The island as the page shows it: its state, what F does here, what you're placing, resting.
+    /// The life as the page shows it: its state, your land, the world's market and weather where you
+    /// are, what F does here, what you're placing, resting.
     pub fn life_json(&self) -> Value {
         match &self.life {
-            Some(l) => json!({ "state": l.state, "focus": l.focus, "placing": l.placing, "resting": l.resting, "revision": l.revision }),
+            Some(l) => json!({
+                "state": l.state,
+                "land": l.land,
+                "market": l.market,
+                "weather": l.weather,
+                "focus": l.focus,
+                "placing": l.placing,
+                "resting": l.resting,
+                "revision": l.revision,
+            }),
             None => Value::Null,
         }
     }
@@ -976,6 +1011,9 @@ impl Session {
         #[derive(Serialize)]
         struct LifeView<'a> {
             state: &'a LifeState,
+            land: &'a Land,
+            market: &'a Market,
+            weather: &'a Weather,
             focus: &'a Option<Focus>,
             placing: &'a Option<Placement>,
             resting: bool,
@@ -1002,7 +1040,16 @@ impl Session {
             player: self.player_json(),
             levels: &self.player.levels,
             actors: ActorsView { list: &self.actors.list, missiles: &self.actors.missiles, arrows: &self.range.arrows, meteors: &self.range.meteors },
-            life: self.life.as_ref().map(|l| LifeView { state: &l.state, focus: &l.focus, placing: &l.placing, resting: l.resting, revision: l.revision }),
+            life: self.life.as_ref().map(|l| LifeView {
+                state: &l.state,
+                land: &l.land,
+                market: &l.market,
+                weather: &l.weather,
+                focus: &l.focus,
+                placing: &l.placing,
+                resting: l.resting,
+                revision: l.revision,
+            }),
             said,
             placed: self.placed,
             solid: self.solid_key(),

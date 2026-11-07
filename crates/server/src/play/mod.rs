@@ -19,9 +19,10 @@ use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::Brain;
 use crate::combat::{OPEN_INPUT, Players, effects_json, open_actions_from};
 use crate::life::content::clock;
+use crate::life::land::{self, Change, Land};
+use crate::life::market::Market;
 use crate::life::progress::skill_budget;
-use crate::life::state::LifeState;
-use crate::life::{Command, Life, farming, housing, trade, vehicles};
+use crate::life::{Command, Life, farming, housing, vehicles};
 use crate::minigames::Minigames;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{DungeonDef, Spot};
@@ -188,6 +189,9 @@ pub struct ChannelGame {
     step_ms: f64,
     /// How its players are stepped each tick (the server's `--parallel`).
     pub stepping: stepping::Stepping,
+    /// The trading posts' demand as this game has it: every life here reads it, and every sale here
+    /// lowers it (crate::life::market). (The world's one market is the store's: R10.21's second half.)
+    pub market: Market,
 }
 
 /// Ticks between the stats an admin is sent (once a second).
@@ -230,6 +234,7 @@ impl ChannelGame {
             bot_count: 0,
             step_ms: 0.0,
             stepping: stepping::Stepping::chosen(),
+            market: Market::default(),
         }
     }
 
@@ -359,7 +364,7 @@ impl ChannelGame {
         player.pos.y = ground_at(hf, &self.open.index, at.x, at.z, at.y + 1.2, 1.2);
         player.grounded = true;
         if self.copy_of().is_none() {
-            make_solid(&mut self.open, character, &life.state);
+            life.land.make_solid(&mut self.open, character);
         }
         let now = Instant::now();
         member.life_due = 3;
@@ -391,14 +396,14 @@ impl ChannelGame {
     }
 
     /// A resident who isn't online: their houses and farms stand (and are solid) all the same.
-    pub fn add_resident(&mut self, character: i64, name: &str, state: &Value) {
+    /// `island` is their save as kept (their land beside their life, or inside it in an older one).
+    pub fn add_resident(&mut self, character: i64, name: &str, island: &Value) {
         if self.members.contains_key(&character) {
             return;
         }
-        self.estates.set_estate(character, name, estate_of(state));
-        if let Ok(s) = serde_json::from_value::<LifeState>(state.clone()) {
-            make_solid(&mut self.open, character, &s);
-        }
+        let Ok((_, land)) = land::read_saved(island) else { return };
+        self.estates.set_estate(character, name, estate_of(&land));
+        land.make_solid(&mut self.open, character);
     }
 
     /// Someone arrives. If their character is already here (another window, or a quick
@@ -438,8 +443,9 @@ impl ChannelGame {
                 player.vel = Default::default();
                 player.grounded = true;
             } else {
-                make_solid(&mut self.open, a.character, &life.state);
+                life.land.make_solid(&mut self.open, a.character);
             }
+            life.market = self.market.clone();
             self.players.join_open(c, a.character, player, Box::new(life));
         }
         let now = Instant::now();
@@ -519,7 +525,7 @@ impl ChannelGame {
         self.lingering.remove(&character);
         let Some(name) = self.estates.estates.get(&character).map(|e| e.name.clone()) else { return };
         // Everyone else's browser takes the buildings down (an empty estate), then forgets them.
-        let empty = json!({ "t": "estate", "id": character, "name": name, "estate": estate_of(&json!({})) });
+        let empty = json!({ "t": "estate", "id": character, "name": name, "estate": estate_of(&Land::default()) });
         self.send_all(&empty.to_string(), None);
         self.estates.remove(character);
         self.send_all(&self.estates.claims_message(), None);
@@ -710,27 +716,28 @@ impl ChannelGame {
         Some(island)
     }
 
-    /// Everything solid that residents have built, made again from scratch (after a reset).
+    /// Everything solid that residents have built, made again from scratch (after a reset, or a
+    /// house taken down).
     fn rebuild_world(&mut self) {
         self.open = OpenWorld::new(self.open.zone);
-        let mut lists: Vec<(i64, LifeState)> = Vec::new();
+        let mut lists: Vec<(i64, Land)> = Vec::new();
         for (_, owner, _, life) in self.players.each_open() {
             if let Some(l) = life {
-                lists.push((owner, l.state.clone()));
+                lists.push((owner, l.land.clone()));
             }
         }
         for (id, e) in &self.estates.estates {
             if !self.members.contains_key(id)
-                && let Ok(s) = serde_json::from_value::<LifeState>(e.estate.clone())
+                && let Ok(land) = serde_json::from_value::<Land>(e.estate.clone())
             {
-                lists.push((*id, s));
+                lists.push((*id, land));
             }
         }
         // By owner: the estates are kept in a HashMap, whose order differs from one run to the next,
         // and colliders added in another order are found in another order.
         lists.sort_by_key(|(owner, _)| *owner);
-        for (owner, s) in lists {
-            make_solid(&mut self.open, owner, &s);
+        for (owner, land) in lists {
+            land.make_solid(&mut self.open, owner);
         }
     }
 
@@ -747,7 +754,7 @@ impl ChannelGame {
             return;
         }
         let name = m.name.clone();
-        let estate = estate_of(&serde_json::to_value(&life.state).unwrap_or(Value::Null));
+        let estate = estate_of(&life.land);
         if let Some(m) = self.members.get_mut(&character) {
             m.estate_rev = rev;
         }
@@ -813,6 +820,8 @@ impl ChannelGame {
         let stepping = &mut self.stepping;
         self.players.step_by(&mut self.actors, &self.world, self.tick, Some(&mut self.open), |jobs, step| stepping.run(jobs, step));
         self.players.seat_passengers(&self.open);
+        // What the steps did to the land and the market here: sales lower everyone's demand.
+        self.keep_land();
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
         self.players.step_effects(&mut self.actors);
@@ -935,6 +944,43 @@ impl ChannelGame {
 }
 
 impl ChannelGame {
+    /// What everyone's steps this tick did that this game keeps for them: each pack sold lowers the
+    /// game's demand for it, which every life here then reads; a house taken down for its unpaid
+    /// tax leaves nothing standing. (A plot claimed is everyone's to see through the estates:
+    /// refresh_estate.)
+    fn keep_land(&mut self) {
+        let mut changes: Vec<(i64, Change)> = Vec::new();
+        for (owner, life) in self.players.each_life_mut() {
+            changes.extend(life.take_changes().into_iter().map(|c| (owner, c)));
+        }
+        if changes.is_empty() {
+            return;
+        }
+        // By whose they are, so the order players were stepped in changes nothing.
+        changes.sort_by_key(|(owner, _)| *owner);
+        let mut sold = false;
+        let mut freed = false;
+        for (_, c) in changes {
+            match c {
+                Change::Sold { outpost, pack, at } => {
+                    self.market.sell(&outpost, &pack, at);
+                    sold = true;
+                }
+                Change::Freed { .. } => freed = true,
+                Change::Claimed { .. } => {}
+            }
+        }
+        if sold {
+            let market = self.market.clone();
+            for (_, life) in self.players.each_life_mut() {
+                life.market = market.clone();
+            }
+        }
+        if freed {
+            self.rebuild_world();
+        }
+    }
+
     /// In a copy of a dungeon, anyone who falls out of it is back where it's entered.
     fn catch_fallers(&mut self) {
         let Some(c) = self.copy_of() else { return };
@@ -987,13 +1033,6 @@ fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::yard::SpawnPoint>) {
     }
 }
 
-/// Makes an island's houses and farm posts solid in the channel (each piece once).
-pub fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
-    let mut life = Life::new(world.zone, None, None);
-    life.state = state.clone();
-    life.make_solid(world, owner);
-}
-
 /// Seconds as "1m 20s" (src/engine/life/interact.ts shortTime).
 fn short_time(s: f64) -> String {
     let s = s.ceil().max(0.0) as i64;
@@ -1010,13 +1049,19 @@ fn short_time(s: f64) -> String {
     format!("{s}s")
 }
 
-/// Restores a saved island into a fresh Life and player (src/app/save.ts applySave): its state,
-/// the time that passed while its owner was away, and where they stood.
+/// Restores a saved life and its land into a fresh Life and player (src/app/save.ts applySave): what
+/// was saved, the time that passed while its owner was away, and where they stood. A save from
+/// before land was kept apart has its land read out of its life, its times moved onto the world's
+/// clock.
 pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner: i64, island: &Value, saved_at: i64, now: i64) -> Result<(), String> {
-    let state = island.get("state").ok_or("no state")?;
-    let state = serde_json::from_value::<LifeState>(state.clone()).map_err(|e| e.to_string())?;
-    life.load(state);
-    for v in &mut life.state.vehicles {
+    let (state, mut land) = land::read_saved(island)?;
+    if land::kept_inside(island) {
+        land.rebase(saved_at as f64 / 1000.0 - state.clock);
+    }
+    life.load(state, land);
+    // The land's clock is the world's from here on (the channel sets it every tick).
+    life.world_clock = Some(now as f64 / 1000.0);
+    for v in &mut life.land.vehicles {
         v.ridden = false;
     }
     // A stake still on a table when this was saved (the server stopped or fell over mid-game): no
@@ -1032,7 +1077,6 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     if away > 1.0 {
         life.state.clock += away;
         farming::grow_for(life, away);
-        trade::recover_demand(life, away);
         life.regen_labor(away, false, true);
         if away > 60.0 {
             life.toast(format!("Welcome back - {} passed on Emberholm while you were away", short_time(away)), "info");
@@ -1054,24 +1098,24 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     Ok(())
 }
 
-/// The island as it would be saved right now (src/app/save.ts islandData): riding isn't saved, so
-/// you're standing beside your vehicle next time.
+/// The life and its land as they would be saved right now (src/app/save.ts islandData): riding
+/// isn't saved, so you're standing beside your vehicle next time.
 pub fn island_of(p: &Player, life: &mut Life, world: &mut OpenWorld, owner: i64) -> Value {
     let mut at = (p.pos.x, p.pos.y, p.pos.z);
     if p.mode == Mode::Ride {
         let mut q = p.clone();
         let sim = Sim { player: &mut q, world, owner };
         if let Some(i) = vehicles::ridden(life, &sim) {
-            let v = life.state.vehicles[i].clone();
+            let v = life.land.vehicles[i].clone();
             let (x, y, z, _) = vehicles::exit_spot(&sim, &v);
             at = (x, y, z);
         }
     }
-    json!({ "state": life.state, "player": { "x": at.0, "y": at.1, "z": at.2, "facing": p.facing } })
+    json!({ "state": life.state, "land": life.land, "player": { "x": at.0, "y": at.1, "z": at.2, "facing": p.facing } })
 }
 
 fn island_of_ref(p: &Player, life: &Life) -> Value {
-    json!({ "state": life.state, "player": { "x": p.pos.x, "y": p.pos.y, "z": p.pos.z, "facing": p.facing } })
+    json!({ "state": life.state, "land": life.land, "player": { "x": p.pos.x, "y": p.pos.y, "z": p.pos.z, "facing": p.facing } })
 }
 
 pub fn mode_name(m: Mode) -> &'static str {
@@ -1172,15 +1216,15 @@ fn you_json(slot: usize, ack: u32, p: &Player, life: &Life) -> Value {
         "clock": life.state.clock,
         "labor": life.state.labor,
         "resting": life.resting,
-        "vehicles": life.state.vehicles,
-        "weather": life.state.weather,
+        "vehicles": life.land.vehicles,
+        "weather": life.weather,
         "placing": life.placing,
     })
 }
 
-/// The whole island, for its owner's browser to show.
+/// The whole life, its land and the market it reads, for its owner's browser to show.
 fn life_view(life: &Life) -> Value {
-    json!({ "rev": life.revision, "state": life.state, "placing": life.placing, "resting": life.resting })
+    json!({ "rev": life.revision, "state": life.state, "land": life.land, "market": life.market, "placing": life.placing, "resting": life.resting })
 }
 
 /// What everyone else needs to draw you (the fields src/net/worldPeers.ts SHOWN reads), with
@@ -1222,8 +1266,8 @@ fn presence_json(p: &Player, life: Option<&Life>, fr: u64) -> Value {
         "hp": p.hp,
     });
     if let Some(l) = life {
-        v["vehicles"] = serde_json::to_value(&l.state.vehicles).unwrap_or(Value::Null);
-        v["packs"] = serde_json::to_value(&l.state.packs).unwrap_or(Value::Null);
+        v["vehicles"] = serde_json::to_value(&l.land.vehicles).unwrap_or(Value::Null);
+        v["packs"] = serde_json::to_value(&l.land.packs).unwrap_or(Value::Null);
     }
     v
 }
@@ -1565,14 +1609,14 @@ mod tests {
         }
     }
 
-    fn cart(ch: &ChannelGame, id: i64) -> crate::life::state::Vehicle {
+    fn cart(ch: &ChannelGame, id: i64) -> crate::life::land::Vehicle {
         ch.players.vehicle_of(7, id).expect("Ada's cart is out")
     }
 
     #[test]
     fn a_friend_rides_along_in_your_cart_and_steps_out_beside_it() {
         let (mut ch, id) = ada_and_bo();
-        let seat = |v: &crate::life::state::Vehicle, k: usize| vehicles::anchor_world(v, &crate::life::content::rideable("farmCart").seats[k]);
+        let seat = |v: &crate::life::land::Vehicle, k: usize| vehicles::anchor_world(v, &crate::life::content::rideable("farmCart").seats[k]);
         // Bo walks up to the passenger's side and climbs in.
         let v = cart(&ch, id);
         let (sx, _, sz) = seat(&v, 1);

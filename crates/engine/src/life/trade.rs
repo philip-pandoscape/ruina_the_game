@@ -4,27 +4,26 @@
 //! Pack running. A pack is made at a workbench from local goods and labor, rides on your back
 //! (slowly - no sprint, no double jump, no glider) or in a vehicle's cargo, and is sold at a
 //! trading post somewhere else. Farther routes pay more; each sale lowers that post's demand for
-//! that pack, which recovers with time; a fresh pack earns a bonus that sours the longer it sits.
+//! that pack for everyone (the world's market, crate::life::market), which recovers with time; a
+//! fresh pack earns a bonus that sours the longer it sits.
 
 use super::content::{self, RecipeDef, format_coins, item_def, pack_def, place_name, recipe, route, vendor_for};
 use super::contracts::contract_delivered;
-use super::state::{Buyback, Pack};
+use super::land::{self, Change, Pack};
+use super::state::Buyback;
 use super::vehicles::vehicle_index;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::JsMath;
-use crate::jsmath::{js_hypot, js_max, js_min, js_round};
+use crate::jsmath::{js_hypot, js_max, js_round};
 use crate::open::Sim;
 use crate::open::colliders::ground_at;
 use crate::player::Mode;
 
 // ---------- Prices ----------
 
-fn demand_key(outpost: &str, pack: &str) -> String {
-    format!("{outpost}:{pack}")
-}
-
+/// What `outpost` pays for `pack` against its base price right now: the world's demand there.
 pub fn demand_at(life: &Life, outpost: &str, pack: &str) -> f64 {
-    life.state.demand.get(&demand_key(outpost, pack)).copied().unwrap_or(content::demand().start)
+    life.market.demand(outpost, pack, land::now(life))
 }
 
 /// Freshness multiplier for a pack of this age (seconds).
@@ -59,27 +58,15 @@ pub fn quote(life: &Life, pack: &Pack, outpost: &str) -> Option<Quote> {
     }
     let r = route(&pack.origin, outpost)?;
     let demand = demand_at(life, outpost, &pack.def);
-    let fresh = freshness(life.state.clock - pack.made);
+    let fresh = freshness(land::now(life) - pack.made);
     Some(Quote { coins: js_round(def.base * r.factor * demand * fresh), seals: r.seals, demand, fresh, factor: r.factor })
-}
-
-pub fn step_trade(life: &mut Life, dt: f64) {
-    let d = content::demand();
-    for v in life.state.demand.values_mut() {
-        *v = js_min(d.max, *v + (d.recover_per_minute * dt) / 60.0);
-    }
-}
-
-/// Recovers demand over a long stretch (time away).
-pub fn recover_demand(life: &mut Life, seconds: f64) {
-    step_trade(life, seconds);
 }
 
 // ---------- Where packs are ----------
 
-/// Index of the pack with this id in life.state.packs (TS packById).
+/// Index of the pack with this id in life.land.packs (TS packById).
 pub fn pack_index(life: &Life, id: i64) -> Option<usize> {
-    life.state.packs.iter().position(|p| p.id == id)
+    life.land.packs.iter().position(|p| p.id == id)
 }
 
 /// Index of the pack on the player's back, if any (TS carried).
@@ -89,16 +76,17 @@ pub fn carried(life: &Life, sim: &Sim) -> Option<usize> {
 
 fn remove_pack(life: &mut Life, id: i64) {
     if let Some(i) = pack_index(life, id) {
-        life.state.packs.remove(i);
+        life.land.packs.remove(i);
     }
     life.revision += 1;
 }
 
-/// Makes a pack (on the back) and returns its id.
+/// Makes a pack (on the back) and returns its id (0, and no pack, if the land had no id left to
+/// give: whoever calls this asks first, `Ids::left`).
 pub fn make_pack(life: &mut Life, def: &str, origin: &str) -> i64 {
-    let id = life.next_id();
-    let made = life.state.clock;
-    life.state.packs.push(Pack {
+    let Some(id) = life.land.new_id() else { return 0 };
+    let made = land::now(life);
+    life.land.packs.push(Pack {
         id,
         def: def.to_string(),
         made,
@@ -126,6 +114,10 @@ pub fn craft_pack(life: &mut Life, sim: &mut Sim, r: &RecipeDef, place: &str) ->
     }
     if sim.player.mode != Mode::Normal || !sim.player.grounded {
         life.toast("Stand still at the bench to work", "bad");
+        return false;
+    }
+    if life.land.ids.left() == 0 {
+        life.toast(land::NO_IDS, "bad");
         return false;
     }
     for inp in &def.inputs {
@@ -199,7 +191,7 @@ pub fn drop_pack(life: &mut Life, sim: &mut Sim) -> bool {
     let z = p.pos.z + p.facing.js_cos() * 0.9;
     let y = ground_at(hf, &sim.world.index, x, z, p.pos.y + 0.3, 0.6);
     let rot = p.facing;
-    let pack = &mut life.state.packs[i];
+    let pack = &mut life.land.packs[i];
     pack.at = "ground".into();
     pack.x = x;
     pack.z = z;
@@ -221,7 +213,7 @@ pub fn pick_up(life: &mut Life, sim: &mut Sim, pack: i64) -> bool {
     if sim.player.mode == Mode::Glide {
         return false;
     }
-    let pk = &mut life.state.packs[i];
+    let pk = &mut life.land.packs[i];
     pk.at = "back".into();
     pk.vehicle = 0;
     sim.player.pack = pk.id;
@@ -234,16 +226,16 @@ pub fn load_pack(life: &mut Life, sim: &mut Sim, vehicle: i64, slot: usize) -> b
     let Some(v) = vehicle_index(life, vehicle) else { return false };
     let Some(i) = carried(life, sim) else { return false };
     // A slot that is taken, or that the vehicle doesn't have.
-    if life.state.vehicles[v].cargo.get(slot) != Some(&0) {
+    if life.land.vehicles[v].cargo.get(slot) != Some(&0) {
         return false;
     }
-    let vid = life.state.vehicles[v].id;
-    let pk = &mut life.state.packs[i];
+    let vid = life.land.vehicles[v].id;
+    let pk = &mut life.land.packs[i];
     pk.at = "cargo".into();
     pk.vehicle = vid;
     pk.slot = slot as i64;
     let id = pk.id;
-    life.state.vehicles[v].cargo[slot] = id;
+    life.land.vehicles[v].cargo[slot] = id;
     sim.player.pack = 0;
     life.revision += 1;
     life.notify(QuestEvent::new("load"));
@@ -257,10 +249,10 @@ pub fn unload_pack(life: &mut Life, sim: &mut Sim, vehicle: i64, slot: usize) ->
         life.toast("Your back is already full", "bad");
         return false;
     }
-    let id = life.state.vehicles[v].cargo.get(slot).copied().unwrap_or(0);
+    let id = life.land.vehicles[v].cargo.get(slot).copied().unwrap_or(0);
     let Some(i) = (if id != 0 { pack_index(life, id) } else { None }) else { return false };
-    life.state.vehicles[v].cargo[slot] = 0;
-    let pk = &mut life.state.packs[i];
+    life.land.vehicles[v].cargo[slot] = 0;
+    let pk = &mut life.land.packs[i];
     pk.at = "back".into();
     pk.vehicle = 0;
     sim.player.pack = pk.id;
@@ -277,7 +269,7 @@ fn plus_seals(seals: f64) -> String {
 
 pub fn sell_pack(life: &mut Life, sim: &mut Sim, outpost: &str) -> bool {
     let Some(i) = carried(life, sim) else { return false };
-    let pack = life.state.packs[i].clone();
+    let pack = life.land.packs[i].clone();
     let q = quote(life, &pack, outpost);
     let def = pack_def(&pack.def);
     let Some(q) = q else {
@@ -294,9 +286,10 @@ pub fn sell_pack(life: &mut Life, sim: &mut Sim, outpost: &str) -> bool {
     s.seals += q.seals;
     s.stats.delivered += 1.0;
     s.stats.earned += q.coins;
-    let d = content::demand();
-    let lowered = js_max(d.min, demand_at(life, outpost, &pack.def) - d.drop_per_sale);
-    life.state.demand.insert(demand_key(outpost, &pack.def), lowered);
+    // Demand there falls for everyone: here at once, and in the world's market once the step is over.
+    let at = land::now(life);
+    life.market.sell(outpost, &pack.def, at);
+    life.change(Change::Sold { outpost: outpost.to_string(), pack: pack.def.clone(), at });
     sim.player.pack = 0;
     remove_pack(life, pack.id);
     life.emit(LifeEvent::Sold { pack: def.id.clone(), coins: q.coins, seals: q.seals, demand: q.demand, fresh: q.fresh, outpost: outpost.to_string() });
@@ -309,7 +302,7 @@ pub fn sell_pack(life: &mut Life, sim: &mut Sim, outpost: &str) -> bool {
 /// A material pack is used up by a building site.
 pub fn consume_carried(life: &mut Life, sim: &mut Sim) {
     let Some(i) = carried(life, sim) else { return };
-    let id = life.state.packs[i].id;
+    let id = life.land.packs[i].id;
     sim.player.pack = 0;
     remove_pack(life, id);
 }
@@ -449,7 +442,7 @@ mod tests {
     use super::testing::{island, toasts};
     use super::*;
     use crate::life::content::{Makes, labor, packs, recipes};
-    use crate::life::state::Vehicle;
+    use crate::life::land::Vehicle;
 
     #[test]
     fn every_pack_recipe_makes_a_real_pack() {
@@ -529,7 +522,7 @@ mod tests {
         life.state.labor = labor().max;
         sim.player.grounded = true;
         assert!(craft(&mut life, &mut sim, &r));
-        assert_eq!(life.state.packs.iter().map(|pk| pk.origin.as_str()).collect::<Vec<_>>(), [pack.origin.as_str()]);
+        assert_eq!(life.land.packs.iter().map(|pk| pk.origin.as_str()).collect::<Vec<_>>(), [pack.origin.as_str()]);
     }
 
     #[test]
@@ -544,7 +537,7 @@ mod tests {
         assert!(run_recipe(&mut life, &mut sim, "pack.harvestCrate"));
         assert_eq!((life.count("sunroot"), life.count("barley")), (0, 1));
         assert_eq!((life.state.coins, life.state.labor), (980.0, 780.0));
-        let pk = &life.state.packs[carried(&life, &sim).expect("on your back")];
+        let pk = &life.land.packs[carried(&life, &sim).expect("on your back")];
         assert_eq!((pk.def.as_str(), pk.origin.as_str(), pk.at.as_str(), pk.made), ("harvestCrate", "lanternwick", "back", 0.0));
         assert_eq!(toasts(&mut life), ["📦 Lanternwick Harvest Crate packed - it's on your back"]);
         // One at a time on your back, and only standing at the bench.
@@ -594,13 +587,13 @@ mod tests {
         toasts(&mut life);
         // Fresh, at the starting demand, on the 1x route: 260 x 1.1 x 1.15.
         sim.player.pack = make_pack(&mut life, "harvestCrate", "lanternwick");
-        let q = quote(&life, &life.state.packs[0], "westwatch").unwrap();
+        let q = quote(&life, &life.land.packs[0], "westwatch").unwrap();
         assert_eq!((q.coins, q.seals, q.factor), (329.0, 1.0, 1.0));
         assert!(sell_pack(&mut life, &mut sim, "westwatch"));
         assert_eq!((life.state.coins, life.state.seals), (329.0, 1.0));
         assert_eq!((life.state.stats.delivered, life.state.stats.earned), (1.0, 329.0));
         assert!((demand_at(&life, "westwatch", "harvestCrate") - 1.05).abs() < 1e-12);
-        assert!(life.state.packs.is_empty() && sim.player.pack == 0);
+        assert!(life.land.packs.is_empty() && sim.player.pack == 0);
         let events = life.drain_events();
         assert!(events.contains(&LifeEvent::Sold {
             pack: "harvestCrate".into(),
@@ -613,10 +606,10 @@ mod tests {
         assert!(events.contains(&LifeEvent::Toast { text: "Sold Lanternwick Harvest Crate: 3s 29c + 1 seal".into(), kind: "coin".into() }));
         // The next one there fetches less.
         sim.player.pack = make_pack(&mut life, "harvestCrate", "lanternwick");
-        assert_eq!(quote(&life, &life.state.packs[0], "westwatch").unwrap().coins, 314.0);
+        assert_eq!(quote(&life, &life.land.packs[0], "westwatch").unwrap().coins, 314.0);
         // Gullrock pays half again and three seals; a pack left to go stale pays less.
         life.state.clock = 2700.0;
-        let q = quote(&life, &life.state.packs[0], "gullrock").unwrap();
+        let q = quote(&life, &life.land.packs[0], "gullrock").unwrap();
         assert_eq!((q.coins, q.seals, q.factor), (378.0, 3.0, 1.5));
         assert!(sell_pack(&mut life, &mut sim, "gullrock"));
         assert_eq!((life.state.coins, life.state.seals), (707.0, 4.0));
@@ -627,16 +620,22 @@ mod tests {
         assert_eq!(toasts(&mut life), ["Lanternwick makes these itself - sell it somewhere else"]);
         consume_carried(&mut life, &mut sim);
         sim.player.pack = make_pack(&mut life, "lumberBundle", "thornwood");
-        assert!(quote(&life, &life.state.packs[0], "westwatch").is_none());
+        assert!(quote(&life, &life.land.packs[0], "westwatch").is_none());
         assert!(!sell_pack(&mut life, &mut sim, "westwatch"));
         assert_eq!(toasts(&mut life), ["Westwatch Trading Post does not buy Lumber Bundle"]);
         assert_ne!(sim.player.pack, 0);
-        // Demand comes back with time, up to its ceiling.
-        recover_demand(&mut life, 60.0);
-        assert!((demand_at(&life, "westwatch", "harvestCrate") - 1.07).abs() < 1e-12);
-        recover_demand(&mut life, 3600.0);
+        // Demand comes back with time, up to its ceiling (by the time of the sale at Gullrock,
+        // Westwatch's was all the way back).
         assert_eq!(demand_at(&life, "westwatch", "harvestCrate"), 1.3);
+        life.state.clock += 60.0;
+        assert!((demand_at(&life, "gullrock", "harvestCrate") - 1.07).abs() < 1e-12);
+        life.state.clock += 3600.0;
+        assert_eq!(demand_at(&life, "gullrock", "harvestCrate"), 1.3);
         assert_eq!(demand_at(&life, "westwatch", "flaxBale"), 1.1);
+        // Each sale went to whoever keeps the world's market.
+        let sold: Vec<Change> = life.take_changes();
+        assert_eq!(sold.len(), 2);
+        assert_eq!(sold[1], Change::Sold { outpost: "gullrock".into(), pack: "harvestCrate".into(), at: 2700.0 });
     }
 
     #[test]
@@ -691,13 +690,13 @@ mod tests {
         let (mut life, mut world, mut p) = island(0.0);
         p.facing = std::f64::consts::FRAC_PI_2;
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
-        life.state.vehicles.push(Vehicle { id: 500, def: "farmCart".into(), cargo: vec![0, 0], ..Default::default() });
+        life.land.vehicles.push(Vehicle { id: 500, def: "farmCart".into(), cargo: vec![0, 0], ..Default::default() });
         let id = make_pack(&mut life, "flaxBale", "lanternwick");
         sim.player.pack = id;
         // Set down in front of you, on the ground there.
         let (x, y, z) = (sim.player.pos.x + 0.9, sim.player.pos.y, sim.player.pos.z);
         assert!(drop_pack(&mut life, &mut sim));
-        let pk = &life.state.packs[0];
+        let pk = &life.land.packs[0];
         assert_eq!((pk.at.as_str(), sim.player.pack), ("ground", 0));
         assert!((pk.x - x).abs() < 1e-9 && (pk.z - z).abs() < 1e-9);
         assert_eq!(pk.y, ground_at(sim.terrain(), &sim.world.index, pk.x, pk.z, y + 0.3, 0.6));
@@ -705,15 +704,15 @@ mod tests {
         assert!(!drop_pack(&mut life, &mut sim));
         // Up again, into the cart, and out.
         assert!(pick_up(&mut life, &mut sim, id));
-        assert_eq!((sim.player.pack, life.state.packs[0].at.as_str()), (id, "back"));
+        assert_eq!((sim.player.pack, life.land.packs[0].at.as_str()), (id, "back"));
         assert!(load_pack(&mut life, &mut sim, 500, 0));
-        let pk = &life.state.packs[0];
+        let pk = &life.land.packs[0];
         assert_eq!((pk.at.as_str(), pk.vehicle, pk.slot, sim.player.pack), ("cargo", 500, 0, 0));
-        assert_eq!(life.state.vehicles[0].cargo, [id, 0]);
+        assert_eq!(life.land.vehicles[0].cargo, [id, 0]);
         assert!(!load_pack(&mut life, &mut sim, 500, 1), "nothing on your back");
         assert!(unload_pack(&mut life, &mut sim, 500, 0));
-        assert_eq!((sim.player.pack, life.state.packs[0].at.as_str(), life.state.packs[0].vehicle), (id, "back", 0));
-        assert_eq!(life.state.vehicles[0].cargo, [0, 0]);
+        assert_eq!((sim.player.pack, life.land.packs[0].at.as_str(), life.land.packs[0].vehicle), (id, "back", 0));
+        assert_eq!(life.land.vehicles[0].cargo, [0, 0]);
         toasts(&mut life);
         assert!(!unload_pack(&mut life, &mut sim, 500, 0));
         assert_eq!(toasts(&mut life), ["Your back is already full"]);

@@ -5,8 +5,9 @@
 //! you are watching.
 
 use super::content::{CropDef, Rare, climate_factor, crop_def, farm, item_def};
+use super::land;
+use super::land::{Plant, Scarecrow};
 use super::livestock::step_animal;
-use super::state::{Plant, Scarecrow};
 use super::weather::raining;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::{js_hypot, js_max, js_min};
@@ -28,20 +29,20 @@ fn produce_of(def: &CropDef) -> Option<&str> {
     def.produce.as_deref().filter(|p| !p.is_empty())
 }
 
-/// Index of the scarecrow with this id in life.state.scarecrows.
+/// Index of the scarecrow with this id in life.land.scarecrows.
 pub fn scarecrow_index(life: &Life, id: i64) -> Option<usize> {
-    life.state.scarecrows.iter().position(|s| s.id == id)
+    life.land.scarecrows.iter().position(|s| s.id == id)
 }
 
 /// The plant in cell `idx` of the scarecrow with id `sc`, if there is one.
 pub fn plant_at(life: &Life, sc: i64, idx: usize) -> Option<&Plant> {
     let i = scarecrow_index(life, sc)?;
-    life.state.scarecrows[i].cells.get(idx)?.as_ref()
+    life.land.scarecrows[i].cells.get(idx)?.as_ref()
 }
 
 pub fn plant_at_mut(life: &mut Life, sc: i64, idx: usize) -> Option<&mut Plant> {
     let i = scarecrow_index(life, sc)?;
-    life.state.scarecrows[i].cells.get_mut(idx)?.as_mut()
+    life.land.scarecrows[i].cells.get_mut(idx)?.as_mut()
 }
 
 pub fn stage_of(p: &Plant) -> i64 {
@@ -91,9 +92,9 @@ pub fn step_farms(life: &mut Life, dt: f64) {
     // Nothing a step changes here moves the rain or the clock, so they are read once.
     let rain = raining(life);
     let climate = life.zone.recipe.climate.as_str();
-    let clock = life.state.clock;
+    let clock = land::now(life);
     let mut changed = 0;
-    for sc in life.state.scarecrows.iter_mut() {
+    for sc in life.land.scarecrows.iter_mut() {
         for p in sc.cells.iter_mut().flatten() {
             if p.is_animal() {
                 if step_animal(clock, p, dt) {
@@ -119,8 +120,8 @@ pub fn step_farms(life: &mut Life, dt: f64) {
 pub fn grow_for(life: &mut Life, seconds: f64) {
     let rain = raining(life);
     let climate = life.zone.recipe.climate.as_str();
-    let clock = life.state.clock;
-    for sc in life.state.scarecrows.iter_mut() {
+    let clock = land::now(life);
+    for sc in life.land.scarecrows.iter_mut() {
         for p in sc.cells.iter_mut().flatten() {
             if p.is_animal() {
                 step_animal(clock, p, seconds);
@@ -149,11 +150,11 @@ pub fn cell_centre(sc: &Scarecrow, idx: usize) -> (f64, f64) {
     (sc.x + ox, sc.z + oz)
 }
 
-/// The plot cell under a point, if any: (index into life.state.scarecrows, cell index).
+/// The plot cell under a point, if any: (index into life.land.scarecrows, cell index).
 pub fn cell_at(life: &Life, x: f64, z: f64) -> Option<(usize, usize)> {
     let n = farm().scarecrow_cells as f64;
     let half = half();
-    for (k, sc) in life.state.scarecrows.iter().enumerate() {
+    for (k, sc) in life.land.scarecrows.iter().enumerate() {
         let (lx, lz) = to_local(x - sc.x, z - sc.z, sc.rot);
         if lx.abs() >= half || lz.abs() >= half {
             continue;
@@ -175,7 +176,7 @@ pub fn scarecrow_post(x: f64, z: f64, rot: f64) -> (f64, f64) {
 /// Why a scarecrow cannot go here, or None if it can.
 pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<String> {
     let hf = sim.terrain();
-    let s = &life.state;
+    let s = &life.land;
     let max = farm().max_scarecrows;
     if s.scarecrows.len() >= max {
         return Some(format!("You already have {max} plots"));
@@ -246,11 +247,12 @@ pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<
 }
 
 /// Puts a scarecrow down (the item is already paid for). Its post blocks like any other, once the
-/// step that put it down is over (Life::make_solid). Returns its id.
+/// step that put it down is over (Life::make_solid). Returns its id (0, and nothing put down, if the
+/// land had no id left to give: whoever calls this asks first, `Ids::left`).
 pub fn add_scarecrow(life: &mut Life, _sim: &mut Sim, x: f64, z: f64, rot: f64) -> i64 {
     let n = farm().scarecrow_cells.max(0) as usize;
-    let id = life.next_id();
-    life.state.scarecrows.push(Scarecrow { id, x, z, rot, cells: vec![None; n * n] });
+    let Some(id) = life.land.new_id() else { return 0 };
+    life.land.scarecrows.push(Scarecrow { id, x, z, rot, cells: vec![None; n * n] });
     life.revision += 1;
     id
 }
@@ -297,14 +299,14 @@ pub fn plant(life: &mut Life, sc: i64, idx: usize, seed_item: &str) -> bool {
     let Some(crop) = def.plants.as_deref().filter(|c| !c.is_empty()) else { return false };
     let Some(k) = scarecrow_index(life, sc) else { return false };
     // An empty cell (one past the end of the plot is nowhere to plant).
-    if !matches!(life.state.scarecrows[k].cells.get(idx), Some(None)) {
+    if !matches!(life.land.scarecrows[k].cells.get(idx), Some(None)) {
         return false;
     }
     if !life.take(seed_item, 1) {
         life.toast(format!("No {} left", def.name), "bad");
         return false;
     }
-    life.state.scarecrows[k].cells[idx] =
+    life.land.scarecrows[k].cells[idx] =
         Some(Plant { crop: crop.to_string(), growth: 0.0, watered: false, picked: false, animal: None, fed_until: None, produce: None });
     life.revision += 1;
     life.notify(QuestEvent { crop: Some(crop.to_string()), ..QuestEvent::new("plant") });
@@ -330,7 +332,7 @@ pub fn water(life: &mut Life, sc: i64, idx: usize) -> bool {
 /// Harvests the ripe crop in cell `idx` of the scarecrow with id `sc`; `y` is where the effect is.
 pub fn harvest(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     let Some(k) = scarecrow_index(life, sc) else { return false };
-    let Some(p) = life.state.scarecrows[k].cells.get(idx).and_then(|c| c.as_ref()) else { return false };
+    let Some(p) = life.land.scarecrows[k].cells.get(idx).and_then(|c| c.as_ref()) else { return false };
     if p.growth < 1.0 {
         return false;
     }
@@ -348,7 +350,7 @@ pub fn harvest(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     if def.seed_chance > 0.0 && life.rand() < def.seed_chance {
         life.give(&def.seed, 1, false);
     }
-    let cell = &mut life.state.scarecrows[k].cells[idx];
+    let cell = &mut life.land.scarecrows[k].cells[idx];
     if def.regrow_seconds.is_some_and(truthy) {
         if let Some(p) = cell.as_mut() {
             p.picked = true;
@@ -359,7 +361,7 @@ pub fn harvest(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     }
     life.state.stats.harvested += 1.0;
     life.revision += 1;
-    let (cx, cz) = cell_centre(&life.state.scarecrows[k], idx);
+    let (cx, cz) = cell_centre(&life.land.scarecrows[k], idx);
     life.emit(LifeEvent::Harvest { x: cx, y, z: cz });
     life.notify(QuestEvent { crop: Some(def.id.clone()), ..QuestEvent::new("harvest") });
     true
@@ -369,7 +371,7 @@ pub fn harvest(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
 /// log struck by lightning).
 pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     let Some(k) = scarecrow_index(life, sc) else { return false };
-    let Some(p) = life.state.scarecrows[k].cells.get(idx).and_then(|c| c.as_ref()) else { return false };
+    let Some(p) = life.land.scarecrows[k].cells.get(idx).and_then(|c| c.as_ref()) else { return false };
     let def = crop_def(&p.crop);
     let Some(chop) = def.chop.as_ref() else { return false };
     if stage_of(p) < def.stages - 2 {
@@ -384,13 +386,13 @@ pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     }
     let n = life.rand_int(chop.yield_[0], chop.yield_[1]);
     life.give(&chop.item, n, false);
-    let (cx, cz) = cell_centre(&life.state.scarecrows[k], idx);
+    let (cx, cz) = cell_centre(&life.land.scarecrows[k], idx);
     if let Some(rare) = &chop.rare
         && life.rand() < rare.chance
     {
         find_rare(life, rare, cx, y, cz);
     }
-    life.state.scarecrows[k].cells[idx] = None;
+    life.land.scarecrows[k].cells[idx] = None;
     life.revision += 1;
     life.emit(LifeEvent::Gather { x: cx, y, z: cz, kind: chop.kind.clone() });
     // Timber you grow counts for a step like "chop 10 lumber" as much as deadfall does.
@@ -488,7 +490,7 @@ pub(crate) mod tests {
         assert_eq!(growth_rate(&life, &Plant { picked: true, ..crop("pine", 0.0) }), 0.7 / 480.0);
         assert!((seconds_to_ripe(&life, &crop("barley", 0.5)) - 100.0).abs() < 1e-9);
         assert_eq!(seconds_to_ripe(&life, &crop("barley", 1.0)), 0.0);
-        life.state.weather.rain_until = life.state.clock + 60.0;
+        life.weather.rain_until = life.state.clock + 60.0;
         assert_eq!(growth_rate(&life, &crop("barley", 0.0)), 1.25 / 200.0);
     }
 
@@ -506,10 +508,10 @@ pub(crate) mod tests {
         assert_eq!(at(&life, -580.0, -400.0).as_deref(), Some("The ground is too uneven"));
         assert_eq!(at(&life, -540.0, -420.0).as_deref(), Some("Not on a road"));
         assert_eq!(at(&life, -180.0, -280.0).as_deref(), Some("The ground is too steep"));
-        life.state.scarecrows.push(Scarecrow { id: 9, x: -208.0, z: -240.0, ..Default::default() });
+        life.land.scarecrows.push(Scarecrow { id: 9, x: -208.0, z: -240.0, ..Default::default() });
         assert_eq!(at(&life, -208.0, -232.0).as_deref(), Some("Overlaps another plot"));
-        life.state.scarecrows.push(Scarecrow { id: 10, ..Default::default() });
-        life.state.scarecrows.push(Scarecrow { id: 11, ..Default::default() });
+        life.land.scarecrows.push(Scarecrow { id: 10, ..Default::default() });
+        life.land.scarecrows.push(Scarecrow { id: 11, ..Default::default() });
         assert_eq!(at(&life, -600.0, -420.0).as_deref(), Some("You already have 3 plots"));
     }
 
@@ -519,7 +521,7 @@ pub(crate) mod tests {
         let before = world.index.obstacles.len();
         assert_eq!(plot_problem(&life, &Sim { player: &mut p, world: &world, owner: 1 }, -208.0, -240.0, 0.0), None);
         let id = add_scarecrow(&mut life, &mut Sim { player: &mut p, world: &world, owner: 1 }, -208.0, -240.0, 0.0);
-        assert_eq!((id, life.state.scarecrows[0].cells.len()), (1, 16));
+        assert_eq!((id, life.land.scarecrows[0].cells.len()), (1, 16));
         assert_eq!(scarecrow_post(-208.0, -240.0, 0.0), (-203.4, -235.4));
         // The world is the same for everyone while they step: the post is solid once the step that
         // put it down is over.
@@ -533,7 +535,7 @@ pub(crate) mod tests {
         assert_eq!(plot_problem(&life, &sim, -208.0, -240.0, 0.0).as_deref(), Some("Too close to a road or building"));
         // Everyone in a channel shares the world: the same post isn't added twice, but another
         // character's scarecrow with the same id is a post of its own.
-        let sc = life.state.scarecrows[0].clone();
+        let sc = life.land.scarecrows[0].clone();
         add_scarecrow_collider(&mut world, 1, &sc);
         assert_eq!(world.index.obstacles.len(), before + 1);
         add_scarecrow_collider(&mut world, 2, &sc);
@@ -543,16 +545,16 @@ pub(crate) mod tests {
     #[test]
     fn the_cells_of_a_plot() {
         let (mut life, _, _) = island();
-        life.state.scarecrows.push(Scarecrow { id: 1, x: -208.0, z: -240.0, rot: 0.0, cells: vec![None; 16] });
-        let sc = &life.state.scarecrows[0];
+        life.land.scarecrows.push(Scarecrow { id: 1, x: -208.0, z: -240.0, rot: 0.0, cells: vec![None; 16] });
+        let sc = &life.land.scarecrows[0];
         assert_eq!(cell_centre(sc, 0), (-211.0, -243.0));
         assert_eq!(cell_centre(sc, 6), (-207.0, -241.0));
         assert_eq!(cell_at(&life, -205.5, -237.1), Some((0, 15)));
         assert_eq!(cell_at(&life, -211.99, -243.99), Some((0, 0)));
         assert_eq!(cell_at(&life, -212.01, -240.0), None);
         // Turned plots turn their cells with them.
-        life.state.scarecrows[0].rot = 0.7;
-        let (x, z) = cell_centre(&life.state.scarecrows[0], 9);
+        life.land.scarecrows[0].rot = 0.7;
+        let (x, z) = cell_centre(&life.land.scarecrows[0], 9);
         assert_eq!(cell_at(&life, x, z), Some((0, 9)));
     }
 
@@ -621,7 +623,7 @@ pub(crate) mod tests {
         let rare = chop.rare.as_ref().unwrap();
         let (mut life, _, _) = island();
         let cells = vec![Some(Plant { picked: true, ..crop(&tree.id, 1.0) })];
-        life.state.scarecrows.push(Scarecrow { id: 7, x: -150.0, z: -210.0, rot: 0.0, cells });
+        life.land.scarecrows.push(Scarecrow { id: 7, x: -150.0, z: -210.0, rot: 0.0, cells });
         life.state.labor = crate::life::content::labor().max;
         // The yield is drawn first, then the rare find.
         lucky(&mut life, 1, rare.chance);
@@ -665,7 +667,7 @@ pub(crate) mod tests {
         assert!(!water(&mut life, sc, usize::MAX) && !harvest(&mut life, 99, 3, 0.0) && !fell(&mut life, sc, 40, 0.0));
         assert_eq!(life.count("seed.sunroot"), 2);
         // A crop the content doesn't know (from some old save) grows nowhere and gives nothing.
-        life.state.scarecrows[0].cells[2] = Some(crop("mystery", 1.0));
+        life.land.scarecrows[0].cells[2] = Some(crop("mystery", 1.0));
         step_farms(&mut life, 1.0);
         grow_for(&mut life, 100.0);
         assert!(!harvest(&mut life, sc, 2, 0.0) && !fell(&mut life, sc, 2, 0.0));

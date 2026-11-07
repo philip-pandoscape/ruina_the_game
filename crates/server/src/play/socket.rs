@@ -452,14 +452,14 @@ async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::
         return Ok(());
     }
     let rows: Vec<(i64, String, Option<Json<Value>>)> =
-        sqlx::query_as("SELECT id, name, island->'state' FROM characters WHERE home_channel = $1 AND island IS NOT NULL").bind(channel).fetch_all(db).await?;
+        sqlx::query_as("SELECT id, name, island FROM characters WHERE home_channel = $1 AND island IS NOT NULL").bind(channel).fetch_all(db).await?;
     app.world.with_channel(channel, |ch| {
         if ch.estates.loaded {
             return;
         }
-        for (id, name, state) in rows {
-            if let Some(Json(state)) = state {
-                ch.add_resident(id, &name, &state);
+        for (id, name, island) in rows {
+            if let Some(Json(island)) = island {
+                ch.add_resident(id, &name, &island);
             }
         }
         ch.estates.loaded = true;

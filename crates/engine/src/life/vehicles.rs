@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
 use super::content::{self, Anchor, ItemDef, RideableDef, item_def, rideable};
-use super::state::Vehicle;
+use super::land::Vehicle;
 use super::weather::storm_at;
 use super::{Life, QuestEvent, step_seconds};
 use crate::jsmath::len;
@@ -65,9 +65,9 @@ fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     next.js_sin().js_atan2(next.js_cos())
 }
 
-/// Index of the vehicle with this id in life.state.vehicles (TS vehicleById).
+/// Index of the vehicle with this id in life.land.vehicles (TS vehicleById).
 pub fn vehicle_index(life: &Life, id: i64) -> Option<usize> {
-    life.state.vehicles.iter().position(|v| v.id == id)
+    life.land.vehicles.iter().position(|v| v.id == id)
 }
 
 /// Index of the vehicle of yours the player is riding, if any (TS ridden). Riding along in someone
@@ -189,10 +189,12 @@ fn water_spot(sim: &Sim, def: &RideableDef) -> Option<Spot> {
     None
 }
 
-/// Puts a new vehicle in the world. Returns its id.
+/// Puts a new vehicle in the world. Returns its id (0, and nothing put there, if the land had no id
+/// left to give: summon asks first).
 fn spawn_vehicle(life: &mut Life, def: &RideableDef, at: Spot, y: f64) -> i64 {
+    let Some(id) = life.land.new_id() else { return 0 };
     let v = Vehicle {
-        id: life.next_id(),
+        id,
         def: def.id.clone(),
         x: at.x,
         y,
@@ -215,7 +217,7 @@ fn spawn_vehicle(life: &mut Life, def: &RideableDef, at: Spot, y: f64) -> i64 {
         storm_warned: None,
     };
     let id = v.id;
-    life.state.vehicles.push(v);
+    life.land.vehicles.push(v);
     life.revision += 1;
     id
 }
@@ -232,13 +234,17 @@ pub fn summon(life: &mut Life, sim: &mut Sim, item: &str) -> Option<i64> {
         life.toast("Stand on solid ground to summon", "bad");
         return None;
     }
+    if life.land.ids.left() == 0 {
+        life.toast(super::land::NO_IDS, "bad");
+        return None;
+    }
     let fixing = life.state.repairs.as_ref().and_then(|r| r.get(&def.id)).copied().unwrap_or(0.0);
     if fixing > life.state.clock {
         let left = (fixing - life.state.clock).ceil();
         life.toast(format!("Your {} is still being repaired ({left}s)", def.name.to_lowercase()), "bad");
         return None;
     }
-    let existing = life.state.vehicles.iter().find(|v| v.def == def.id).map(|v| (v.id, v.cargo.iter().any(|&c| c != 0)));
+    let existing = life.land.vehicles.iter().find(|v| v.def == def.id).map(|v| (v.id, v.cargo.iter().any(|&c| c != 0)));
     if let Some((existing, loaded)) = existing {
         if loaded {
             life.toast(format!("Your {} still has cargo aboard - go to it", def.name), "bad");
@@ -261,7 +267,7 @@ pub fn summon(life: &mut Life, sim: &mut Sim, item: &str) -> Option<i64> {
 
 pub fn recall(life: &mut Life, sim: &mut Sim, id: i64, quiet: bool) -> bool {
     let Some(i) = vehicle_index(life, id) else { return false };
-    let v = &life.state.vehicles[i];
+    let v = &life.land.vehicles[i];
     let (busy, loaded) = (v.ridden || sim.player.vehicle == id, v.cargo.iter().any(|&c| c != 0));
     if busy {
         if !quiet {
@@ -275,7 +281,7 @@ pub fn recall(life: &mut Life, sim: &mut Sim, id: i64, quiet: bool) -> bool {
         }
         return false;
     }
-    life.state.vehicles.retain(|x| x.id != id);
+    life.land.vehicles.retain(|x| x.id != id);
     life.revision += 1;
     true
 }
@@ -294,7 +300,7 @@ pub fn pack_blocks(def: &RideableDef) -> Option<String> {
 
 pub fn board(life: &mut Life, sim: &mut Sim, id: i64) -> bool {
     let Some(i) = vehicle_index(life, id) else { return false };
-    let def = rideable(&life.state.vehicles[i].def);
+    let def = rideable(&life.land.vehicles[i].def);
     let blocked = if sim.player.pack != 0 { pack_blocks(def) } else { None };
     if let Some(why) = blocked {
         life.toast(why, "bad");
@@ -303,7 +309,7 @@ pub fn board(life: &mut Life, sim: &mut Sim, id: i64) -> bool {
     if sim.player.mode != Mode::Normal && sim.player.mode != Mode::Swim {
         return false;
     }
-    let v = &mut life.state.vehicles[i];
+    let v = &mut life.land.vehicles[i];
     v.ridden = true;
     let p = &mut *sim.player;
     p.mode = Mode::Ride;
@@ -317,7 +323,7 @@ pub fn board(life: &mut Life, sim: &mut Sim, id: i64) -> bool {
     p.sprinting = false;
     p.crouching = false;
     p.jump_buffer = 0;
-    place_rider(sim, &life.state.vehicles[i]);
+    place_rider(sim, &life.land.vehicles[i]);
     life.notify(QuestEvent { vehicle: Some(def.id.clone()), ..QuestEvent::new("ride") });
     true
 }
@@ -360,8 +366,8 @@ pub fn dismount(life: &mut Life, sim: &mut Sim) -> bool {
     };
     let hf = sim.terrain();
     // Step off on the left; failing that, any side with something to stand on (exit_spot's search).
-    let (x, y, z, dry) = exit_spot(sim, &life.state.vehicles[i]);
-    let v = &mut life.state.vehicles[i];
+    let (x, y, z, dry) = exit_spot(sim, &life.land.vehicles[i]);
+    let v = &mut life.land.vehicles[i];
     v.ridden = false;
     // Nobody at the helm: the sail comes down and the oars stop.
     v.sail = 0.0;
@@ -456,7 +462,7 @@ fn js_order(d: f64) -> Ordering {
 /// The mount key: get on (calling it if it is far away or not out), or get off.
 pub fn mount_command(life: &mut Life, sim: &mut Sim) {
     if let Some(i) = ridden(life, sim) {
-        if rideable(&life.state.vehicles[i].def).is_mount() {
+        if rideable(&life.land.vehicles[i].def).is_mount() {
             dismount(life, sim);
         }
         return;
@@ -481,10 +487,10 @@ pub fn mount_command(life: &mut Life, sim: &mut Sim) {
     let def = mount_of(usable[0]);
     let p = &*sim.player;
     let (px, py, pz, facing) = (p.pos.x, p.pos.y, p.pos.z, p.facing);
-    let id = match life.state.vehicles.iter().position(|x| x.def == def.id) {
+    let id = match life.land.vehicles.iter().position(|x| x.def == def.id) {
         None => spawn_vehicle(life, def, Spot { x: px, z: pz, heading: facing }, py),
         Some(i) => {
-            let v = &mut life.state.vehicles[i];
+            let v = &mut life.land.vehicles[i];
             if hypot(v.x - px, v.z - pz) > 25.0 {
                 // It comes when you whistle, cargo and all - never a second one.
                 v.x = px;
@@ -524,45 +530,45 @@ pub fn ride_vehicle(life: &mut Life, sim: &mut Sim, a: &Actions) {
         sim.player.vehicle = 0;
         return;
     };
-    let id = life.state.vehicles[i].id;
-    let def = rideable(&life.state.vehicles[i].def);
+    let id = life.land.vehicles[i].id;
+    let def = rideable(&life.land.vehicles[i].def);
     let input = DriveInput { throttle: a.stick_y, steer: -a.stick_x, handbrake: a.jump_held, boost: a.sprint_held };
     if def.is_wheeled() {
-        step_wheeled(sim, &mut life.state.vehicles[i], def, &input);
+        step_wheeled(sim, &mut life.land.vehicles[i], def, &input);
     } else if def.is_boat() {
         boat(life, sim, i, def, &input);
     } else {
         let carrying = sim.player.pack != 0;
-        step_mount(sim, &mut life.state.vehicles[i], def, a, carrying);
+        step_mount(sim, &mut life.land.vehicles[i], def, a, carrying);
     }
     // The step can end the ride (a boat breaking up under you): then there is no seat to sit in.
     if sim.player.vehicle != id {
         return;
     }
     let Some(i) = vehicle_index(life, id) else { return };
-    place_rider(sim, &life.state.vehicles[i]);
+    place_rider(sim, &life.land.vehicles[i]);
 }
 
 pub fn step_vehicles(life: &mut Life, sim: &mut Sim, _a: &Actions) {
     let none = DriveInput { throttle: 0.0, steer: 0.0, handbrake: true, boost: false };
     // The walk goes through the list as it was when the loop began: a boat breaking up leaves the
     // list, and the loop carries on through the others as they were.
-    let ids: Vec<i64> = life.state.vehicles.iter().map(|v| v.id).collect();
+    let ids: Vec<i64> = life.land.vehicles.iter().map(|v| v.id).collect();
     for id in ids {
         let Some(i) = vehicle_index(life, id) else { continue };
-        if life.state.vehicles[i].ridden {
+        if life.land.vehicles[i].ridden {
             continue;
         }
-        let def = rideable(&life.state.vehicles[i].def);
+        let def = rideable(&life.land.vehicles[i].def);
         if def.is_boat() {
-            life.state.vehicles[i].sail = 0.0; // an empty boat drifts to a stop (saves from before this rule too)
+            life.land.vehicles[i].sail = 0.0; // an empty boat drifts to a stop (saves from before this rule too)
         }
         if def.is_wheeled() {
-            step_wheeled(sim, &mut life.state.vehicles[i], def, &none);
+            step_wheeled(sim, &mut life.land.vehicles[i], def, &none);
         } else if def.is_boat() {
             boat(life, sim, i, def, &DriveInput { handbrake: false, ..none });
         } else {
-            step_mount_idle(sim, &mut life.state.vehicles[i], def);
+            step_mount_idle(sim, &mut life.land.vehicles[i], def);
         }
     }
     // You bump into vehicles you are not riding, like anything else solid: yours, and everyone
@@ -570,7 +576,7 @@ pub fn step_vehicles(life: &mut Life, sim: &mut Sim, _a: &Actions) {
     let owner = sim.owner;
     let p = &mut *sim.player;
     if p.mode != Mode::Ride && p.mode != Mode::Glide {
-        for v in &life.state.vehicles {
+        for v in &life.land.vehicles {
             if v.ridden {
                 continue;
             }
@@ -824,10 +830,10 @@ fn move_on_land(sim: &Sim, v: &mut Vehicle, def: &RideableDef, climb: f64, max_w
 /// Steps a boat. It comes off the list for the step, so the rules can toast and roll the island's
 /// dice while they move it, and goes back before a storm can break it up (breakUp finds it there).
 fn boat(life: &mut Life, sim: &mut Sim, i: usize, d: &RideableDef, inp: &DriveInput) {
-    let mut v = std::mem::take(&mut life.state.vehicles[i]);
+    let mut v = std::mem::take(&mut life.land.vehicles[i]);
     let broke = step_boat(life, sim, &mut v, d, inp);
     let id = v.id;
-    life.state.vehicles[i] = v;
+    life.land.vehicles[i] = v;
     if broke {
         break_up(life, sim, id);
     }
@@ -838,7 +844,7 @@ fn boat(life: &mut Life, sim: &mut Sim, i: usize, d: &RideableDef, inp: &DriveIn
 fn step_boat(life: &mut Life, sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: &DriveInput) -> bool {
     let dt = step_seconds();
     let hf = sim.terrain();
-    let (wind_dir, wind_speed) = (life.state.weather.wind_dir, life.state.weather.wind_speed);
+    let (wind_dir, wind_speed) = (life.weather.wind_dir, life.weather.wind_speed);
     let target;
     let mut rel = 0.0;
     if truthy(d.sail) {
@@ -923,19 +929,19 @@ fn step_boat(life: &mut Life, sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: 
 /// A boat lost to the storm: its cargo floats where it went down, and it is out for repairs.
 fn break_up(life: &mut Life, sim: &mut Sim, id: i64) {
     let Some(i) = vehicle_index(life, id) else { return };
-    let def = rideable(&life.state.vehicles[i].def);
+    let def = rideable(&life.land.vehicles[i].def);
     let hf = sim.terrain();
-    let (vx, vz) = (life.state.vehicles[i].x, life.state.vehicles[i].z);
-    let cargo = life.state.vehicles[i].cargo.clone();
+    let (vx, vz) = (life.land.vehicles[i].x, life.land.vehicles[i].z);
+    let cargo = life.land.vehicles[i].cargo.clone();
     for (k, &pack) in cargo.iter().enumerate() {
         if pack == 0 {
             continue;
         }
-        let Some(j) = life.state.packs.iter().position(|p| p.id == pack) else { continue };
+        let Some(j) = life.land.packs.iter().position(|p| p.id == pack) else { continue };
         let a = (k as f64 / 1f64.max(cargo.len() as f64)) * PI * 2.0 + life.rand();
         let x = vx + a.js_cos() * (1.5 + life.rand() * 2.5);
         let z = vz + a.js_sin() * (1.5 + life.rand() * 2.5);
-        let pk = &mut life.state.packs[j];
+        let pk = &mut life.land.packs[j];
         pk.at = "ground".to_string();
         pk.vehicle = 0;
         pk.x = x;
@@ -943,10 +949,10 @@ fn break_up(life: &mut Life, sim: &mut Sim, id: i64) {
         pk.y = hf.water - 0.15;
         pk.rot = a;
     }
-    if life.state.vehicles[i].ridden {
+    if life.land.vehicles[i].ridden {
         dismount(life, sim);
     }
-    life.state.vehicles.retain(|x| x.id != id);
+    life.land.vehicles.retain(|x| x.id != id);
     let back = life.state.clock + content::storm().repair_seconds;
     life.state.repairs.get_or_insert_with(BTreeMap::new).insert(def.id.clone(), back);
     life.revision += 1;
@@ -1072,7 +1078,7 @@ pub fn distance_to(v: &Vehicle, x: f64, z: f64) -> f64 {
 mod tests {
     use super::*;
     use crate::life::LifeEvent;
-    use crate::life::state::Pack;
+    use crate::life::land::Pack;
     use crate::open::OpenWorld;
     use crate::open::zone::{Obstacle, ObstacleKind, emberholm};
     use crate::player::{Build, Player, V3};
@@ -1146,18 +1152,18 @@ mod tests {
         }
 
         fn v(&self, id: i64) -> &Vehicle {
-            &self.life.state.vehicles[vehicle_index(&self.life, id).expect("the vehicle is out")]
+            &self.life.land.vehicles[vehicle_index(&self.life, id).expect("the vehicle is out")]
         }
 
         fn v_mut(&mut self, id: i64) -> &mut Vehicle {
             let i = vehicle_index(&self.life, id).expect("the vehicle is out");
-            &mut self.life.state.vehicles[i]
+            &mut self.life.land.vehicles[i]
         }
 
         /// A crate loaded into a vehicle's cargo slot. Returns its id.
         fn load(&mut self, id: i64, slot: usize) -> i64 {
-            let pack = self.life.next_id();
-            self.life.state.packs.push(Pack { id: pack, def: "harvestCrate".into(), at: "cargo".into(), vehicle: id, slot: slot as i64, ..Default::default() });
+            let pack = self.life.land.new_id().expect("an id");
+            self.life.land.packs.push(Pack { id: pack, def: "harvestCrate".into(), at: "cargo".into(), vehicle: id, slot: slot as i64, ..Default::default() });
             self.v_mut(id).cargo[slot] = pack;
             pack
         }
@@ -1247,7 +1253,7 @@ mod tests {
         // Calling it again sends the first one home: one of each, ever.
         let again = w.summon("deed.farmCart").expect("called again");
         assert_ne!(again, id);
-        assert_eq!(w.life.state.vehicles.len(), 1);
+        assert_eq!(w.life.land.vehicles.len(), 1);
     }
 
     #[test]
@@ -1266,7 +1272,7 @@ mod tests {
         w.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Rock, x: 0.0, z: -200.0, r: 30.0, scale: 1.0, rot: 0.0 });
         assert_eq!(w.summon("deed.farmCart"), None);
         assert_eq!(w.toasts(), ["No room here"]);
-        assert!(w.life.state.vehicles.is_empty());
+        assert!(w.life.land.vehicles.is_empty());
     }
 
     #[test]
@@ -1310,7 +1316,7 @@ mod tests {
         assert!(w.dismount());
         let before = w.life.revision;
         assert!(w.with(|life, sim| recall(life, sim, id, false)));
-        assert!(w.life.state.vehicles.is_empty());
+        assert!(w.life.land.vehicles.is_empty());
         assert_eq!(w.life.revision, before + 1);
     }
 
@@ -1404,8 +1410,8 @@ mod tests {
             w.stand(DOCKS);
             let id = w.summon("deed.sloop").unwrap();
             w.board(id);
-            w.life.state.weather.wind_dir = w.v(id).heading + wind;
-            w.life.state.weather.wind_speed = 0.8;
+            w.life.weather.wind_dir = w.v(id).heading + wind;
+            w.life.weather.wind_speed = 0.8;
             w.frames(420, drive(1.0, 0.0, false));
             let v = w.v(id);
             assert!(v.sail > 0.95 && v.throttle == v.sail);
@@ -1443,8 +1449,8 @@ mod tests {
         let v = w.v(id).clone();
         let (fx, fz) = (v.heading.js_sin(), v.heading.js_cos());
         let i = vehicle_index(&w.life, id).unwrap();
-        w.life.state.vehicles[i].vx = fx * 5.0;
-        w.life.state.vehicles[i].vz = fz * 5.0;
+        w.life.land.vehicles[i].vx = fx * 5.0;
+        w.life.land.vehicles[i].vz = fz * 5.0;
         w.life.state.clock = 300.0;
         w.toasts();
         w.frames(1, drive(1.0, 0.0, false));
@@ -1459,7 +1465,7 @@ mod tests {
         w.stand(DOCKS);
         let id = w.summon("deed.sloop").unwrap();
         w.board(id);
-        w.life.state.weather.wind_dir = w.v(id).heading;
+        w.life.weather.wind_dir = w.v(id).heading;
         w.frames(300, drive(1.0, 0.0, false));
         assert!(w.v(id).sail > 0.9 && w.v(id).speed > 3.0);
         w.dismount();
@@ -1481,12 +1487,12 @@ mod tests {
         v.z = z;
         v.hp = 25.0;
         w.board(id);
-        w.life.state.weather.rain_until = 1000.0;
+        w.life.weather.rain_until = 1000.0;
         w.toasts();
         let mut wreck = None;
         for _ in 0..600 {
             if let Some(i) = vehicle_index(&w.life, id) {
-                wreck = Some((w.life.state.vehicles[i].x, w.life.state.vehicles[i].z, w.life.state.clock));
+                wreck = Some((w.life.land.vehicles[i].x, w.life.land.vehicles[i].z, w.life.state.clock));
             }
             w.frames(1, drive(0.3, 0.0, false));
         }
@@ -1503,7 +1509,7 @@ mod tests {
         assert_eq!((p.mode, p.vehicle, p.grounded), (Mode::Normal, 0, false));
         assert_eq!(p.pos.y, hf.water - content::swim().float);
         let (wx, wz, when) = wreck.unwrap();
-        let pk = w.life.state.packs.iter().find(|pk| pk.id == pack).unwrap();
+        let pk = w.life.land.packs.iter().find(|pk| pk.id == pack).unwrap();
         assert_eq!((pk.at.as_str(), pk.vehicle, pk.y), ("ground", 0, hf.water - 0.15));
         let d = hypot(pk.x - wx, pk.z - wz);
         assert!(d > 1.0 && d < 4.5, "floating {d} m from the wreck");
@@ -1526,11 +1532,11 @@ mod tests {
         (v.x, v.z, v.hp) = (x, z, 0.01);
         let v = w.v_mut(other);
         (v.x, v.z, v.vx, v.vz) = (x + 24.0, z - 5.0, 3.0, -2.0);
-        w.life.state.weather.rain_until = 1000.0;
+        w.life.weather.rain_until = 1000.0;
         w.toasts();
         w.frames(1, Actions::default());
         assert_eq!(w.toasts(), ["💥 Your rowboat broke up in the swell! 1 pack is floating where she went down."]);
-        assert_eq!(w.life.state.vehicles.len(), 1);
+        assert_eq!(w.life.land.vehicles.len(), 1);
         let v = w.v(other);
         assert!(v.x > x + 24.0 + 0.04 && v.z < z - 5.0 - 0.02, "the sloop moved on the same step");
         assert_eq!(v.storm_warned, None, "nobody aboard to warn");
@@ -1546,7 +1552,7 @@ mod tests {
         w.p.pack = 77;
         w.mount();
         assert_eq!(w.toasts(), ["Your horse won't carry a trade pack - a donkey will"]);
-        assert!(w.life.state.vehicles.is_empty() && w.p.mode == Mode::Normal);
+        assert!(w.life.land.vehicles.is_empty() && w.p.mode == Mode::Normal);
         w.life.give("whistle.donkey", 1, true);
         w.mount();
         assert_eq!(w.p.mode, Mode::Ride);
@@ -1585,7 +1591,7 @@ mod tests {
         assert_eq!(w.p.vehicle, id);
         let v = w.v(id);
         assert_eq!((v.x, v.z, v.heading, v.speed), (60.0, -170.0, 1.0, 0.0));
-        assert_eq!(w.life.state.vehicles.iter().filter(|v| v.def == "donkey").count(), 1);
+        assert_eq!(w.life.land.vehicles.iter().filter(|v| v.def == "donkey").count(), 1);
     }
 
     #[test]
@@ -1808,7 +1814,7 @@ mod tests {
         // A vehicle the content no longer knows, with no cargo list, still drives (as a small cart).
         let hf = w.world.terrain();
         let y = hf.height(0.0, -195.0);
-        w.life.state.vehicles.push(Vehicle { id: 50, def: "retired".into(), z: -195.0, y, hp: 1.0, grounded: true, ..Default::default() });
+        w.life.land.vehicles.push(Vehicle { id: 50, def: "retired".into(), z: -195.0, y, hp: 1.0, grounded: true, ..Default::default() });
         w.frames(10, Actions::default());
         assert!(w.board(50));
         w.frames(30, drive(1.0, 0.5, true));
@@ -1820,7 +1826,7 @@ mod tests {
         let (x, z) = w.offshore(16.0);
         let v = w.v_mut(id);
         (v.x, v.z, v.hp, v.cargo) = (x, z, 0.01, vec![424242, 0]);
-        w.life.state.weather.rain_until = 1e9;
+        w.life.weather.rain_until = 1e9;
         w.toasts();
         w.frames(1, Actions::default());
         assert!(vehicle_index(&w.life, id).is_none());

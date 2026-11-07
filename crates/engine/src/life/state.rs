@@ -1,7 +1,9 @@
-//! Everything the open-world systems remember: money, labor, the bag, every trade pack, summoned
-//! vehicles, farms, houses, demand at the trading posts, quests and weather. Its JSON is the page's
-//! LifeState (src/engine/life/state.ts) field for field, so the islands kept in Postgres load as they
-//! are and the browser reads what the server sends without translation.
+//! A character's life: what is theirs alone and goes where they go (money, labor, the bag, quests,
+//! skills, contracts, what they sold and can buy back). What they've built and planted in the world
+//! is land (crate::life::land), and what the world shares (each trading post's demand, the weather)
+//! is the world's (crate::life::market, crate::life::weather). Its JSON is the page's LifeState
+//! (src/engine/life/state.ts) field for field, so the browser reads what the server sends without
+//! translation.
 
 use std::collections::BTreeMap;
 
@@ -12,124 +14,6 @@ use serde::{Deserialize, Serialize};
 pub struct Stack {
     pub item: String,
     pub n: i64,
-}
-
-/// A trade or material pack: on a back, on the ground, or in cargo. Never in the bag.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(default)]
-pub struct Pack {
-    pub id: i64,
-    pub def: String,
-    /// World clock when it was made, for freshness.
-    pub made: f64,
-    pub origin: String,
-    /// "back", "ground" or "cargo".
-    pub at: String,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub rot: f64,
-    pub vehicle: i64,
-    pub slot: i64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(default)]
-#[serde(rename_all = "camelCase")]
-pub struct Vehicle {
-    pub id: i64,
-    pub def: String,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub heading: f64,
-    pub vx: f64,
-    pub vy: f64,
-    pub vz: f64,
-    /// Forward speed along the heading (signed).
-    pub speed: f64,
-    pub steer: f64,
-    pub throttle: f64,
-    /// Boats: how much sail is set, 0..1.
-    pub sail: f64,
-    pub grounded: bool,
-    pub pitch: f64,
-    pub roll: f64,
-    pub hp: f64,
-    /// A pack id per cargo slot, 0 where empty.
-    pub cargo: Vec<i64>,
-    /// Whether you are in it (always the driver's seat for now).
-    pub ridden: bool,
-    /// Mounts: in deep water.
-    pub swimming: bool,
-    /// Boats: told you about the rough water already.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storm_warned: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(default)]
-#[serde(rename_all = "camelCase")]
-pub struct Plant {
-    pub crop: String,
-    /// 0..1 along the crop's growth; 1 is ripe.
-    pub growth: f64,
-    pub watered: bool,
-    /// Trees only: fruit picked at least once.
-    pub picked: bool,
-    /// Livestock: an animal rather than a plant (`crop` is then the animal's id).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub animal: Option<bool>,
-    /// Livestock: world clock until which it is fed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fed_until: Option<f64>,
-    /// Livestock: progress toward the next eggs, wool or milk, 0..1.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub produce: Option<f64>,
-}
-
-impl Plant {
-    pub fn is_animal(&self) -> bool {
-        self.animal == Some(true)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(default)]
-pub struct Scarecrow {
-    pub id: i64,
-    pub x: f64,
-    pub z: f64,
-    pub rot: f64,
-    /// One per cell, row-major from the back-left; null where nothing is planted.
-    pub cells: Vec<Option<Plant>>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(default)]
-#[serde(rename_all = "camelCase")]
-pub struct House {
-    pub id: i64,
-    pub plot: String,
-    pub blueprint: String,
-    /// Stages finished, 0..stages (complete).
-    pub stage: i64,
-    /// Material packs delivered toward the current stage.
-    pub delivered: BTreeMap<String, i64>,
-    pub storage: Vec<Stack>,
-    /// World clock up to which property tax is paid.
-    pub tax_paid_until: f64,
-}
-
-/// A ship on a slipway, part built.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
-#[serde(default)]
-pub struct ShipBuild {
-    pub id: i64,
-    pub slip: String,
-    pub design: String,
-    pub stage: i64,
-    pub delivered: BTreeMap<String, i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
@@ -148,15 +32,25 @@ pub struct Quests {
     pub done: Vec<String>,
 }
 
+/// The weather where you are, worked out from the world's clock each step (crate::life::weather):
+/// the same for everyone in a region at the same moment, and never kept with a life.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
 pub struct Weather {
+    /// On the life's clock (`LifeState::clock`), like everything that asks about the rain.
     pub rain_until: f64,
     pub next_rain: f64,
     /// Direction the wind blows toward (radians, 0 = +Z) and its strength 0..1.
     pub wind_dir: f64,
     pub wind_speed: f64,
+}
+
+impl Weather {
+    /// Before the first step has worked it out.
+    pub fn initial() -> Weather {
+        Weather { rain_until: 0.0, next_rain: 240.0, wind_dir: 0.9, wind_speed: 0.8 }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
@@ -218,11 +112,12 @@ pub struct Home {
 #[serde(rename_all = "camelCase")]
 pub struct LifeState {
     pub version: i64,
-    /// World seconds since this island began.
+    /// Seconds this life has been lived: it runs while its character plays and, when they come back,
+    /// catches up the time they were away (up to trade.json's clock.maxOfflineSeconds).
     pub clock: f64,
     pub coins: f64,
     /// Coins on a table for a game being played (crates/server/src/play/tables.rs): out of the
-    /// purse until the game pays out. An island loaded with some still here gets them back.
+    /// purse until the game pays out. A life loaded with some still here gets them back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub staked: Option<f64>,
     pub seals: f64,
@@ -232,12 +127,6 @@ pub struct LifeState {
     pub glider: String,
     /// The seed F plants.
     pub seed: String,
-    pub packs: Vec<Pack>,
-    pub vehicles: Vec<Vehicle>,
-    pub scarecrows: Vec<Scarecrow>,
-    pub houses: Vec<House>,
-    #[serde(default)]
-    pub ships: Vec<ShipBuild>,
     /// Vehicles being repaired after breaking up: vehicle def -> world clock when ready.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repairs: Option<BTreeMap<String, f64>>,
@@ -246,15 +135,12 @@ pub struct LifeState {
     /// What you sold to merchants and can still buy back from them, oldest first (crate::life::trade).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub buyback: Option<Vec<Buyback>>,
-    /// Demand multiplier per "outpost:pack".
-    pub demand: BTreeMap<String, f64>,
     /// Gathering spots resting: the spot's id -> the island's clock when it is back.
     pub nodes: BTreeMap<String, f64>,
     pub quests: Quests,
     /// Experience of each skill in the skill book, by its id (crate::life::progress). An island
     /// saved before skills levelled has none: everything at level 1.
     pub skill_xp: BTreeMap<String, f64>,
-    pub weather: Weather,
     #[serde(default)]
     pub stats: Stats,
     /// Where you wake after a rest; null for the zone's spawn.
@@ -263,7 +149,9 @@ pub struct LifeState {
     pub rng: u32,
 }
 
-pub const LIFE_VERSION: i64 = 3;
+/// 4: the life alone, its land kept beside it (crate::life::land); 3 and before held the land too,
+/// read apart by crate::life::land::read_saved.
+pub const LIFE_VERSION: i64 = 4;
 
 pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
     LifeState {
@@ -276,19 +164,12 @@ pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
         bag: Vec::new(),
         glider: String::new(),
         seed: String::new(),
-        packs: Vec::new(),
-        vehicles: Vec::new(),
-        scarecrows: Vec::new(),
-        houses: Vec::new(),
-        ships: Vec::new(),
         repairs: None,
         contracts: None,
         buyback: None,
-        demand: BTreeMap::new(),
         nodes: BTreeMap::new(),
         quests: Quests::default(),
         skill_xp: BTreeMap::new(),
-        weather: Weather { rain_until: 0.0, next_rain: 240.0, wind_dir: 0.9, wind_speed: 0.8 },
         stats: Stats::default(),
         home: None,
         next_id: 1,

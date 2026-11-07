@@ -5,7 +5,8 @@
 
 use super::content::{animal_def, item_def};
 use super::farming::{plant_at, plant_at_mut, scarecrow_index};
-use super::state::Plant;
+use super::land;
+use super::land::Plant;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::{js_max, js_min};
 
@@ -14,7 +15,7 @@ pub fn is_animal(p: Option<&Plant>) -> bool {
 }
 
 pub fn hungry(life: &Life, p: &Plant) -> bool {
-    p.fed_until.unwrap_or(0.0) <= life.state.clock
+    p.fed_until.unwrap_or(0.0) <= land::now(life)
 }
 
 pub fn grown_up(p: &Plant) -> bool {
@@ -26,7 +27,7 @@ pub fn produce_ready(p: &Plant) -> bool {
 }
 
 /// Advances growth and produce for `seconds`, but only the part of it the animal was fed for.
-/// `clock` is the island's clock now. Returns whether it grew up or became ready.
+/// `clock` is the land's clock now (crate::life::land::now). Returns whether it grew up or became ready.
 pub fn step_animal(clock: f64, p: &mut Plant, seconds: f64) -> bool {
     let def = animal_def(&p.crop);
     let fed_for = js_max(0.0, js_min(seconds, p.fed_until.unwrap_or(0.0) - (clock - seconds)));
@@ -49,15 +50,15 @@ pub fn raise(life: &mut Life, sc: i64, idx: usize, item: &str) -> bool {
     let Some(animal) = def.raises.as_deref().filter(|a| !a.is_empty()) else { return false };
     let Some(k) = scarecrow_index(life, sc) else { return false };
     // An empty cell (one past the end of the plot is nowhere to put it).
-    if !matches!(life.state.scarecrows[k].cells.get(idx), Some(None)) {
+    if !matches!(life.land.scarecrows[k].cells.get(idx), Some(None)) {
         return false;
     }
     if !life.take(item, 1) {
         return false;
     }
     // Arrives fed, so it starts growing straight away.
-    let fed_until = life.state.clock + animal_def(animal).feed_seconds;
-    life.state.scarecrows[k].cells[idx] = Some(Plant {
+    let fed_until = land::now(life) + animal_def(animal).feed_seconds;
+    life.land.scarecrows[k].cells[idx] = Some(Plant {
         crop: animal.to_string(),
         growth: 0.0,
         watered: false,
@@ -80,7 +81,7 @@ pub fn feed(life: &mut Life, sc: i64, idx: usize) -> bool {
         return false;
     }
     life.take(&def.feed, def.feed_n);
-    let clock = life.state.clock;
+    let clock = land::now(life);
     if let Some(p) = plant_at_mut(life, sc, idx) {
         p.fed_until = Some(js_max(p.fed_until.unwrap_or(0.0), clock) + def.feed_seconds);
     }
