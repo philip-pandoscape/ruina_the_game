@@ -9,7 +9,7 @@ import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
 import { NO_ACTIONS, type Actions } from '../engine/rules';
-import { IslandView } from '../engine/island';
+import { demandAt, IslandView } from '../engine/island';
 import { arrivalOf, dungeonDef } from '../engine/zone';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
@@ -383,12 +383,24 @@ export function makeTestApi(g: GameRefs) {
     villageStats() {
       return g.openStage?.village.stats() ?? null;
     },
-    /** The life systems' state, as plain data: the life's own, your land's lists beside it (houses, scarecrows, ships, packs, vehicles), the world's market and weather. */
+    /** The life systems' state, as plain data: the life's own, your land's lists beside it (houses, scarecrows, ships, packs, vehicles), the world's market (and its `demand` as it stands now, by "outpost:pack") and weather. */
     life() {
       if (!g.life) return null;
       const l = g.life;
+      // Each trading post's demand that a sale has moved, as it stands now (the world's market).
+      const demand = Object.fromEntries(Object.keys(l.market).map((k) => [k, demandAt(l, k.split(':')[0], k.split(':')[1])]));
       return JSON.parse(
-        JSON.stringify({ ...l.state, ...l.land, market: l.market, weather: l.weather, now: l.now, focus: l.focus, placing: l.placing, resting: l.resting }),
+        JSON.stringify({
+          ...l.state,
+          ...l.land,
+          market: l.market,
+          demand,
+          weather: l.weather,
+          now: l.now,
+          focus: l.focus,
+          placing: l.placing,
+          resting: l.resting,
+        }),
       );
     },
     /** Where the quest you're on leads you (the ring on the maps, the marker on the compass). */
