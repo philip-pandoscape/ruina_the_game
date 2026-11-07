@@ -9,6 +9,7 @@ use crate::actor::Actor;
 use crate::ai::{Ctx, Foe, Peer, Request, Sighting, angle_diff, brain_of, draw, flinch, force_state, rest_state, start_brain, step_brain_in};
 use crate::content::{attack_at, kind, kind_index, kind_mass, ladder_at, ladders, size_for, size_up};
 use crate::event::Event;
+use crate::ids::EntityId;
 use crate::jsmath::JsMath;
 use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
@@ -17,8 +18,12 @@ use crate::pack::step_packs;
 use crate::tuning::tuning;
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
-/// Ids go out on the wire as 16 bits.
-const MAX_ID: u32 = 65_535;
+/// A creature's number (its [`EntityId`](crate::ids::EntityId)): its spawn in the low 16 bits, the
+/// n-th the space brought to life (its spawn list first, in order), and above them its generation,
+/// how many times those 65,535 spawns have come round, so a number isn't soon used again. Kept
+/// under 1 << 30 (an arrow's list of whom it hit marks creatures with that bit).
+const SPAWNS: u32 = 0xffff;
+const GENERATIONS: u32 = 0x3fff;
 /// Frames a dead piece of a burst lies there before it is cleared away.
 const CLEAR_AFTER: i32 = 60;
 /// How close to a gatherer something has to be pulled before it is taken in.
@@ -213,15 +218,22 @@ impl Actors {
         Some(id)
     }
 
-    // Counts up and wraps, skipping ids still in use.
+    // Counts spawns up; once they've come round, a generation on (skipping any number still in
+    // use, should the generations themselves come round).
     fn allocate(&mut self) -> u32 {
         loop {
             let id = self.next_id;
-            self.next_id = if id >= MAX_ID { 1 } else { id + 1 };
+            let (generation, spawn) = (id >> 16, id & SPAWNS);
+            self.next_id = if spawn >= SPAWNS { ((generation + 1) & GENERATIONS) << 16 | 1 } else { id + 1 };
             if !self.list.iter().any(|a| a.id == id) {
                 return id;
             }
         }
+    }
+
+    /// A creature's id, the same everywhere (its number here: crate::ids).
+    pub fn entity(a: &Actor) -> EntityId {
+        EntityId::creature(a.id)
     }
 
     fn new_group(&mut self) -> u32 {
@@ -909,5 +921,27 @@ impl Actors {
                 o.angry = o.angry.max(theirs);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn creatures_are_numbered_by_spawn_then_generation() {
+        let mut actors = Actors::new();
+        let first = actors.spawn("slime", 0.0, 0.0, 1).expect("a slime");
+        assert_eq!(first, 1, "the first spawn of the first generation");
+        assert_eq!(Actors::entity(actors.get(first).unwrap()), EntityId::creature(1));
+        // The last spawn of a generation, then the first of the next.
+        actors.next_id = SPAWNS;
+        assert_eq!(actors.spawn("slime", 1.0, 0.0, 2), Some(SPAWNS));
+        assert_eq!(actors.spawn("slime", 2.0, 0.0, 3), Some(1 << 16 | 1));
+        // A number still in use is skipped, should the generations come round to it.
+        actors.next_id = GENERATIONS << 16 | SPAWNS;
+        assert_eq!(actors.spawn("slime", 3.0, 0.0, 4), Some(GENERATIONS << 16 | SPAWNS));
+        assert_eq!(actors.spawn("slime", 4.0, 0.0, 5), Some(2), "1 is the first slime's still");
+        assert!(actors.list.iter().all(|a| a.id < 1 << 30));
     }
 }

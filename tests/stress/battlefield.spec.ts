@@ -4,7 +4,7 @@ import { battlefield } from '../support/battlefield';
 
 // How the battlefield holds up as bots join (the refactor's R10.12): the server's tick time and the
 // size of each update an admin there is sent, and this browser's frame time, with the battlefield's
-// own bots and then with as many as a game holds (MAX_BOTS in crates/server/src/play/bots.rs). Every
+// own bots and then with as many as a game holds (MAX_BOTS in crates/server/src/sim/bots.rs). Every
 // bot is a whole player to the server and a whole hero to the browser today; crowds at scale (each
 // client sent what's near it, compact updates for many, far bodies drawn by the crowd renderer) are
 // R10.8 and R10.9, and this is the number they improve on. The numbers go to

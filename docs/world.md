@@ -14,7 +14,7 @@ add a region or an instance. The plans for the rest are in `.plans/world/` and t
 
 | What | Where | Played in |
 |---|---|---|
-| A region | `content/regions/<id>.json` (its recipe) and `content/regions/<id>/` (its places, buildings, gathering spots, doors and the rest; its people are `content/npcs/`) | Channels: everyone in the world, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
+| A region | `content/regions/<id>.json` (its recipe) and `content/regions/<id>/` (its places, buildings, gathering spots, doors and the rest; its people are `content/npcs/`) | Channels: everyone in the world, a channel each so none gets crowded, each a simulation of its own (`crates/server/src/sim/`) |
 | A dungeon | `content/instances/<id>.json`, its door in the region it's entered from (`content/regions/<region>/doors.json`) | A copy for each party, entered through its portal in the world |
 | A developer zone | `content/instances/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
 
@@ -95,21 +95,28 @@ instance.
 - **An instance is a space of its own.** Its floors and walls stand round its own origin, over
   nothing (`OpenWorld::instance`; its map is `WorldMap::void`, with no region, no sea and a long fall
   below). Nothing of the world is near you inside it, and nothing of it is in the world.
-- **Each server game plays one space.** Going through a portal moves you to another game
-  mid-connection (`Spaces::move_to`).
-- **Saves:** one made in a copy keeps the spot outside its door, so a restart puts you there.
+- **Each simulation plays one space**, on a thread of its own, found by the space's id
+  (`channel:<region>:<n>`, `copy:<instance>:<n>`: `SpaceId` in `crates/world-api`). Going through
+  a portal moves you to another simulation mid-connection: yours asks the directory where
+  (`crates/server/src/directory/`), which grants you there under a newer epoch, and hands you over
+  whole, your connection, player and life in one message (`ToSim::Transfer`).
+- **Saves:** a character is saved with its space (`characters.space`). One made in a copy keeps
+  the spot outside its door, in its home channel's space, so a restart puts you there.
 
 ## Channels
 
-The world is played in channels (`crates/server/src/play/spaces.rs`, `channels.rs`). A channel is a
-game of its own, with its players, creatures and bots, stepped 20 times a second by the world thread.
+The world is played in channels. A channel is a simulation of its own (`crates/server/src/sim/`),
+with its players, creatures and bots, stepped 20 times a second on a thread of its own and taking
+its messages at each tick's boundary. The directory (`crates/server/src/directory/`) starts it the
+first time it's needed (someone whose home it is comes in), under a lease with an epoch, and knows
+who plays in it; its residents' estates are read by the store as it starts (`channels.rs`).
 
 - **Residents.** Each channel is home to at most 24 characters (`CHANNEL_CAP`).
 - **Estates.** A resident's houses, farms and ships on the slipway stand in their channel while
   they're away.
 - **Plots.** A house plot goes to whoever built on it first in that channel.
 
-Every game numbers its ticks by the world's clock (`crates/server/src/play/clock.rs`): frames at 60
+Every game numbers its ticks by the world's clock (`crates/server/src/sim/clock.rs`): frames at 60
 a second from the world's epoch (2026-01-01 UTC), and a server tick every third frame, 20 a second.
 - **The same moment everywhere.** A tick is the same moment in every channel and copy, so a browser's
   timelines run on across moves between them, and across a server's restart. A tick that runs late
@@ -134,8 +141,9 @@ A dungeon or a developer zone is an instance. A copy of it plays its space alone
 (`src/engine/world/dungeons.ts`, `src/app/dungeonVisit.ts`: the world set aside until you come back
 out).
 
-- **Going in** moves you between games on the server mid-connection, your life and all
-  (`Spaces::move_to`). The browser hears where it is (`onSpace`) and draws the place: a cave
+- **Going in** moves you between simulations on the server mid-connection, your life and all:
+  the directory finds or makes the copy that's yours (your party's, or yours alone) and starts its
+  simulation, and yours hands you over (`ToSim::Transfer`). The browser hears where it is (`onSpace`) and draws the place: a cave
   (`src/render/open/dungeonView.ts`, Emberholm put away) or an open arena (`arenaView.ts`, under the
   sky).
 - **A copy is kept** 30 minutes after the last player leaves, as World of Warcraft keeps an instance.
@@ -211,10 +219,10 @@ its props stand on its own pieces, and its torches and falls have their light.
 
 A bot is a player without a socket whose inputs a brain fills each tick (`crates/engine/src/bots.rs`:
 a skirmisher finds a foe, fights and falls back when hurt; a wanderer walks about). The server steps
-them like players (`crates/server/src/play/bots.rs`), and browsers see them as other players marked
+them like players (`crates/server/src/sim/bots.rs`), and browsers see them as other players marked
 `bot`. Each brain sees everyone as the tick begins and decides for its bot alone, so the order they
 think in changes nothing, and a server started with `--parallel on` has them think all at once, as
-it steps the players (`play/stepping.rs`).
+it steps the players (`crates/server/src/sim/stepping.rs`).
 
 An instance's bots come in with its first player and go with the last, so an empty battlefield costs
 nothing. An admin can add more anywhere with the `bots` command (`n`, `brain`, `team`; `n: 0` sends
@@ -276,8 +284,9 @@ what's near the player (R10.16, R10.23).
   gliding, farming, vehicles, boats).
 - `crates/engine/src/open/dungeon.rs`: every instance loads, has a floor where you come in and its
   pieces within its edge, and every dungeon has a door in the world and a way out.
-- `crates/server/src/play/spaces.rs`: copies made, kept and let go; admins in, players kept out; the
-  yard's creatures on its floor; the goblin camp's war-band.
+- `crates/server/src/tests.rs`: the server's tiers together, as players use them: copies made, kept
+  and let go; parties into them; whoever doesn't belong put out; admins in, players kept out.
+  `crates/server/src/sim/mod.rs`: the yard's creatures on its floor, the goblin camp's war-band.
 - `crates/engine/src/session.rs` and `tests/unit/rules/instances.test.ts`: offline, a copy of the yard
   with its own creatures on its floor (the world's back as they were when you come out), where it's
   entered, and blows landing on its dummy; the yard's practice rules (a landed blow's pause, a swing

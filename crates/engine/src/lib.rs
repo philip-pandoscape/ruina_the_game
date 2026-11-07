@@ -19,6 +19,7 @@ pub mod combat;
 pub mod content;
 pub mod creatures;
 pub mod event;
+pub mod ids;
 pub mod jsmath;
 pub mod life;
 pub mod minigames;

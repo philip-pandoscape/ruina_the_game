@@ -15,13 +15,15 @@ use std::collections::HashMap;
 use std::io::Read;
 
 use ruina_engine::actors::Actors;
+use ruina_engine::combat::Players;
+use ruina_engine::ids::EntityId;
 use ruina_engine::open::OpenWorld;
 use ruina_engine::open::dungeon::{DungeonDef, dungeon};
 use ruina_engine::open::zone::emberholm;
 use ruina_engine::player::{Build, Mode, Player};
 use ruina_engine::skills::{EMPTY_SKILLS, node_index, set_skill};
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability_index, movement_index, tuning, weapon_index};
-use ruina_server::combat::{Players, actions_from};
+use ruina_world_api::input::actions_from;
 use serde::{Deserialize, Serialize};
 // mulberry32, the generator the world uses, so a run is repeatable from its seed.
 use ruina_engine::rng::Rng;
@@ -133,11 +135,12 @@ fn duel(arena: &'static DungeonDef, a: &Build, b: &Build, seed: u32, max_ticks: 
     let mut rng = Rng(seed);
 
     // One a side, where the arena is entered (its file's arrival), then stood apart.
+    let fighter = |k: i64| EntityId::character(k);
     let spot = world.spawn_point();
-    players.join_at(1, Player::new(spot, 0, Build::default()));
-    players.join_at(2, Player::new(spot, 1, Build::default()));
-    players.sync_build(1, 1, *a);
-    players.sync_build(2, 1, *b);
+    players.join_at(fighter(1), Player::new(spot, 0, Build::default()));
+    players.join_at(fighter(2), Player::new(spot, 1, Build::default()));
+    players.sync_build(fighter(1), 1, *a);
+    players.sync_build(fighter(2), 1, *b);
     // Face each other across the opening gap, clear of the spawn crowd.
     players.place(0, -distance / 2.0, 0.0, std::f64::consts::FRAC_PI_2);
     players.place(1, distance / 2.0, 0.0, -std::f64::consts::FRAC_PI_2);
@@ -178,7 +181,7 @@ fn duel(arena: &'static DungeonDef, a: &Build, b: &Build, seed: u32, max_ticks: 
                 0, // nor holds a stance: it turns the way it goes
             ];
             seq[me] += 1;
-            let client = me as u32 + 1;
+            let client = fighter(me as i64 + 1);
             // As a browser sends it: the bytes, read the way the server reads them.
             players.queue_actions(client, std::iter::once((seq[me], f64::from(tick.saturating_sub(1)), actions_from(raw))));
         }

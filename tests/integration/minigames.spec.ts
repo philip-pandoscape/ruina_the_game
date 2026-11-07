@@ -6,7 +6,7 @@ import { useEngine } from '../../src/engine/wasm';
 import { isTitleCase } from '../../src/ui/theme/text';
 import { onlineReady as waitOnline } from '../support/game';
 
-// Mini-games online (src/ui/minigames, crates/server/src/play/tables.rs): walk up to another player,
+// Mini-games online (src/ui/minigames, crates/server/src/sim/tables.rs): walk up to another player,
 // challenge them with F, they accept, both stakes go into the pot and a table is thrown down
 // between them that everyone in the channel sees; they play Beacons there and the winner takes the
 // pot. A refusal leaves both purses alone, and conceding hands the pot over. These play the real

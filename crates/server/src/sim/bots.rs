@@ -6,11 +6,13 @@
 use std::collections::BTreeMap;
 
 use rayon::prelude::*;
-use serde_json::json;
+
+use ruina_world_api::gate::ToConn;
 
 use super::stepping::Stepping;
-use super::{ChannelGame, TICK_HZ, client};
+use super::{Game, TICK_HZ};
 use crate::bots::{Bot, Brain, FoeSeen};
+use crate::ids::EntityId;
 use crate::jsmath::JsMath;
 use crate::life::Life;
 use crate::open::colliders::ground_at;
@@ -19,19 +21,21 @@ use crate::world::Spawn;
 
 /// A bot playing here.
 pub struct BotSlot {
-    pub id: i64,
+    /// Who it is among the players (crate::ids).
+    pub entity: EntityId,
     pub name: String,
     brain: Bot,
     /// Its last input's number: bots number their inputs as browsers do.
     seq: u32,
 }
 
-/// Bots' ids: below every character's (they start at 1), counting down from here.
-const FIRST_BOT: i64 = -1_000_000;
+/// Bots' numbers as the rest of the rules know them (whose colliders, whose vehicles): below every
+/// character's (they start at 1), counting down from here. The wire names a bot so too (the gate).
+pub const FIRST_BOT: i64 = -1_000_000;
 /// The most bots one channel holds, so a slip of the panel can't fill it.
 pub const MAX_BOTS: usize = 64;
 
-impl ChannelGame {
+impl Game {
     /// Up to `n` bots with `brain` in a ring round (x, z), on `team`. How many joined: the channel
     /// may be full, or at its bots' limit.
     pub fn spawn_bots(&mut self, n: u32, brain: Brain, x: f64, z: f64, team: u8) -> u32 {
@@ -60,12 +64,13 @@ impl ChannelGame {
             player.pos.y = ground_at(hf, &self.open.index, bx, bz, floor.unwrap_or_else(|| hf.height(bx, bz)) + 1.2, 1.2);
             player.grounded = true;
             // An island of its own, empty: the rules step every open-world player with one.
-            let life = Box::new(Life::new(self.open.zone, None, None));
-            if !self.players.join_open(client(id), id, player, life) {
+            let life = Box::new(Life::new(self.zone, None, None));
+            let entity = EntityId::bot(self.sim.0, self.bot_count);
+            if !self.players.join_open(entity, id, player, life) {
                 break;
             }
             let name = format!("{} {}", if brain == Brain::Wanderer { "Wanderer" } else { "Skirmisher" }, self.bot_count);
-            self.bots.push(BotSlot { id, name, brain: Bot::new(brain, 0x5eed_0000 ^ self.bot_count, (x, z)), seq: 0 });
+            self.bots.push(BotSlot { entity, name, brain: Bot::new(brain, 0x5eed_0000 ^ self.bot_count, (x, z)), seq: 0 });
             joined += 1;
         }
         joined
@@ -88,14 +93,14 @@ impl ChannelGame {
     /// Every bot here gone.
     pub fn remove_bots(&mut self) {
         for b in std::mem::take(&mut self.bots) {
-            self.players.leave(client(b.id));
-            self.send_all(&json!({ "t": "left", "id": b.id }).to_string(), None);
+            self.players.leave(b.entity);
+            self.say_all(&ToConn::Left { id: b.entity }, None);
         }
     }
 
-    /// A bot's name, if `id` is one of the bots here.
-    pub(super) fn bot_name(&self, id: i64) -> Option<&str> {
-        self.bots.iter().find(|b| b.id == id).map(|b| b.name.as_str())
+    /// A bot's name, if `entity` is one of the bots here.
+    pub(super) fn bot_name_of(&self, entity: EntityId) -> Option<&str> {
+        self.bots.iter().find(|b| b.entity == entity).map(|b| b.name.as_str())
     }
 
     /// Each bot looks at who it can fight (anyone on another side, players and bots alike) and
@@ -115,7 +120,7 @@ impl ChannelGame {
         }
         let players = &self.players;
         let think = |b: &mut BotSlot| {
-            let (me, _, _) = players.open_view(client(b.id))?;
+            let (me, _, _) = players.open_view(b.entity)?;
             Some(b.brain.think(me, foes.get(&me.team).map_or(&[], Vec::as_slice)))
         };
         let decided: Vec<Option<Actions>> = match self.stepping {
@@ -130,7 +135,7 @@ impl ChannelGame {
             // A press counts once: on the first of the tick's steps.
             let held = Actions { attack_pressed: false, jump_pressed: false, slide_pressed: false, ability_slot: 0, movement_slot: 0, ..a };
             // A bot sees everyone where they are: nothing to rewind.
-            self.players.queue_actions(client(b.id), (0..steps).map(|k| (first + k, f64::INFINITY, if k == 0 { a } else { held })));
+            self.players.queue_actions(b.entity, (0..steps).map(|k| (first + k, f64::INFINITY, if k == 0 { a } else { held })));
         }
     }
 }
@@ -140,14 +145,28 @@ mod tests {
     use super::*;
     use crate::open::zone::emberholm;
     use crate::rng::Rng;
+    use ruina_world_api::records::{ArrowRecord, EffectRecord, MeteorRecord, PlayerState};
+    use ruina_world_api::{Owner, SimId};
+    use serde_json::json;
+
+    /// The battlefield's copy, as the directory would start it.
+    fn battlefield() -> Game {
+        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
+        Game::copy(SimId(1), def, 1, Owner::Everyone)
+    }
+
+    /// A player's state as the browser reads it, as text (what the hashes fold).
+    fn state_text(p: &Player) -> String {
+        serde_json::to_value(PlayerState::of(p)).expect("a state").to_string()
+    }
 
     #[test]
     fn bots_join_play_and_leave() {
-        let mut ch = ChannelGame::new(1);
+        let mut ch = Game::test();
         let s = &emberholm().recipe.spawn;
         assert_eq!(ch.spawn_bots(4, Brain::Wanderer, s.x, s.z, 0), 4);
         assert_eq!(ch.bots.len(), 4);
-        let start: Vec<(f64, f64)> = ch.bots.iter().map(|b| ch.players.open_view(client(b.id)).map(|(p, _, _)| (p.pos.x, p.pos.z)).unwrap()).collect();
+        let start: Vec<(f64, f64)> = ch.bots.iter().map(|b| ch.players.open_view(b.entity).map(|(p, _, _)| (p.pos.x, p.pos.z)).unwrap()).collect();
         // A tick at a time as step() runs them, with a tick's worth of inputs whatever the clock says.
         for tick in 0..60 {
             ch.drive_bots();
@@ -159,21 +178,21 @@ mod tests {
             .bots
             .iter()
             .zip(&start)
-            .filter(|(b, s)| ch.players.open_view(client(b.id)).is_some_and(|(p, _, _)| (p.pos.x - s.0).hypot(p.pos.z - s.1) > 0.5))
+            .filter(|(b, s)| ch.players.open_view(b.entity).is_some_and(|(p, _, _)| (p.pos.x - s.0).hypot(p.pos.z - s.1) > 0.5))
             .count();
         assert!(moved >= 2, "{moved} of 4 moved");
         ch.remove_bots();
         assert!(ch.bots.is_empty());
-        assert!(ch.players.open_view(client(FIRST_BOT - 1)).is_none());
+        assert!(ch.players.each_open().all(|(e, _, _, _)| e.as_bot().is_none()), "no bot left among the players");
     }
 
     #[test]
     fn skirmishers_on_two_sides_fight() {
-        let mut ch = ChannelGame::new(1);
+        let mut ch = Game::test();
         let s = &emberholm().recipe.spawn;
         ch.spawn_bots(1, Brain::Skirmisher, s.x, s.z, 0);
         ch.spawn_bots(1, Brain::Skirmisher, s.x + 4.0, s.z, 1);
-        let hp = |ch: &ChannelGame| -> Vec<f64> { ch.bots.iter().map(|b| ch.players.open_view(client(b.id)).map_or(0.0, |(p, _, _)| p.hp)).collect() };
+        let hp = |ch: &Game| -> Vec<f64> { ch.bots.iter().map(|b| ch.players.open_view(b.entity).map_or(0.0, |(p, _, _)| p.hp)).collect() };
         let full = hp(&ch);
         for tick in 0..200 {
             ch.drive_bots();
@@ -188,16 +207,15 @@ mod tests {
     /// clubs, staves and bows), played for `ticks` ticks of the rules alone: the game itself, and a
     /// hash of everyone's state after every tick (FNV-1a over each player's state as the browser
     /// reads it, in slot order), and how many arrows were seen in flight, tick by tick.
-    pub(crate) fn battle(ticks: u32) -> (ChannelGame, String, usize) {
-        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
-        let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
+    pub(crate) fn battle(ticks: u32) -> (Game, String, usize) {
+        let mut ch = battlefield();
         ch.zone_bots_in();
-        let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
+        let ids: Vec<EntityId> = ch.bots.iter().map(|b| b.entity).collect();
         for (k, id) in ids.into_iter().enumerate() {
             let name = ["sword", "club", "staff", "bow"][k % 4];
             let weapon = crate::tuning::weapon_index(name).expect("its weapon");
             let skills = crate::skills::skills_from(&[name]);
-            if let Some((p, _)) = ch.players.open_mut(client(id)) {
+            if let Some((p, _)) = ch.players.open_mut(id) {
                 p.apply_build(Build { skills, weapon, ..Build::default() });
             }
         }
@@ -206,11 +224,12 @@ mod tests {
         for _ in 0..ticks {
             ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
             for (_, _, p, _) in ch.players.each_open() {
-                for b in super::super::player_state_json(p).to_string().bytes() {
+                for b in state_text(p).bytes() {
                     h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
                 }
             }
-            arrows += crate::combat::effects_json(&ch.players, None, 0.0, 0.0).0.as_array().map_or(0, Vec::len);
+            // As a browser in the middle would have seen them (within 90 m, at most 64).
+            arrows += ch.players.arrows().iter().filter(|a| a.x.hypot(a.z) <= 90.0).count().min(64);
         }
         (ch, format!("{h:016x}"), arrows)
     }
@@ -233,13 +252,9 @@ mod tests {
     /// The battlefield with `n` skirmishers, half a side, spread in rows of groups of eight facing
     /// each other across the middle, and an admin in it receiving every update: the game as the
     /// tick-time bench plays it.
-    fn crowded_battlefield(n: u32) -> ChannelGame {
-        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
-        let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
-        let (out, rx) = tokio::sync::mpsc::channel(16);
-        // The admin's browser never reads: its updates are made and dropped, as a slow one's are.
-        std::mem::forget(rx);
-        ch.join(super::super::Arrival { character: 1, session: 1, name: "Admin".into(), out, dev: true, island: None, saved_at: None, now: 0, build: None });
+    fn crowded_battlefield(n: u32) -> Game {
+        let mut ch = battlefield();
+        ch.join(super::super::tests::arrival(1, 1, "Admin", true, None));
         let groups = n.div_ceil(16);
         for team in 0..2u8 {
             for g in 0..groups {
@@ -260,24 +275,31 @@ mod tests {
                 let mut ch = crowded_battlefield(n);
                 ch.stepping = stepping;
                 assert_eq!(ch.bots.len(), n as usize);
-                let mut saves = Vec::new();
                 for _ in 0..40 {
                     ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
                 }
                 let ticks = 100;
-                let (mut rules, mut sent) = (0.0, 0.0);
+                let (mut rules, mut published, mut encoded, mut bytes) = (0.0, 0.0, 0.0, 0);
                 for _ in 0..ticks {
                     let t = std::time::Instant::now();
                     ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
                     let m = std::time::Instant::now();
-                    ch.send_tick(m, &mut saves);
+                    // The simulation's part: the tick's records, once.
+                    let out = ch.publish(m);
+                    let e = std::time::Instant::now();
+                    // The gate's part, on its own threads: the admin's update built from them.
+                    let me = out.private_of(1).expect("the admin's own");
+                    bytes = crate::gate::encode::tick(&out, me, true).len();
                     rules += (m - t).as_secs_f64() * 1000.0;
-                    sent += m.elapsed().as_secs_f64() * 1000.0;
+                    published += (e - m).as_secs_f64() * 1000.0;
+                    encoded += e.elapsed().as_secs_f64() * 1000.0;
+                    ch.writes.clear();
                 }
-                let (rules, sent) = (rules / f64::from(ticks), sent / f64::from(ticks));
+                let per = |v: f64| v / f64::from(ticks);
+                let (rules, published, encoded) = (per(rules), per(published), per(encoded));
                 println!(
-                    "{n:5} bots, {how:17}: the rules {rules:7.3} ms a tick, the updates {sent:7.3} ms, in all {:7.3} ms ({} blows)",
-                    rules + sent,
+                    "{n:5} bots, {how:17}: the rules {rules:7.3} ms a tick, its records {published:7.3} ms (the simulation's tick {:7.3} ms); the gate's update {encoded:7.3} ms, {bytes} bytes ({} blows)",
+                    rules + published,
                     ch.players.pvp_hits
                 );
             }
@@ -290,21 +312,20 @@ mod tests {
     /// afresh before every tick. A hash of every player, creature, arrow, meteor and effect (and what
     /// each player was told) after every tick.
     fn melee(ticks: u32, stepping: Stepping, shuffle: Option<u32>) -> String {
-        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
-        let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
+        let mut ch = battlefield();
         ch.stepping = stepping;
         ch.zone_bots_in();
-        let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
+        let ids: Vec<EntityId> = ch.bots.iter().map(|b| b.entity).collect();
         for (k, id) in ids.into_iter().enumerate() {
             let name = ["sword", "club", "staff", "bow"][k % 4];
             let weapon = crate::tuning::weapon_index(name).expect("its weapon");
             let skills = crate::skills::skills_from(&[name]);
-            if let Some((p, _)) = ch.players.open_mut(client(id)) {
+            if let Some((p, _)) = ch.players.open_mut(id) {
                 p.apply_build(Build { skills, weapon, ..Build::default() });
             }
         }
         // Round the copy's own origin: an instance is a space of its own.
-        let (ox, oz) = (0.0, 0.0);
+        let (ox, oz) = (0.0f64, 0.0f64);
         // A war-band of six on each flank, in a ring.
         for band in 1..=2u32 {
             let cx = ox + if band == 1 { -12.0 } else { 12.0 };
@@ -329,15 +350,17 @@ mod tests {
             }
             ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
             for (c, _, p, _) in ch.players.each_open() {
-                let told = ch.players.slot_index(c).map(|s| crate::combat::effects_json(&ch.players, Some(s), p.pos.x, p.pos.z).2);
-                fold(json!([super::super::player_state_json(p), told]).to_string());
+                let told: Option<Vec<EffectRecord>> = ch.players.slot_index(c).map(|s| ch.players.told(s).iter().map(EffectRecord::of).collect());
+                fold(json!([PlayerState::of(p), told]).to_string());
             }
             let mut creatures: Vec<&crate::actor::Actor> = ch.actors.list.iter().collect();
             creatures.sort_by_key(|a| a.id);
             for a in creatures {
                 fold(json!([a.id, a.x, a.y, a.z, a.facing, a.hp, a.state, a.dead_frame, a.lean_x, a.lean_z]).to_string());
             }
-            let (arrows, meteors, events) = crate::combat::effects_json(&ch.players, None, ox, oz);
+            let arrows: Vec<ArrowRecord> = ch.players.arrows().iter().map(ArrowRecord::of).collect();
+            let meteors: Vec<MeteorRecord> = ch.players.meteors().iter().map(MeteorRecord::of).collect();
+            let events: Vec<EffectRecord> = ch.players.shown().iter().map(EffectRecord::of).collect();
             fold(json!([arrows, meteors, events, ch.players.pvp_hits]).to_string());
         }
         assert!(ch.players.pvp_hits > 20, "a fight: {} blows", ch.players.pvp_hits);
@@ -361,7 +384,7 @@ mod tests {
 
     #[test]
     fn a_channel_holds_only_so_many() {
-        let mut ch = ChannelGame::new(1);
+        let mut ch = Game::test();
         let s = &emberholm().recipe.spawn;
         let joined = ch.spawn_bots(MAX_BOTS as u32 + 10, Brain::Wanderer, s.x, s.z, 0);
         assert!(joined as usize <= MAX_BOTS);

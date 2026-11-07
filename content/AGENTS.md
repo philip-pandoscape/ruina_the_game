@@ -49,7 +49,7 @@ that a cave's dressing names its own walls and pieces (`docs/world.md`, Dressing
   movement skill, a skill node, a mini-game, an item in a trade) takes that place from the bundle,
   which the server and the browser read alike. contentc writes a hash of all of `shared/`
   (`shared/hash.json`); the server says its own when a page connects, and a page built from other
-  content reloads into the new build, as for a new protocol (`crates/server/src/play/socket.rs`,
+  content reloads into the new build, as for a new protocol (`crates/server/src/gate/socket.rs`,
   `src/net/worldLink.ts`). So an order can change, as long as the server is built again with it
   (`npm run up`). What names a weapon, an ability or a movement skill in content does so by id: the
   skill tree's grants and modifiers (`shared/skilltree.json`) and what a level adds

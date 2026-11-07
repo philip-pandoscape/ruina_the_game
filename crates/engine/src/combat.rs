@@ -24,6 +24,7 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::actors::{Actors, FoeHit, Slam};
 use crate::ai::Foe;
 use crate::content::kind_at;
+use crate::ids::EntityId;
 use crate::jsmath::{JsMath, js_hypot};
 use crate::life::content::rideable;
 use crate::life::progress::{Observed, sync_levels};
@@ -82,7 +83,7 @@ fn ability_cause(ability: u8) -> u16 {
 }
 
 struct Slot {
-    client_id: u32,
+    client_id: EntityId,
     player: Player,
     last_seq: u32,
     build_seq: u32,
@@ -103,7 +104,7 @@ struct Slot {
 }
 
 impl Slot {
-    fn new(client_id: u32, player: Player, owner: i64, life: Option<Box<Life>>) -> Slot {
+    fn new(client_id: EntityId, player: Player, owner: i64, life: Option<Box<Life>>) -> Slot {
         Slot { client_id, player, last_seq: 0, build_seq: 0, queue: VecDeque::new(), owner, life, commands: VecDeque::new(), budget: 0.0, told: Vec::new() }
     }
 }
@@ -174,11 +175,11 @@ struct Seen {
 /// An arrow in flight.
 pub struct Arrow {
     pub id: u16,
-    pub owner: u16,    // player id of the shooter (their slot)
-    owner_slot: usize, // and their slot, for "you hit X" events
-    owner_client: u32, // and who was in it, so what it does is credited to them and nobody else
-    weapon: u8,        // which weapon fired it (it trains that one)
-    cause: u16,        // and for the icon on the damage number
+    pub owner: u16,         // player id of the shooter (their slot)
+    owner_slot: usize,      // and their slot, for "you hit X" events
+    owner_client: EntityId, // and who was in it, so what it does is credited to them and nobody else
+    weapon: u8,             // which weapon fired it (it trains that one)
+    cause: u16,             // and for the icon on the damage number
     pub team: u8,
     pub x: f64,
     pub y: f64,
@@ -196,9 +197,9 @@ pub struct Arrow {
 /// A meteor on its way down.
 pub struct Meteor {
     pub id: u16,
-    owner_slot: usize, // who called it down, for "you hit X" events
-    owner_client: u32, // and who was in that slot, for what it finishes off
-    cause: u16,        // the ability that called it, for the icon on the damage number
+    owner_slot: usize,      // who called it down, for "you hit X" events
+    owner_client: EntityId, // and who was in that slot, for what it finishes off
+    cause: u16,             // the ability that called it, for the icon on the damage number
     pub team: u8,
     pub x: f64,
     pub z: f64,
@@ -224,7 +225,7 @@ struct Blow {
     source: usize,
     /// Who is credited with it, and told about it: their slot and who was in it.
     by_slot: usize,
-    by_client: u32,
+    by_client: EntityId,
     /// The weapon it trains, if a weapon dealt it (a blast trains nothing: its cast already did).
     weapon: Option<u8>,
     cause: u16,
@@ -417,7 +418,7 @@ impl Before<'_> {
 
     /// The players a swing reaches, each checked where the attacker saw them (tick `view`).
     #[allow(clippy::too_many_arguments)]
-    fn swing_players(&self, s: usize, client: u32, a: &Player, view: f64, latest: f64, step: &AttackStep, max: usize, out: &mut Outbox) -> usize {
+    fn swing_players(&self, s: usize, client: EntityId, a: &Player, view: f64, latest: f64, step: &AttackStep, max: usize, out: &mut Outbox) -> usize {
         // High in the air, a swing reaches nobody: two metres above the ground under you (a copy's
         // floor, or the world's terrain).
         let floor = self.ground_at(a.pos.x, a.pos.z);
@@ -470,7 +471,7 @@ impl Before<'_> {
     /// The creatures a swing reaches, each judged where the attacker saw it (tick `view`), on hills
     /// only those whose feet are within 2 m of the swinger's (`feet`).
     #[allow(clippy::too_many_arguments)]
-    fn swing_creatures(&self, s: usize, client: u32, p: &Player, view: f64, step: &AttackStep, max: usize, feet: Option<f64>, out: &mut Outbox) -> usize {
+    fn swing_creatures(&self, s: usize, client: EntityId, p: &Player, view: f64, step: &AttackStep, max: usize, feet: Option<f64>, out: &mut Outbox) -> usize {
         let (floor, terrain, tracks) = (self.floor, self.ground, self.creature_tracks);
         let place = |a: &crate::actor::Actor| {
             let (x, y, z) = tracks.get(&a.id).and_then(|t| t.at(view)).unwrap_or((a.x, a.y, a.z));
@@ -523,7 +524,7 @@ impl Before<'_> {
     }
 
     /// delayedArea: something starts falling on the target spot and blasts it after a delay.
-    fn meteor(&self, caster_slot: usize, caster_client: u32, a: u8, fx: usize, caster: &Player) -> Meteor {
+    fn meteor(&self, caster_slot: usize, caster_client: EntityId, a: u8, fx: usize, caster: &Player) -> Meteor {
         let e = &ability(a).effects[fx];
         let fall_ticks = ((e.delay_frames as f64 / 60.0 * 1000.0 / self.tick_ms).round() as u32).max(1);
         Meteor {
@@ -544,7 +545,7 @@ impl Before<'_> {
 }
 
 /// An arrow loosed by the player in `owner_slot` (its id is given once everyone has stepped).
-fn arrow(owner_slot: usize, owner_client: u32, shooter: &Player, shot: &AttackStep) -> Arrow {
+fn arrow(owner_slot: usize, owner_client: EntityId, shooter: &Player, shot: &AttackStep) -> Arrow {
     let (dx, dz) = (shooter.facing.js_sin(), shooter.facing.js_cos());
     Arrow {
         id: 0,
@@ -582,7 +583,7 @@ pub struct Players {
     /// duels) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
     pub inputs_per_tick: f64,
     slots: Vec<Option<Slot>>,
-    by_client: BTreeMap<u32, usize>,
+    by_client: BTreeMap<EntityId, usize>,
     /// Where the player in each slot stood at the end of each of the last ticks.
     tracks: Vec<Track>,
     /// And every creature, by its id.
@@ -627,7 +628,7 @@ impl Players {
     /// Tells the player in `slot`, if it's still `client` (None: whoever is there), about something
     /// that happened to them or because of them.
     #[allow(clippy::too_many_arguments)]
-    fn note_for(&mut self, slot: usize, client: Option<u32>, kind: u16, cause: u16, x: f64, y: f64, z: f64, amount: f64) {
+    fn note_for(&mut self, slot: usize, client: Option<EntityId>, kind: u16, cause: u16, x: f64, y: f64, z: f64, amount: f64) {
         if let Some(Some(s)) = self.slots.get_mut(slot)
             && client.is_none_or(|c| c == s.client_id)
         {
@@ -675,7 +676,7 @@ impl Players {
 
     /// A player without an island (the balance harness's duellists), as `player` (already placed, on
     /// their side). Returns false if they're already here or there's no room.
-    pub fn join_at(&mut self, client_id: u32, player: Player) -> bool {
+    pub fn join_at(&mut self, client_id: EntityId, player: Player) -> bool {
         if self.by_client.contains_key(&client_id) {
             return false;
         }
@@ -684,7 +685,7 @@ impl Players {
 
     /// Open worlds: a character arrives, as `player` (already placed), carrying their island.
     /// Returns false if they're already here or there's no room.
-    pub fn join_open(&mut self, client_id: u32, owner: i64, player: Player, life: Box<Life>) -> bool {
+    pub fn join_open(&mut self, client_id: EntityId, owner: i64, player: Player, life: Box<Life>) -> bool {
         if self.by_client.contains_key(&client_id) {
             return false;
         }
@@ -692,7 +693,7 @@ impl Players {
     }
 
     /// Open worlds: takes a player out (they left), with their island.
-    pub fn leave(&mut self, client_id: u32) -> Option<(Player, Option<Box<Life>>)> {
+    pub fn leave(&mut self, client_id: EntityId) -> Option<(Player, Option<Box<Life>>)> {
         let s = self.by_client.remove(&client_id)?;
         let slot = self.slots[s].take()?;
         self.tracks[s] = Track::default();
@@ -702,7 +703,7 @@ impl Players {
     /// Open worlds: inputs as (seq, view tick, actions). The view tick is the (fractional) tick the
     /// player saw everyone else at, so a swing at another player, a bot or a creature is checked
     /// against where they were then (their `Track`); `f64::INFINITY` sees the present (bots, tests).
-    pub fn queue_actions(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, f64, Actions)>) {
+    pub fn queue_actions(&mut self, client_id: EntityId, inputs: impl Iterator<Item = (u32, f64, Actions)>) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s] {
             for (seq, view, a) in inputs {
@@ -712,7 +713,7 @@ impl Players {
     }
 
     /// Open worlds: a new window (or a reconnect) counts its inputs from 1 again.
-    pub fn restart_inputs(&mut self, client_id: u32) {
+    pub fn restart_inputs(&mut self, client_id: EntityId) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s] {
             slot.last_seq = 0;
@@ -723,7 +724,7 @@ impl Players {
     }
 
     /// Open worlds: a command for the island, given on input `seq`.
-    pub fn queue_command(&mut self, client_id: u32, seq: u32, c: Command) {
+    pub fn queue_command(&mut self, client_id: EntityId, seq: u32, c: Command) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s]
             && slot.commands.len() < 64
@@ -733,21 +734,21 @@ impl Players {
     }
 
     /// Open worlds: a player, the last input they've had run, and their island.
-    pub fn open_view(&self, client_id: u32) -> Option<(&Player, u32, Option<&Life>)> {
+    pub fn open_view(&self, client_id: EntityId) -> Option<(&Player, u32, Option<&Life>)> {
         let &s = self.by_client.get(&client_id)?;
         let slot = self.slots[s].as_ref()?;
         Some((&slot.player, slot.last_seq, slot.life.as_deref()))
     }
 
     /// Open worlds: a player and their island, to change (a new build, an island started over).
-    pub fn open_mut(&mut self, client_id: u32) -> Option<(&mut Player, Option<&mut Life>)> {
+    pub fn open_mut(&mut self, client_id: EntityId) -> Option<(&mut Player, Option<&mut Life>)> {
         let &s = self.by_client.get(&client_id)?;
         let slot = self.slots[s].as_mut()?;
         Some((&mut slot.player, slot.life.as_deref_mut()))
     }
 
     /// Open worlds: everyone here, as (client id, character, player, island).
-    pub fn each_open(&self) -> impl Iterator<Item = (u32, i64, &Player, Option<&Life>)> {
+    pub fn each_open(&self) -> impl Iterator<Item = (EntityId, i64, &Player, Option<&Life>)> {
         self.slots.iter().flatten().map(|s| (s.client_id, s.owner, &s.player, s.life.as_deref()))
     }
 
@@ -760,7 +761,7 @@ impl Players {
     }
 
     /// The slot a client plays in (open worlds address its effects by slot).
-    pub fn slot_index(&self, client_id: u32) -> Option<usize> {
+    pub fn slot_index(&self, client_id: EntityId) -> Option<usize> {
         self.by_client.get(&client_id).copied()
     }
 
@@ -773,7 +774,7 @@ impl Players {
     /// Tools that drive the rules headlessly (bin/balance.rs): applies the build a player asked
     /// for, if it's new and allowed (within skills.points, learned outward from a root, a weapon
     /// they've trained, abilities they've learned).
-    pub fn sync_build(&mut self, client_id: u32, seq: u32, build: Build) {
+    pub fn sync_build(&mut self, client_id: EntityId, seq: u32, build: Build) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         let Some(slot) = &mut self.slots[s] else { return };
         if slot.build_seq == seq {
@@ -787,7 +788,7 @@ impl Players {
 
     /// Credits the player in `slot`, if it's still `client` and has an island, with what one of
     /// their blows, arrows or meteors did (see credit()).
-    fn credit_owner(&mut self, slot: usize, client: u32, weapon: Option<u8>, landed: &[Option<&str>]) {
+    fn credit_owner(&mut self, slot: usize, client: EntityId, weapon: Option<u8>, landed: &[Option<&str>]) {
         let Some(Some(s)) = self.slots.get_mut(slot) else { return };
         if s.client_id != client {
             return;
@@ -1162,7 +1163,7 @@ impl Players {
     /// vehicle nearest them (the driver's is its owner's): beside it, on their feet or swimming, with
     /// their hands free. `host_name` names them in what the player is told when there's no room.
     /// True if they're in.
-    pub fn ride_along(&mut self, client_id: u32, host: i64, vehicle: i64, host_name: &str) -> bool {
+    pub fn ride_along(&mut self, client_id: EntityId, host: i64, vehicle: i64, host_name: &str) -> bool {
         let Some(v) = self.vehicle_of(host, vehicle) else { return false };
         let def = rideable(&v.def);
         let taken: Vec<usize> = self
@@ -1211,14 +1212,14 @@ impl Players {
 
     /// Open worlds: who `client_id` rides along with, which of their vehicles and which seat, if
     /// they do.
-    pub fn passenger(&self, client_id: u32) -> Option<(i64, i64, usize)> {
+    pub fn passenger(&self, client_id: EntityId) -> Option<(i64, i64, usize)> {
         let (p, _, _) = self.open_view(client_id)?;
         (p.mode == Mode::Ride && p.host != 0).then_some((p.host, p.vehicle, p.seat as usize))
     }
 
     /// Open worlds: a passenger steps out beside the vehicle they ride in (or, if it has gone,
     /// where they are).
-    pub fn drop_off(&mut self, client_id: u32, world: &OpenWorld) {
+    pub fn drop_off(&mut self, client_id: EntityId, world: &OpenWorld) {
         let Some((host, vehicle, _)) = self.passenger(client_id) else { return };
         let v = self.vehicle_of(host, vehicle);
         let Some(&s) = self.by_client.get(&client_id) else { return };
