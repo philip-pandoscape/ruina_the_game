@@ -856,6 +856,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `tools/skilltree/gen.mjs`, read by the engine's `skills.rs`), the engine's default build holds weapon
   0 (`player.rs`), tests hard-code weapon numbers, and the crowd's cast clip names an ability by place
   (`castAbility: 0`, `heroBody.ts`).
+  The orders (14f53c3, e95be37, 0e53605, 2f278c8, merged in 5d25daa; a background agent): the skill
+  tree and the levels name weapons, abilities and movement skills by id, read into places by the
+  engine and the page as they load; the tests and the balance harness name them by id; the default
+  build and a new hero hold the weapon Sword Training grants; the crowd's cast names its ability.
+  `crates/engine/tests/order.rs` and `tests/unit/weaponOrder.test.ts` turn all three lists round
+  and find everything the same. So `_order.json` can change freely, but for the order things are
+  listed in, and the golden player and crowd scenarios, which hold builds by place as the wire does
+  and are kept anew after a change of order. Left: a new weapon still needs code (its moves, films
+  and attachments are keyed by its id: the R9.5 allowance in `tests/unit/contentIds.test.ts`).
 - [x] **R9.6** Quest markers from quest data; no place ids in the UI.
   Done (2ca47bf): an objective's `marker` in its quest's file; `src/ui/life/hud/goal.ts` names no
   place; the same goal in 1,200 states before and after (`tests/unit/questGoal.test.ts`).
@@ -977,9 +986,11 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Emberholm. contentc and the content-ids tool read every region's ids, not Emberholm's alone. The
   engine builds in every region in `shared/regions/` and every instance; the browser knows only
   Emberholm until R10.23. The bible's Zones are Regions (`#/regions/emberholm`).
-- [ ] **R10.2** The server hosts the world and its instances: a simulation for each region channel
+- [-] **R10.2** The server hosts the world and its instances: a simulation for each region channel
   and each instance copy, found by id (no `emberholm()` outside tests). Players travel between them,
   and every character is saved with its space.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [x] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
   admin menu lists them from the zone list.
   Done: the server's half (acaf9b5); the Admin window's zone buttons (8d1722f); the Admin menu lists
@@ -1008,7 +1019,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   admin and gone with the last. The browser's arena (157e823). The old battle server's removal is
   R10.10.
   Done: the old battle server went with R10.10's server half (a975617).
-- [ ] **R10.8** The wire for crowds.
+- [-] **R10.8** The wire for crowds.
   - **Interest:** each client is sent only what's near it, on 32 m cells, in near, mid and far tiers.
     The design comes from the old battle server's `interest.rs` (`git show 04da4b6`).
   - **Encoding:** compact binary records with deltas against what the client acknowledged, priority
@@ -1021,6 +1032,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Measured before (2026-11-06, `scratch/stress-battlefield-before.json`): 32 bots, a tick 1.09 ms,
   an update 22.3 KB, 53 fps, the 95th-percentile frame 33.3 ms; 64 bots, 2.43 ms, 42.9 KB, 58 fps,
   16.8 ms. Far peers drawn by the crowd renderer (R10.9's last part) go with it.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [x] **R10.9** One world client for every zone: the battle client path (`?server=`, `netCrowd.ts`'s
   battle parts, RemotePlayers) goes; far bodies drawn by the crowd renderer.
   Done (da8fb15): `src/net/worldFeed.ts` in place of the battle client (NetCrowd); RemotePlayers,
@@ -1054,7 +1067,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Rust: zones load, stand where players may go and apart, have ways out; bots' brains; copies,
   admins, bots coming and going, spawns, zone to zone. Integration (`admin.spec.ts`): the battlefield
   from the world, the yard from character select, the goblin camp from the Admin window, a player kept
-  out. The stress test is left (R10.24).
+  out. The stress test is left (R10.24, GitHub issue #4).
 - [x] **R10.13** `docs/zones.md`: adding a zone, a developer zone, bots.
   Done (777949b).
 - [ ] **R10.14** The words.
@@ -1141,7 +1154,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   an input carries comes in sixteenths, of which the wire keeps the low 32 bits, read back in full
   against the game's tick. Left, the ids: they change what the wire says of everyone (handles per
   connection) and how placed things are numbered (a database sequence), so they go with the wire for
-  crowds (R10.8) and land in tables of its own (R10.21).
+  crowds (R10.8, now GitHub issue #4: the handles) and land in tables of its own (R10.21: global ids,
+  placed things numbered from a database sequence).
 - [x] **R10.18** The tick that splits.
   - **The rule:** within a step, an entity reads others only as they stood at its start, and affects
     them only through events applied at the next step.
@@ -1166,7 +1180,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   off by default, slower at today's sizes. Sending updates (8 ms at 1024 bots) is the next cost.
   The thin wrapper `open::step_player` kept for `open/map.rs`'s tests went in 9d729a0: one step
   for a player in an open world, reading the world.
-- [ ] **R10.19** Borders, in one process.
+- [-] **R10.19** Borders, in one process.
   - **Ownership:** a simulation owns its chunks.
   - **Ghosts:** neighbours exchange read-only copies of what's within about 120 m of the border, every
     tick.
@@ -1180,6 +1194,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Proved two ways: Emberholm split into two simulations matches one simulation bit for bit (a golden
   test), and the fixture world's borders are crossed on foot, by cart with a passenger, by boat and by
   glider.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [ ] **R10.20** The server's tiers, in one process.
   - **`crates/world-api`** holds the messages and ids, with no I/O:
     - inputs with sequence numbers, and commands;
@@ -1209,7 +1225,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **Shared state:** what the world shares (the time of day, each region's weather, trading posts'
     demand) is kept in one place.
   - **Saves:** a character's own life is saved when it changes, and existing saves are migrated.
-- [ ] **R10.22** Channels on their own.
+- [-] **R10.22** Channels on their own.
   - **Opening and merging:** a region runs as channels. Another opens when the region passes its soft
     cap, and a quiet one merges.
   - **Placement:** players are placed by affinity: party first, then friends, guild and language as
@@ -1220,7 +1236,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 
   Played with bots in one process: a crowd fills a region, a channel opens, parties stay together, and
   a quiet channel merges.
-- [ ] **R10.23** The client in a big world.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
+- [-] **R10.23** The client in a big world.
   - **Regions:** grown in a Web Worker ahead of you, and dropped behind you.
   - **Precision:** the scene's origin moves with you, keeping the world-space shaders (`ground.ts`,
     `water.ts`) precise.
@@ -1228,11 +1246,15 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **The map:** shows the world's regions.
 
   Crossing a border loads nothing.
-- [ ] **R10.24** Proof at scale.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
+- [-] **R10.24** Proof at scale.
   - **Stress tier:** thousands of bots fight, cross borders and crowd regions on the world server,
     measured against R10.8's baseline (tick time, bandwidth, frame time).
   - **Failure tests, in one process:** a simulation stopped mid-handoff, a message delivered twice, a
     lease lost. Nothing is duplicated or lost.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [~] **R10.25** `docs/world.md`, in place of `docs/zones.md`: the world, regions, instances, channels,
   borders and land, and how to add a region or an instance.
   Begun (7ea3035): the words, where the regions stand, the ground through the world map, spaces,
