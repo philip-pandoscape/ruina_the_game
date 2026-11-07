@@ -70,6 +70,7 @@ pub fn bundles(which: &str) -> Option<BTreeMap<String, String>> {
 
 #[cfg(test)]
 mod tests {
+    use crate::ids::EntityId;
     use std::f64::consts::FRAC_PI_2;
 
     use super::*;
@@ -240,9 +241,9 @@ mod tests {
         // The driver and a friend standing beside them.
         let driver = standing(&open, x0, z0);
         let friend = standing(&open, x0, z0 + 3.0);
-        players.join_open(1, 1, driver, Box::new(Life::new(home(), None, None)));
-        players.join_open(2, 2, friend, Box::new(Life::new(home(), None, None)));
-        let (p, life) = players.open_mut(1).expect("the driver");
+        players.join_open(EntityId::character(1), 1, driver, Box::new(Life::new(home(), None, None)));
+        players.join_open(EntityId::character(2), 2, friend, Box::new(Life::new(home(), None, None)));
+        let (p, life) = players.open_mut(EntityId::character(1)).expect("the driver");
         let life = life.expect("a life");
         life.give("deed.farmCart", 1, true);
         let id = vehicles::summon(life, &mut Sim { player: p, world: &open, owner: 1 }, "deed.farmCart").expect("a cart");
@@ -255,9 +256,9 @@ mod tests {
             let (sx, _, sz) = vehicles::anchor_world(&v, &crate::life::content::rideable(&v.def).seats[1]);
             (sx, sz)
         };
-        let p = players.open_mut(2).expect("the friend").0;
+        let p = players.open_mut(EntityId::character(2)).expect("the friend").0;
         (p.pos.x, p.pos.z) = (fx, fz);
-        assert!(players.ride_along(2, 1, id, "Driver"), "riding along");
+        assert!(players.ride_along(EntityId::character(2), 1, id, "Driver"), "riding along");
         let mut actors = Actors::new();
         let (mut seq, steps) = (0u32, 3u32);
         let go = Actions { stick_y: 1.0, ..Default::default() };
@@ -271,8 +272,8 @@ mod tests {
             players.gather_movers(&mut open);
             let (first, held) = (seq + 1, Actions { jump_pressed: false, ..go });
             seq += steps;
-            players.queue_actions(1, (0..steps).map(|n| (first + n, 0.0, if n == 0 { go } else { held })));
-            players.queue_actions(2, (0..steps).map(|n| (first + n, 0.0, Actions::default())));
+            players.queue_actions(EntityId::character(1), (0..steps).map(|n| (first + n, 0.0, if n == 0 { go } else { held })));
+            players.queue_actions(EntityId::character(2), (0..steps).map(|n| (first + n, 0.0, Actions::default())));
             players.step_in(&mut actors, &flat, tick, Some(&mut open));
             players.seat_passengers(&open);
             if at.x > LAND_BORDER + 60.0 {
@@ -281,7 +282,7 @@ mod tests {
         }
         let cart = players.vehicle_of(1, id).expect("the cart");
         assert_eq!(region_of(w, cart.x, cart.z), Some("thornmarch"), "the cart drove into Thornmarch: {:?}", (cart.x, cart.z));
-        let (friend, _, _) = players.open_view(2).expect("the friend");
+        let (friend, _, _) = players.open_view(EntityId::character(2)).expect("the friend");
         assert_eq!((friend.mode, friend.host, friend.vehicle), (Mode::Ride, 1, id), "still riding along");
         assert!(len(friend.pos.x - cart.x, friend.pos.z - cart.z) < 3.0, "in the cart: {:?} and {:?}", friend.pos, (cart.x, cart.z));
         assert_eq!(region_of(w, friend.pos.x, friend.pos.z), Some("thornmarch"));
