@@ -172,24 +172,41 @@ catalog. Judge by the result in the game's look; when unsure, make the first of 
   agents working in parallel.
 - **Price before spending.** Every tool that spends takes `submit: false` (`confirm: false` for a
   catalog export): it fills the form and spends nothing, and the button shows the cost; the
-  balance is on the top bar (`snapshot`). Seen in November 2026: an HD model 55 credits, 65 with
-  the 8K texture that's switched on by default (`texture_8k: false`: the game cuts textures to 1
-  or 2K anyway); a catalog export about 5; rigging, retopology, texturing and segmenting tens.
-- **Several views.** `generate_model` with `input: "multiview"` and `images` in the order front,
-  left, right, back: square pictures on white, one figure each, the same scale (a turnaround sheet
-  cut up). A view that came out wrong (a three-quarter turn instead of a profile) is an empty string,
-  so its slot stays empty; the front is needed. `pipeline: "hd"`.
+  balance is on the top bar (`snapshot`). Seen in November 2026: a Smart Mesh P2.0 model 100
+  credits (for 1, 2 or 4 variants alike: take 4 and keep the best), P1.0 35, an HD model 55 (65
+  with 8K texture); texturing 10 at 2K; auto-rigging 20; a catalog export about 5. A trial of a new
+  model or 8K shows as a struck-out price and 0.
+- **Smart Mesh, not HD, for the game** (the user wants models that run well). HD models are dense
+  sculpts; `pipeline: "smart_mesh"` with `model: "P2.0"` gives clean quads at the polycount set
+  under Topology (500 to 25,000; 5,000 quads, about 10k triangles, for a townsperson, a third of
+  the hero). P1.0 is cheaper but triangles and coarser: a hem jagged, a bodice's lacing gone.
+- **A character, start to finish**, as the townsfolk were made:
+  1. A turnaround sheet in the hero's look, painted with Gemini (the hero's sheet and the approved
+     concept as references): front, left profile, right profile, back, an A-pose, hands empty, on
+     white. Cut into one square picture per view, the same scale.
+  2. `generate_model` with `input: "multiview"`, `images` in the order front, left, right, back, and
+     `pipeline: "smart_mesh"`, `model: "P2.0"`. A view that came out wrong (a three-quarter turn
+     instead of a profile) is an empty string, so its slot stays empty; the front is needed.
+  3. `texture_model` (`mode: "texture"`, `resolution: "2k"`): Smart Mesh comes grey, and this
+     paints it from the same views.
+  4. `rig_model` (`rig: "humanoid"`, the Mixamo preset): a 65-bone Mixamo skeleton, fingers and
+     all, which `fit.ts` reads as it reads Meshy's. Done when the rig page offers "Retry".
+  5. `export_model` (`format: "glb"`, a `filename`), the skeleton included, then section 5's move
+     into `scratch/assets/tripo/` and section 6's compression (1024-pixel textures for townsfolk).
 - **Done is what the page shows.** The tools watch the page for a while after the click and report
   `started`, `still_running` or `submitted_unconfirmed`; `snapshot` (with its screenshot) says when
-  a model is finished. Then `rig_model`, `export_model` (`format: "glb"`) and section 5's move into
-  `scratch/assets/tripo/`.
-- **Licence.** What the user's account makes is theirs on a paid plan; on the free plan Tripo makes
-  it public under CC BY 4.0. Either way `CREDITS.md` says it was made with Tripo AI. A catalog
-  model is its maker's, under the licence on its page.
+  a model is finished.
+- **Licence.** What the user's account makes is theirs: it's on the Max plan (25,000 credits a
+  month), and paid plans keep their models private, for commercial use. `CREDITS.md` says it was
+  made with Tripo AI. On a free plan Tripo would publish it under CC BY 4.0. A catalog model is its
+  maker's, under the licence on its page.
 - **Not there?** The server is registered for the user (`claude mcp list` shows `tripo`) and
   installed in `%LOCALAPPDATA%\tripo-mcp\server`; a session started before that has no `tripo`
   tools until it's restarted. Its own Chrome profile keeps the sign-in
   (`%LOCALAPPDATA%\tripo-mcp\studio-profile`), and exports go to `%USERPROFILE%\Downloads\tripo-mcp`.
+  That copy carries fixes for today's Studio (four views in their slots, Smart Mesh and the model
+  menu, the Export dialog, the rig's radios), listed in `PATCHES.md` beside it: put them back if
+  it's ever installed again from the original zip.
 
 ## Keys
 
