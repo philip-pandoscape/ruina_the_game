@@ -769,6 +769,9 @@ pub struct Players {
     /// Refill each player's input budget by this many inputs per tick. 0 (the balance harness's
     /// duels) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
     pub inputs_per_tick: f64,
+    /// The slots a player joining here may take (all of them, but where several simulations play
+    /// one region, each seats its own in a range of its own: crate::border).
+    pub seats: std::ops::Range<usize>,
     slots: Vec<Option<Slot>>,
     by_client: BTreeMap<EntityId, usize>,
     /// Where the player in each slot stood at the end of each of the last ticks.
@@ -794,6 +797,7 @@ impl Players {
             ground: None,
             floor: None,
             inputs_per_tick: 0.0,
+            seats: 0..MAX_PLAYERS,
             slots: (0..MAX_PLAYERS).map(|_| None).collect(),
             by_client: BTreeMap::new(),
             tracks: vec![Track::default(); MAX_PLAYERS],
@@ -854,7 +858,8 @@ impl Players {
     /// Puts a new player in the first free slot, with no history of where they stood. The slot, or
     /// None if every one is taken.
     fn seat(&mut self, slot: Slot) -> Option<usize> {
-        let free = self.slots.iter().position(|s| s.is_none())?;
+        let seats = self.seats.start.min(MAX_PLAYERS)..self.seats.end.min(MAX_PLAYERS);
+        let free = seats.start + self.slots[seats].iter().position(|s| s.is_none())?;
         self.by_client.insert(slot.client_id, free);
         self.slots[free] = Some(slot);
         self.tracks[free] = Track::default();
@@ -962,6 +967,11 @@ impl Players {
     /// Every ghost here, by slot.
     pub fn ghosts(&self) -> impl Iterator<Item = usize> + '_ {
         self.slots.iter().enumerate().filter(|(_, s)| s.as_ref().is_some_and(|s| !s.own())).map(|(i, _)| i)
+    }
+
+    /// Every ghost here, as (client, character, player, vehicles): what's seen of them to show.
+    pub fn each_ghost(&self) -> impl Iterator<Item = (EntityId, i64, &Player, &[Vehicle])> {
+        self.slots.iter().flatten().filter_map(|s| s.away.as_deref().map(|vs| (s.client_id, s.owner, &s.player, vs)))
     }
 
     /// Where the player in `slot` stood at the end of each of the last ticks, oldest first.

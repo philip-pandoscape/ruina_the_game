@@ -17,8 +17,10 @@ use ruina_engine::open::map::world_map;
 use ruina_engine::player::{Build, Player};
 use ruina_engine::world::Spawn;
 
+use ruina_engine::border::messages::{Barrier, Post};
+
 use crate::directory::{Destination, Grant};
-use crate::ids::{CharacterId, Conn, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
+use crate::ids::{CharacterId, Conn, EntityId, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
 use crate::input::Input;
 use crate::store::Resident;
 
@@ -63,8 +65,30 @@ pub enum ToSim {
     SaveAll { reply: crate::post::Reply },
     /// The directory's word on this simulation's lease.
     Lease(LeaseNote),
+    /// What a neighbour playing another part of this simulation's region trades with it at a point
+    /// of a tick (crates/engine/src/border): ghosts, blows and heals across, creatures' slams and
+    /// blows, handoffs.
+    Border(Box<Parcel>),
     /// Stop (a copy closed, or the server going).
     Stop,
+}
+
+/// One simulation's parcel for a neighbour of its region at one point of a tick (`at`): the posts
+/// for it (none, often: it still goes, so the neighbour knows it has everything), and who the
+/// players handed over in it are. The engine's border messages carry the rest
+/// (`ruina_engine::border::messages`).
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Parcel {
+    pub from: SimId,
+    /// The tick it belongs to (the world's), and where in it.
+    pub tick: u64,
+    pub at: Barrier,
+    pub posts: Vec<Post>,
+    /// The players handed over in it, by character: their connection and grant, which go with them.
+    pub members: Vec<(CharacterId, Member)>,
+    /// The names of the players its ghosts show (and whether each is a bot), by id: what the
+    /// neighbour's players are shown of them.
+    pub names: Vec<(EntityId, String, bool)>,
 }
 
 /// What a player asks of the game they're in.

@@ -53,6 +53,16 @@ pub struct SimSetup {
     pub lease: Lease,
     pub owner: Option<Owner>,
     pub expel_after: Duration,
+    /// Playing part of its region beside other simulations (its lease's chunks): who owns which
+    /// chunk, and the slots its own players take (crates/server/src/sim/border.rs).
+    pub part: Option<Part>,
+}
+
+/// A simulation's part of a region played by several.
+#[derive(Clone, Debug)]
+pub struct Part {
+    pub owners: ruina_engine::border::Owners,
+    pub seats: std::ops::Range<usize>,
 }
 
 /// Starts simulations: each on a thread of its own in this process (`crate::sim::Threads`); later,
@@ -343,7 +353,7 @@ impl<L: Leases> Directory<L> {
             }
             SpaceId::Channel { .. } => None,
         };
-        let setup = SimSetup { lease: lease.clone(), owner: copy.as_ref().map(|c| c.owner), expel_after: self.expel_after };
+        let setup = SimSetup { lease: lease.clone(), owner: copy.as_ref().map(|c| c.owner), expel_after: self.expel_after, part: None };
         self.spaces.insert(space.clone(), Running { lease, copy });
         self.spawner.start(setup);
         Ok(sim)

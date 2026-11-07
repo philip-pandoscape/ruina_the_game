@@ -188,6 +188,7 @@ async fn run(mut inbox: mpsc::UnboundedReceiver<ToGate>, mut controls: mpsc::Unb
                     match &msg {
                         ToConn::Claimed(c) => h.sim = Some(c.sim),
                         ToConn::Moved { sim, .. } => h.sim = Some(*sim),
+                        ToConn::Crossed { sim, .. } => h.sim = Some(*sim),
                         _ => {}
                     }
                     // A browser that can't keep up misses what it can't take.

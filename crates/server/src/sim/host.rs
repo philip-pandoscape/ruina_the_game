@@ -18,7 +18,11 @@ use ruina_world_api::sim::{After, Arrival, Ask, Entry, LeaseNote, Moving, Spot, 
 use ruina_world_api::store::{LifeWrite, Then, ToStore};
 use ruina_world_api::{CharacterId, Conn, GateId, Owner, SimId, SpaceId, TICK_HZ, Transport};
 
+use ruina_engine::border::SimId as BorderSim;
+use ruina_engine::border::sim::Border;
+
 use super::Game;
+use super::link::Link;
 use crate::directory::{COPY_KEPT, SimSetup, Spawner};
 use crate::open::dungeon::{door_into, dungeon};
 use crate::post::Post;
@@ -54,6 +58,8 @@ pub struct Sim {
     gone: HashMap<CharacterId, (SimId, Instant)>,
     /// A copy's occupancy as last told to the directory.
     told: Option<(usize, bool)>,
+    /// Playing part of a region beside other simulations: its link to them (link.rs).
+    link: Option<Link>,
     period: Duration,
     /// Tests: this much longer each tick takes (a crowd too big for it).
     #[cfg(test)]
@@ -75,6 +81,12 @@ impl Sim {
         if let Some(c) = game.copy_mut() {
             c.expel_after = setup.expel_after;
         }
+        // Part of a region beside others: its chunks, its border, and its link to them.
+        let link = setup.part.map(|part| {
+            let neighbours: Vec<SimId> = part.owners.sims().into_iter().filter(|s| s.0 != lease.sim.0).map(|s| SimId(s.0)).collect();
+            game.play_part(Border::new(BorderSim(lease.sim.0), part.owners), part.seats, &lease.chunks);
+            Link::new(lease.sim, neighbours)
+        });
         let residents = match &lease.space {
             SpaceId::Channel { n, .. } => {
                 post.store(ToStore::LoadResidents { channel: *n, reply: lease.sim });
@@ -93,6 +105,7 @@ impl Sim {
             held: HashMap::new(),
             gone: HashMap::new(),
             told: None,
+            link,
             period: Duration::from_secs_f64(1.0 / f64::from(TICK_HZ)),
             #[cfg(test)]
             slow: Duration::ZERO,
@@ -103,7 +116,8 @@ impl Sim {
     pub fn run(mut self) {
         let mut next = Instant::now() + self.period;
         loop {
-            let busy = self.game.has_players() || self.game.has_tables();
+            // Part of a region ticks with its neighbours whether anyone is here or not.
+            let busy = self.game.has_players() || self.game.has_tables() || self.link.is_some();
             if !busy {
                 // Nothing to play: wait for mail (or a while, to look round).
                 match self.inbox.recv_timeout(IDLE) {
@@ -142,6 +156,12 @@ impl Sim {
 
     /// Takes every message waiting. False once told to stop.
     fn drain(&mut self) -> bool {
+        // What came while it traded with its neighbours mid-tick first.
+        while let Some(msg) = self.link.as_mut().and_then(|l| l.later.pop_front()) {
+            if !self.handle_safely(msg) {
+                return false;
+            }
+        }
         loop {
             match self.inbox.try_recv() {
                 Ok(msg) => {
@@ -170,8 +190,18 @@ impl Sim {
     pub fn tick(&mut self) {
         #[cfg(test)]
         std::thread::sleep(self.slow);
-        let out = self.game.step();
+        let out = match self.link.as_mut() {
+            Some(link) => {
+                let (inbox, post) = (&self.inbox, self.post.as_ref());
+                self.game.step_trading(&mut |at, tick, parcels| link.trade(inbox, post, at, tick, parcels))
+            }
+            None => self.game.step(),
+        };
         self.publish(out);
+        // Whoever is past a border now goes to its neighbour; what still comes here for them follows.
+        for (c, to) in self.game.border_end() {
+            self.gone.insert(c, (to, Instant::now()));
+        }
         for who in self.game.sweep_copy(Instant::now()) {
             self.out_of_copy(who, Vec::new());
         }
@@ -308,6 +338,12 @@ impl Sim {
                 eprintln!("simulation {} lost its lease on {} (epoch {})", self.id.0, self.game.at, epoch.0);
             }
             ToSim::Lease(LeaseNote::Renewed { epoch, .. }) => self.game.lease = epoch,
+            // A neighbour's parcel between trades: kept for when it's wanted.
+            ToSim::Border(p) => {
+                if let Some(l) = self.link.as_mut() {
+                    l.keep(*p);
+                }
+            }
             ToSim::Stop => {
                 // Whoever left with a game paid out since: written as the copy closes.
                 let writes: Vec<LifeWrite> = self.game.lives_now();
@@ -564,7 +600,7 @@ mod tests {
             let lease = Lease { space: SpaceId::channel("emberholm", sim as u32), sim: SimId(sim), epoch: Epoch(1), until: 0, chunks: Vec::new() };
             let inbox = post.open_sim(SimId(sim));
             let transport: Arc<dyn Transport> = post.clone();
-            let mut s = Sim::new(SimSetup { lease, owner: None, expel_after: EXPEL_AFTER }, inbox, transport);
+            let mut s = Sim::new(SimSetup { lease, owner: None, expel_after: EXPEL_AFTER, part: None }, inbox, transport);
             s.slow = slow;
             std::thread::spawn(move || s.run())
         };

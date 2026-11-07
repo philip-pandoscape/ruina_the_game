@@ -209,12 +209,52 @@ pub struct Seat {
     pub conn: Conn,
     /// The simulation it plays in now (none until it was taken in).
     pub sim: Option<SimId>,
+    /// While it's being handed across a border (crates/engine/src/border): its inputs, held until
+    /// it's taken.
+    held: Option<Vec<Input>>,
 }
 
 impl Seat {
     pub fn new(gate: Arc<Gate>, conn: Conn, tx: mpsc::Sender<Event>) -> Seat {
         gate.open(conn, tx);
-        Seat { gate, conn, sim: None }
+        Seat { gate, conn, sim: None, held: None }
+    }
+
+    /// Inputs from the browser: where they go now, or None while they're held (the player on their
+    /// way across a border).
+    pub fn inputs(&mut self, inputs: Vec<Input>) -> Option<(SimId, Vec<Input>)> {
+        match &mut self.held {
+            Some(held) => {
+                // A browser that sent this many on the way has lost its connection's patience anyway.
+                if held.len() < 600 {
+                    held.extend(inputs);
+                }
+                None
+            }
+            None => self.sim.map(|s| (s, inputs)),
+        }
+    }
+
+    /// What the tiers said, for where its inputs go: a move or a crossing taken sends them to the
+    /// simulation playing it now (with what was held on the way, from the input it runs next); a
+    /// crossing begun holds them.
+    pub fn heard(&mut self, msg: &ToConn) -> Option<(SimId, Vec<Input>)> {
+        match msg {
+            ToConn::Moved { sim, .. } => {
+                self.sim = Some(*sim);
+                self.held.take().filter(|h| !h.is_empty()).map(|h| (*sim, h))
+            }
+            ToConn::Crossing => {
+                self.held.get_or_insert_with(Vec::new);
+                None
+            }
+            ToConn::Crossed { sim, from } => {
+                self.sim = Some(*sim);
+                let held: Vec<Input> = self.held.take().unwrap_or_default().into_iter().filter(|i| i.seq >= *from).collect();
+                (!held.is_empty()).then_some((*sim, held))
+            }
+            _ => None,
+        }
     }
 }
 
@@ -386,7 +426,7 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
                 last_heard = Instant::now();
                 match msg {
                     Some(Ok(Message::Binary(b))) => {
-                        if let (Some(inputs), Some(sim)) = (read_inputs(&b), seat.sim) {
+                        if let Some((sim, inputs)) = read_inputs(&b).and_then(|i| seat.inputs(i)) {
                             post.sim(sim, ToSim::Inputs { conn, inputs });
                         }
                     }
@@ -480,8 +520,9 @@ async fn deliver(tx: &mut Tx, seat: &mut Seat, e: Event, admin: bool) -> Result<
         }
         Event::Msg(ToConn::Kicked) => return replaced(tx).await.map(Some),
         Event::Msg(m) => {
-            if let ToConn::Moved { sim, .. } = &m {
-                seat.sim = Some(*sim);
+            // Where its inputs go now; those held on the way across a border, to whoever took it.
+            if let Some((sim, inputs)) = seat.heard(&m) {
+                seat.gate.post.sim(sim, ToSim::Inputs { conn: seat.conn, inputs });
             }
             if let Some(text) = encode::message(&m) {
                 tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?;

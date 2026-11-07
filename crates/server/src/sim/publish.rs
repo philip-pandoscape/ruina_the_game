@@ -37,7 +37,17 @@ impl Game {
             };
             cell(&mut cells, p.pos.x, p.pos.z).players.push(PresenceRecord { id: entity, name, bot, p: Presence::of(p, life, fr) });
         }
-        for a in self.actors.list.iter().filter(|a| !a.gone) {
+        // Across a border, those the games beside this one play, as they're seen here: whoever plays
+        // near the border sees them as the others' players do, and nothing changes as anyone crosses.
+        if let Some(side) = &self.border {
+            for (entity, _, p, vehicles) in self.players.each_ghost() {
+                let Some((name, bot)) = side.names.get(&entity) else { continue };
+                let mut seen = Presence::of(p, None, fr);
+                seen.vehicles = Some(vehicles.to_vec());
+                cell(&mut cells, p.pos.x, p.pos.z).players.push(PresenceRecord { id: entity, name: name.clone(), bot: *bot, p: seen });
+            }
+        }
+        for a in self.actors.list.iter().chain(&self.actors.ghosts).filter(|a| !a.gone) {
             cell(&mut cells, a.x, a.z).creatures.push(CreatureRecord::of(a));
         }
         for a in self.players.arrows() {
