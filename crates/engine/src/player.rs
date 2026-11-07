@@ -8,10 +8,10 @@ use crate::event::Event;
 use crate::jsmath::JsMath;
 use crate::jsmath::{js_hypot, len};
 use crate::life::content::carry;
-use crate::skills::{EMPTY_SKILLS, Levels, ResolvedSkills, SkillSet, base_levels, node_index, resolve_skills, same_levels, set_skill};
+use crate::skills::{EMPTY_SKILLS, Levels, ResolvedSkills, SkillSet, base_levels, node_index, nodes, resolve_skills, same_levels, set_skill};
 use crate::tuning::{
     AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability, ability_cooldown, ability_mp_for, cast_frames_for, combo_for, movement_action,
-    movement_cooldown_for, movement_stamina_for, pierce_targets, slide_skill, tuning,
+    movement_cooldown_for, movement_stamina_for, pierce_targets, slide_skill, tuning, weapon_index,
 };
 use crate::world::{Spawn, World};
 
@@ -204,13 +204,17 @@ pub struct Build {
     pub movement: [u8; MOVEMENT_SLOTS],
 }
 
+/// A new character's: Sword Training, and in hand the weapon it grants (DEFAULT_BUILD in
+/// src/content/tuning.ts), wherever the weapons' list has it.
 impl Default for Build {
     fn default() -> Self {
         let mut skills = EMPTY_SKILLS;
-        if let Some(i) = node_index("sword") {
+        let start = node_index("sword");
+        if let Some(i) = start {
             set_skill(&mut skills, i, true);
         }
-        Build { skills, weapon: 0, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [NO_MOVEMENT; MOVEMENT_SLOTS] }
+        let weapon = start.and_then(|i| nodes()[i].grants.as_ref()?.weapon).or_else(|| weapon_index("sword")).unwrap_or(0);
+        Build { skills, weapon, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [NO_MOVEMENT; MOVEMENT_SLOTS] }
     }
 }
 

@@ -8,7 +8,7 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
 
 | Module | What |
 |---|---|
-| `player.rs`, `skills.rs`, `tuning.rs` | A player's step: movement, combos, abilities, vitals; the skill tree and builds, kept by id (`saved_build`, `build_from_saved`; those kept by index before read through `shared/buildsByIndex.json`); the numbers from `shared/tuning.json`. |
+| `player.rs`, `skills.rs`, `tuning.rs` | A player's step: movement, combos, abilities, vitals; the skill tree (`shared/skilltree.json`, naming weapons, abilities and movement skills by id, their places found as it's read: `skill_tree`) and builds, kept by id (`saved_build`, `build_from_saved`; those kept by index before read through `shared/buildsByIndex.json`); the numbers from `shared/tuning.json`. |
 | `open/` | The world: its map of regions on chunks (`map.rs`, from `shared/world.json`), each region's ground and surfaces (`zone.rs`, grown from its recipe, `shared/regions/<id>.json`, by `generate.rs` the first time anything asks), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), and the instances, dungeons and developer zones, each a space of its own (`dungeon.rs`, from `shared/instances.json`). |
 | `actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`, `creatures.rs` | Creatures: their kinds (`shared/actors.json`, `shared/creatures.json`), brains (`shared/behaviours.json` and each creature's), packs, missiles, hits. `content.rs` also has the content's hash (`shared/hash.json`), which the server sends in its welcome. |
 | `combat.rs` | Players together, as the server plays them: joining and leaving, their inputs, and everything that hurts or heals (swings, arrows, meteors, heals, creatures' slams and blows), with lag compensation against players and creatures alike; passengers riding along in someone else's vehicle. A tick in phases, each in any order (below). |
@@ -59,6 +59,10 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
   tests (`checks/mod.rs`): every creature, player and open-world scenario held to a hash of its answer
   (`crates/engine/tests/golden/`), so a rule can't change unnoticed. A change made on purpose keeps
   the new answers with `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`.
+- `crates/engine/tests/order.rs`, a test program of its own: the engine given the tuning with its weapons,
+  abilities and movement skills in the opposite order (`bundles::give`, before anything reads it).
+  What the skill tree grants and changes, a new character's build and kept builds mean what they
+  did, as all name them by id.
 - `npm run test:conformance`: builds the engine and its WebAssembly, then holds the WebAssembly to the
   native engine bit for bit (`tests/conformance/engine.test.ts`) and the browser's ground sampling to
   the engine's (`terrain.test.ts`), and runs the balance harness (`balance.test.ts`).

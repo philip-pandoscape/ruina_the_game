@@ -268,7 +268,7 @@
     }
   ],
   "skills": {
-    "comment": "The tree itself is shared/skilltree.json. points: what the training yard and the battlefield (developer tools) may spend. In the open world you have startPoints plus the skillPoints of every quest and milestone you have finished. levels: the skills in your skill book level up as you use them; xp is the total experience each level needs, and per is what every level past the first adds (flat and inc only, so the order they are summed in never matters).",
+    "comment": "The tree itself is shared/skilltree.json. points: what the training yard and the battlefield (developer tools) may spend. In the open world you have startPoints plus the skillPoints of every quest and milestone you have finished. levels: the skills in your skill book level up as you use them; xp is the total experience each level needs, and per is what every level past the first adds, by the skill's id, naming a weapon it changes by its id too (flat and inc only, so the order they are summed in never matters).",
     "points": 30,
     "startPoints": 2,
     "maxNodes": 256,
@@ -309,7 +309,7 @@
             "stat": "attack.damage",
             "op": "inc",
             "value": 0.03,
-            "weapon": 0
+            "weapon": "sword"
           }
         ],
         "club": [
@@ -317,7 +317,7 @@
             "stat": "attack.damage",
             "op": "inc",
             "value": 0.03,
-            "weapon": 1
+            "weapon": "club"
           }
         ],
         "staff": [
@@ -325,7 +325,7 @@
             "stat": "attack.damage",
             "op": "inc",
             "value": 0.03,
-            "weapon": 2
+            "weapon": "staff"
           }
         ],
         "bow": [
@@ -333,7 +333,7 @@
             "stat": "attack.damage",
             "op": "inc",
             "value": 0.03,
-            "weapon": 3
+            "weapon": "bow"
           }
         ],
         "heal": [

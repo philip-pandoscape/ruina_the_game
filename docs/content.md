@@ -284,10 +284,11 @@ A new one of these needs code today, each named for the refactor's task that mak
 
 - **Weapons, abilities and movement skills** (R9.5): their moves, models, icons and where they are
   put away are code, which knows each weapon by its id (`weaponId` in `src/content/tuning.ts`) or
-  by its data (a weapon that shoots). The skill tree still names them by their places in the lists
-  (its grants and modifiers in `shared/skilltree.json`, the levels in `content/tuning.json`), and
-  the engine's default build holds the first weapon, so reordering `content/weapons/_order.json`
-  needs those changed with it; the browser needs nothing (`tests/unit/weaponOrder.test.ts`).
+  by its data (a weapon that shoots). The skill tree names them by id (what its nodes grant and what
+  their modifiers change, in `shared/skilltree.json`; what a level adds, in `content/tuning.json`),
+  and the engine and the page find their places in the lists as they read it; contentc fails on an
+  id that's no weapon, ability or movement skill. The browser holds and draws each weapon by its id
+  (`tests/unit/weaponOrder.test.ts`).
 - **Stats** in the skill tree are numbers the rules read by name; nodes are written by
   `tools/skilltree/gen.mjs`.
 

@@ -117,6 +117,32 @@ test("a cave without its dressing, or a dressing naming walls or pieces the inst
   ).toContain("content/instances/yard.json: an arena isn't dressed");
 });
 
+test('a weapon, an ability or a movement skill named by an id there is no such thing of fails, in the levels and in the skill tree', () => {
+  // The levels name the weapon a level changes by id, and the ability or movement skill.
+  expect(
+    broken('tuning.json', (j) => {
+      j.skills.levels.per.sword[0].weapon = 'trident';
+    }),
+  ).toContain('tuning.skills.levels.per.sword[0].weapon: there\'s no weapon "trident"');
+  // The skill tree (shared/skilltree.json) names them by id too: a weapon or an ability it names
+  // that the content no longer has, in what a node grants and in what a modifier changes.
+  const bowGone = broken('weapons/bow.json', (j) => {
+    j.name = 'longbow';
+  });
+  expect(bowGone).toContain('shared/skilltree.json: bow.grants.weapon: there\'s no weapon "bow"');
+  expect(bowGone).toContain('shared/skilltree.json: rapidFire.mods[0].weapon: there\'s no weapon "bow"');
+  const meteorGone = broken('abilities/meteor.json', (j) => {
+    j.id = 'fireball';
+  });
+  expect(meteorGone).toContain('shared/skilltree.json: meteor.grants.ability: there\'s no ability "meteor"');
+  expect(meteorGone).toMatch(/shared\/skilltree\.json: .+\.mods\[\d+\]\.skill: there's no ability or movement skill "meteor"/);
+  expect(
+    broken('movement-skills/block.json', (j) => {
+      j.id = 'parry';
+    }),
+  ).toContain('shared/skilltree.json: block.grants.movement: there\'s no movement skill "block"');
+});
+
 test("a thing left out of its folder's order, or named for another, fails", () => {
   expect(broken('quests/_order.json', (list) => (list as string[]).slice(1))).toMatch(/content\/quests\/.+\.json: not in quests\/_order\.json/);
   expect(

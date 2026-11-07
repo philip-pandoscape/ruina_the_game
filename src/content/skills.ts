@@ -9,6 +9,12 @@ import treeData from '../../shared/skilltree.json' with { type: 'json' };
 // is fixed rather than convenient, and why modifiers are summed per stage before being combined.
 
 // ---------- The tree ----------
+//
+// The tree's file (shared/skilltree.json) and the levels (tuning.json skills.levels) name a weapon,
+// an ability or a movement skill by its id (a weapon's is its name). The rules and the wire know each
+// by its place in its list (the order content/<kind>/_order.json gives), so NODES and LEVEL_MODS hold
+// the places, found here as they're read, as the engine finds them (crates/engine/src/tuning.rs
+// skill_tree); the lists can be in any order.
 
 export interface SkillMod {
   stat: string;
@@ -16,14 +22,14 @@ export interface SkillMod {
   value: number;
   // When this modifier counts. Everything named must match; anything absent is a wildcard.
   tags?: string[]; // the skill being used must carry all of these
-  weapon?: number;
-  skill?: string;
+  weapon?: number; // the weapon's place in WEAPONS (src/content/tuning.ts)
+  skill?: string; // the ability's or movement skill's id
 }
 
 export interface SkillGrants {
-  weapon?: number;
-  ability?: number;
-  movement?: number; // a movement skill, for a Q / E slot
+  weapon?: number; // a weapon's place in WEAPONS
+  ability?: number; // an ability's place in ABILITIES, for the hotbar
+  movement?: number; // a movement skill's place in MOVEMENT_SKILLS, for a Q / E slot
   combo?: string; // a combo variant on the weapon that owns it
 }
 
@@ -45,21 +51,59 @@ export interface SkillNode {
   mods?: SkillMod[];
 }
 
+/** A modifier as its file has it: the weapon it changes named by id. */
+type ModFile = Omit<SkillMod, 'weapon'> & { weapon?: string };
+/** What a node grants as the tree's file has it: each by id. */
+type GrantsFile = Omit<SkillGrants, 'weapon' | 'ability' | 'movement'> & { weapon?: string; ability?: string; movement?: string };
+type NodeFile = Omit<SkillNode, 'grants' | 'mods'> & { grants?: GrantsFile; mods?: ModFile[] };
+
 const raw = shared.skills as unknown as {
   points: number;
   startPoints: number;
   maxNodes: number;
   trees: Array<{ name: string; color: string }>;
-  levels: { xp: number[]; per: Record<string, SkillMod[]> };
+  levels: { xp: number[]; per: Record<string, ModFile[]> };
 };
-const tree = treeData as unknown as { radii: number[]; nodes: SkillNode[]; links: Array<[string, string, number?]> };
+const tree = treeData as unknown as { radii: number[]; nodes: NodeFile[]; links: Array<[string, string, number?]> };
+
+/** The weapons (a weapon's id is its name), abilities and movement skills, in their lists' order, with the tags modifiers look for. */
+const WEAPON_DEFS = (shared.weapons as unknown as Array<{ name: string; tags?: string[] }>).map((w) => ({ id: w.name, tags: w.tags ?? [] }));
+const ABILITY_DEFS = (shared.abilities as unknown as Array<{ id: string; tags?: string[] }>).map((a) => ({ id: a.id, tags: a.tags ?? [] }));
+const MOVEMENT_DEFS = (shared.movementSkills as unknown as Array<{ id: string; tags?: string[] }>).map((m) => ({ id: m.id, tags: m.tags ?? [] }));
+
+/** Where the thing with this id is in its list; one the content hasn't got is a mistake in the file, said with `what`. */
+function placeOf(list: ReadonlyArray<{ id: string }>, id: string, what: string): number {
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) throw new Error(`${what} "${id}", which shared/tuning.json hasn't got`);
+  return i;
+}
+
+/** A modifier with the place of the weapon it names. */
+const placedMod = (m: ModFile, at: string): SkillMod =>
+  m.weapon === undefined ? (m as SkillMod) : { ...m, weapon: placeOf(WEAPON_DEFS, m.weapon, `${at} changes the weapon`) };
+
+/** A node of the tree with the places of the weapon, ability or movement skill it grants and of the weapons its modifiers change. */
+function placedNode(n: NodeFile): SkillNode {
+  const at = `shared/skilltree.json: ${n.id}`;
+  const out = { ...n } as unknown as SkillNode;
+  if (n.grants) {
+    const { weapon, ability, movement } = n.grants;
+    const g = { ...n.grants } as unknown as SkillGrants;
+    if (weapon !== undefined) g.weapon = placeOf(WEAPON_DEFS, weapon, `${at} grants the weapon`);
+    if (ability !== undefined) g.ability = placeOf(ABILITY_DEFS, ability, `${at} grants the ability`);
+    if (movement !== undefined) g.movement = placeOf(MOVEMENT_DEFS, movement, `${at} grants the movement skill`);
+    out.grants = g;
+  }
+  if (n.mods) out.mods = n.mods.map((m) => placedMod(m, at));
+  return out;
+}
 
 /** What the training yard and the battlefield may spend. */
 export const SKILL_POINTS = raw.points;
 /** What every character starts with in the open world, before quests and milestones add more. */
 export const START_POINTS = raw.startPoints;
 export const TREES = raw.trees;
-export const NODES: readonly SkillNode[] = tree.nodes;
+export const NODES: readonly SkillNode[] = tree.nodes.map(placedNode);
 export const ORBITS: readonly number[] = tree.radii;
 export const MAX_NODES = raw.maxNodes;
 // A learned set travels as this many 32-bit words, so the wire size never depends on the tree.
@@ -290,17 +334,10 @@ export interface BookSkill {
   index: number; // weapon, ability or movement skill index
 }
 
-const ABILITY_IDS = (shared.abilities as unknown as Array<{ id: string; tags?: string[] }>).map((a) => ({
-  id: a.id,
-  tags: a.tags ?? [],
-}));
-const MOVEMENT_DEFS = (shared.movementSkills as unknown as Array<{ id: string; tags?: string[] }>).map((m) => ({ id: m.id, tags: m.tags ?? [] }));
-const WEAPON_TAGS = (shared.weapons as unknown as Array<{ tags?: string[] }>).map((w) => w.tags ?? []);
-
 /** Weapons in weapon order, then abilities, then movement skills: the order levels are kept in. */
 export const BOOK: readonly BookSkill[] = [
-  ...WEAPON_TAGS.map((_, w) => ({ id: NODES.find((n) => n.grants?.weapon === w)?.id ?? `weapon${w}`, kind: 'weapon' as const, index: w })),
-  ...ABILITY_IDS.map((a, i) => ({ id: a.id, kind: 'ability' as const, index: i })),
+  ...WEAPON_DEFS.map((_, w) => ({ id: NODES.find((n) => n.grants?.weapon === w)?.id ?? `weapon${w}`, kind: 'weapon' as const, index: w })),
+  ...ABILITY_DEFS.map((a, i) => ({ id: a.id, kind: 'ability' as const, index: i })),
   ...MOVEMENT_DEFS.map((m, i) => ({ id: m.id, kind: 'movement' as const, index: i })),
 ];
 export const bookIndex = (id: string): number => BOOK.findIndex((b) => b.id === id);
@@ -308,7 +345,10 @@ export const bookIndex = (id: string): number => BOOK.findIndex((b) => b.id === 
 /** Total experience each level needs: LEVEL_XP[0] for level 1 (always 0), and so on up. */
 export const LEVEL_XP: readonly number[] = raw.levels.xp;
 export const MAX_LEVEL = LEVEL_XP.length;
-export const LEVEL_MODS: Readonly<Record<string, SkillMod[]>> = raw.levels.per;
+/** What every level past the first adds, by skill-book id, with the places of the weapons it names. */
+export const LEVEL_MODS: Readonly<Record<string, SkillMod[]>> = Object.fromEntries(
+  Object.entries(raw.levels.per).map(([id, mods]) => [id, mods.map((m) => placedMod(m, `shared/tuning.json: skills.levels.per.${id}`))]),
+);
 for (const [id, mods] of Object.entries(LEVEL_MODS)) {
   if (bookIndex(id) < 0) throw new Error(`skills.levels.per names "${id}", which isn't in the skill book`);
   if (mods.some((m) => m.op === 'more')) throw new Error(`skills.levels.per.${id}: levels add flat or inc, never more`);
@@ -369,7 +409,7 @@ export function grantsOf(s: SkillSet): Pick<ResolvedSkills, 'combos' | 'weapons'
 
 /** What a book entry is, to ask which modifiers reach it. */
 export function bookContext(b: BookSkill): ModContext {
-  if (b.kind === 'weapon') return { weapon: b.index, tags: WEAPON_TAGS[b.index] ?? [] };
-  if (b.kind === 'ability') return { skill: ABILITY_IDS[b.index]?.id, tags: ABILITY_IDS[b.index]?.tags ?? [] };
+  if (b.kind === 'weapon') return { weapon: b.index, tags: WEAPON_DEFS[b.index]?.tags ?? [] };
+  if (b.kind === 'ability') return { skill: ABILITY_DEFS[b.index]?.id, tags: ABILITY_DEFS[b.index]?.tags ?? [] };
   return { skill: MOVEMENT_DEFS[b.index]?.id, tags: MOVEMENT_DEFS[b.index]?.tags ?? [] };
 }
