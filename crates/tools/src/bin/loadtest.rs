@@ -98,8 +98,10 @@ fn arena_reach() -> f64 {
 /// When the harness started: every time it keeps is nanoseconds from here.
 static START: OnceLock<Instant> = OnceLock::new();
 
+/// Nanoseconds since the run began, never 0: a sent time of 0 means nothing was sent (the first
+/// call starts the clock, and on Windows its first reading can be 0).
 fn nanos() -> u64 {
-    START.get_or_init(Instant::now).elapsed().as_nanos() as u64
+    START.get_or_init(Instant::now).elapsed().as_nanos() as u64 + 1
 }
 
 fn ms(ns: u64) -> f64 {
