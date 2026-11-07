@@ -718,13 +718,13 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 | Workstream | Tracker | State | Latest |
 |---|---|---|---|
 | tiers | R10.20, R10.2, R10.17's ids | running | global ids in the engine (`ids.rs`) committed |
-| bigworld | R10.23, R10.16's rest | running | |
+| bigworld | R10.23, R10.16's rest | running | Regions grow by need and drop in the engine (527020b): views share what's grown, sims play their chunks, the ground the same to the bit alone, with neighbours and after dropping; goldens unchanged. Next: the three-region fixture, the WebAssembly's region calls, the worker |
 | offline | R10.11, R10.4, R10.10's rest | running | |
 | wire | R10.8 | running (first half) | |
 | land | R10.21 | running (first half) | |
 | borders | R10.19 | running (first half) | |
 | channels | R10.22 | running (first half) | |
 | multiserver | issue #4, requirement 6 | running (first half) | |
-| scale | R10.24 | running (first half) | |
+| scale | R10.24 | running (first half) | Plan in its report (0c48b4c): a Rust loadtest (bots and virtual clients over the real WebSocket, the server's CPU and memory), two small server hooks (a bot limit, rules and sending timed apart), the battlefield stress spec for 0-256 peers, then the baseline sweeps; its rig is up |
 | words | R10.14 | last, once the rest are in | |
 
