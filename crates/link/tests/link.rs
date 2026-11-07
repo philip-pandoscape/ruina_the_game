@@ -360,9 +360,9 @@ async fn a_peer_speaking_another_protocol_is_refused() {
 struct Kept(Mutex<Vec<(Address, Message)>>);
 
 impl Transport for Kept {
-    fn send(&self, to: Address, msg: Message) -> bool {
+    fn send(&self, to: Address, msg: Message) -> Result<(), Message> {
         self.0.lock().unwrap().push((to, msg));
-        true
+        Ok(())
     }
 }
 
@@ -374,26 +374,42 @@ async fn the_tiers_messages_cross_between_processes_whole() {
     use ruina_world_api::sim::ToSim;
 
     let (gate, _) = Node::<Envelope>::start("gate-1", LOCAL, post::config()).await.unwrap();
-    let (sim, inbox) = Node::<Envelope>::start("sim-1", LOCAL, post::config()).await.unwrap();
+    let (sim, mut inbox) = Node::<Envelope>::start("sim-1", LOCAL, post::config()).await.unwrap();
+    // The process it reaches hands each envelope to its own post.
     let kept = Arc::new(Kept::default());
     tokio::spawn({
         let kept = kept.clone();
-        async move { post::deliver(inbox, kept.as_ref()).await }
+        async move {
+            while let Some(e) = inbox.recv().await {
+                let Envelope { to, msg } = e.msg;
+                let _ = kept.send(to, msg);
+            }
+        }
     });
     let post = LinkPost::new(gate.clone());
-    // The directory's word: simulation 7 plays in sim-1.
-    post.place(Address::Sim(SimId(7)), "sim-1", &sim.local_addr().to_string());
     let input = Input { seq: 99, view: 1234 * 16, raw: [127, 0, 1, 0, 0, 0, 0, 0, 0, 127] };
-    assert!(post.sim(SimId(7), ToSim::Inputs { character: 42, inputs: vec![input; 3] }));
     let conn = Conn { gate: GateId(1), character: 42, session: 5 };
-    // Somewhere nobody is known to be, or a message that doesn't fit its address: false.
-    assert!(!post.sim(SimId(8), ToSim::Stop));
-    assert!(!post.send(Address::Sim(SimId(7)), Message::Gate(ToGate::Conn { conn, msg: ToConn::Kicked })));
+    // Nobody known to play simulation 7 yet: parked, and missed.
+    assert!(post.sim(SimId(7), ToSim::Inputs { conn, inputs: vec![input; 3] }));
+    assert_eq!(post.missing(), vec![Address::Sim(SimId(7))]);
+    // A message that doesn't fit its address comes back.
+    assert!(post.send(Address::Sim(SimId(7)), Message::Gate(ToGate::Conn { conn, msg: ToConn::Kicked })).is_err());
+    // The directory's word: simulation 7 plays in sim-1. What was parked goes, then the rest.
+    post.place(Address::Sim(SimId(7)), "sim-1", &sim.local_addr().to_string());
+    assert!(post.missing().is_empty());
     assert!(post.sim(SimId(7), ToSim::Estates { conn }));
     until("both arrived", || kept.0.lock().unwrap().len() == 2).await;
-    let kept = kept.0.lock().unwrap();
-    assert!(matches!(&kept[0], (Address::Sim(SimId(7)), Message::Sim(ToSim::Inputs { character: 42, inputs })) if inputs == &vec![input; 3]));
-    assert!(matches!(&kept[1], (Address::Sim(SimId(7)), Message::Sim(ToSim::Estates { conn: c })) if *c == conn));
+    {
+        let kept = kept.0.lock().unwrap();
+        assert!(matches!(&kept[0], (Address::Sim(SimId(7)), Message::Sim(ToSim::Inputs { conn: c, inputs })) if *c == conn && inputs == &vec![input; 3]));
+        assert!(matches!(&kept[1], (Address::Sim(SimId(7)), Message::Sim(ToSim::Estates { conn: c })) if *c == conn));
+    }
+    // Mail parked too long comes back to whoever sent it.
+    assert!(post.sim(SimId(8), ToSim::Stop));
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    let back = post.expire(Duration::from_millis(10));
+    assert!(matches!(back.as_slice(), [(Address::Sim(SimId(8)), Message::Sim(ToSim::Stop))]));
+    assert!(post.missing().is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

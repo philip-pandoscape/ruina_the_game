@@ -1311,6 +1311,7 @@ dependencies = [
  "rayon",
  "ruina-engine",
  "ruina-link",
+ "ruina-world-api",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1327,7 +1328,7 @@ version = "0.1.0"
 dependencies = [
  "ruina-engine",
  "ruina-engine-wasm",
- "ruina-server",
+ "ruina-world-api",
  "serde",
  "serde_json",
 ]

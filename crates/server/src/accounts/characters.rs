@@ -177,14 +177,13 @@ pub async fn delete(State(app): State<App>, headers: HeaderMap, Path(id): Path<i
     if !d.name.trim().eq_ignore_ascii_case(&name) {
         return Err(ApiError(StatusCode::BAD_REQUEST, "Type the character's name to delete them."));
     }
-    if app.world.is_playing(id) {
+    if app.gate.is_playing(id).await {
         return Err(ApiError(StatusCode::CONFLICT, "That character is in the world right now. Leave the world with them first."));
     }
     sqlx::query("DELETE FROM characters WHERE id = $1 AND account_id = $2").bind(id).bind(account.id).execute(db).await?;
-    // Their houses and farms come down, and their plots are free for the next one.
-    if let Some(channel) = channel {
-        app.world.remove_resident(channel, id);
-    }
+    // Their houses and farms come down, their plots are free for the next one, and their party
+    // lets them go.
+    app.gate.forget(id, channel.map(|c| c as u32));
     Ok(Json(json!({ "ok": true })))
 }
 

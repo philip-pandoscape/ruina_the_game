@@ -5,6 +5,12 @@
 //! browser has always read: `crates/server/src/gate/encode.rs`).
 //!
 //! The field names are the browser's (camelCase), so the JSON encoding of a record is the record.
+//!
+//! The entity records here (presence, creatures, arrows, meteors, effects) are the JSON path's:
+//! the wire workstream's packed records (crates/wire: a frame of records per cell, assembled per
+//! client by a viewer) take the place of `TickOut::cells` when the gate sends its binary protocol,
+//! and these go. [`Private`] (a player's own state, their life, what was said to them) and
+//! [`TableRecord`] stay.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,7 +23,7 @@ use ruina_engine::player::{Mode, Player, V3};
 use ruina_engine::skills::SkillSet;
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS};
 
-use crate::ids::{CharacterId, EntityId, SimId, SpaceId, Tick};
+use crate::ids::{CharacterId, EntityId, Epoch, SimId, SpaceId, Tick};
 
 /// The side of a cell, in metres: what a client is sent is picked cell by cell.
 pub const CELL: f64 = 32.0;
@@ -41,6 +47,9 @@ pub fn cells_round(x: f64, z: f64, radius: f64) -> impl Iterator<Item = CellKey>
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TickOut {
     pub sim: SimId,
+    /// The epoch of the simulation's lease on its space: a gate takes ticks only from its space's
+    /// current holder (once several processes share the world).
+    pub lease: Epoch,
     pub space: Option<SpaceId>,
     pub tick: Tick,
     /// What others see, by cell, in the order of their keys.

@@ -12,7 +12,7 @@ import type { LifeState } from './life/state';
 import type { ArrowFlight, MeteorFall } from './training';
 import type { Actions, GameEvent, Obstacle, PlayerState } from './shapes';
 import type { BoxCollider, Deck } from './world/types';
-import { answer, wasm, withText } from './wasm';
+import { answer, wasm, withArrays, withText } from './wasm';
 
 export interface SessionOptions {
   openWorld: boolean;
@@ -101,9 +101,25 @@ export class EngineSession {
     return answer<SessionView>(wasm().session_view(this.h, events ? 1 : 0));
   }
 
-  /** Everything solid on the island as it stands (null on the yard's flat ground). */
-  colliders(): { obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] } | null {
+  /** What's solid in the world as it stands: the regions it holds (places in the world's map), and what's been built since (null on the yard's flat ground). */
+  colliders(): { regions: number[]; obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] } | null {
     return answer(wasm().session_colliders(this.h));
+  }
+
+  /** Hands the world a region grown in the page's worker: its ground the rules', what's on it solid. False if it isn't that region as the world places it. */
+  adoptRegion(
+    place: number,
+    heights: Float32Array,
+    surface: Uint8Array,
+    clear: Uint8Array,
+    edges: Float32Array,
+    solids: { obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] },
+  ): boolean {
+    const e = wasm();
+    const json = new TextEncoder().encode(JSON.stringify(solids));
+    return withArrays([heights, surface, clear, edges, json], ([h, s, c, ed, j]) =>
+      Boolean(e.session_adopt_region(this.h, place, h[0], h[1], s[0], s[1], c[0], c[1], ed[0], ed[1], j[0], j[1])),
+    );
   }
 
   /** The island's cells kept clear of trees and scarecrows, copied into `into` (as long as the island's). */

@@ -1,10 +1,15 @@
-//! The open world's connection: one per player on Emberholm. src/net/worldLink.ts is the other
-//! end.
+//! A player's connection: one per browser window in the world. src/net/worldLink.ts is the other end.
 //!
-//! Each character lives in a channel of Emberholm, and the server plays it (crates/server/src/sim/mod.rs):
-//! the browser sends only what its player presses and what they ask their island to do, and hears
-//! back, 20 times a second, where it really is, what its island holds, and everyone else in the
-//! channel. Islands are kept in Postgres, written by the server from its own copy.
+//! Each character lives in a channel of a region, played by a simulation (crates/server/src/sim):
+//! the browser sends only what its player presses and what they ask their life to do, and hears
+//! back, 20 times a second, where it really is, what its life holds, and everyone else in the
+//! space. Lives are kept in Postgres, written by the store from the simulation's copy.
+//!
+//! On the way in, the connection asks the directory for the character (a newer grant: another
+//! window playing them is put out), the store for their life, and the simulation the directory
+//! names to take them in; then it sends the welcome. From then on what the browser sends goes to
+//! that simulation (or to the social tier, for parties), until the simulation it plays in changes
+//! (`Moved`).
 //!
 //! /ws/world?character=<id> plays that character, if it's the signed-in account's; without one, the
 //! character the account played last.
@@ -17,11 +22,11 @@
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //!                      | challenges {sent, waiting}: your challenge out, and one waiting for your answer
 //!                      | table {table}: the game at your table as you may see it (null: you're up)
-//!                      | space {space}: you've gone into a dungeon's copy, or back out (crates/server/src/directory/mod.rs)
+//!                      | space {space}: you've gone into a dungeon's copy, or back out (crates/server/src/sim/host.rs)
 //!                      | party {party|null}: your party as it is now | partyInvite {invite|null}
 //!                      | notice {text}: something to read
 //!                      | reset | kicked | error {text}
-//!                      | updating: the server is stopping for an update; once the island is
+//!                      | updating: the server is stopping for an update; once the lives are
 //!                        written, the connection closes with 1012 (service restart)
 //!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //!                      (src/net/netPlayer.ts quantize)
@@ -33,9 +38,9 @@
 //!                      | partyInvite {to?, name?} | partyAnswer {from, accept} | partyLeave
 //!                      | partyKick {id} | partyLead {id}   (parties, crates/server/src/social/parties.rs)
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use axum::body::Bytes;
@@ -47,21 +52,25 @@ use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use sqlx::PgPool;
-use sqlx::types::Json;
-use tokio::sync::{Notify, mpsc, watch};
+use tokio::sync::mpsc;
 
+use ruina_world_api::directory::ToDirectory;
+use ruina_world_api::gate::{Claimed, Estates, ToConn};
+use ruina_world_api::input::{Input, OPEN_INPUT};
+use ruina_world_api::sim::{Arrival, Ask, ToSim};
+use ruina_world_api::social::ToSocial;
+use ruina_world_api::store::ToStore;
+use ruina_world_api::{Conn, SimId};
+
+use super::{Event, Gate, Stage, encode};
 use crate::accounts::characters;
 use crate::accounts::{Account, signed_in};
 use crate::content::content_hash;
-use crate::directory::Spaces;
-use crate::gate::encode::OPEN_INPUT;
 use crate::http::{App, same_origin};
 use crate::life::Command;
 use crate::player::Build;
-use crate::sim::channels::CHANNEL_CAP;
-use crate::sim::{Arrival, ChannelGame, Save, TICK_HZ};
-use crate::skills::{SKILL_WORDS, allowed, saved_build};
+use crate::skills::{SKILL_WORDS, allowed};
+use crate::store::now_ms;
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 
 /// The biggest message a browser may send.
@@ -70,6 +79,8 @@ const MAX_MESSAGE: usize = 64 << 10;
 /// whose timers are throttled, so a connection this quiet for IDLE has gone without saying so.
 const PING: Duration = Duration::from_secs(20);
 const IDLE: Duration = Duration::from_secs(60);
+/// How long the way in may take (the directory, the store and a simulation each answer once).
+const WAY_IN: Duration = Duration::from_secs(15);
 /// Inputs in one binary message, at most.
 const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
@@ -77,214 +88,6 @@ const SEND_INPUTS: u8 = 7;
 /// (src/net/worldLink.ts WORLD_PROTOCOL). So does a page built from other content (content_hash, in
 /// the welcome): what goes on the wire as a place in a bundle's list would mean something else to it.
 pub const WORLD_PROTOCOL: u32 = 11;
-
-/// Where the server is in its life. Railway starts a new server for an update, then stops this one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Stage {
-    Running,
-    /// Stopping: every browser has been told the server is being updated, and the islands are
-    /// being written. Nobody new comes in.
-    Updating,
-    /// The islands are written: every connection closes as a service restart (1012).
-    Closing,
-}
-
-/// Which connection is playing each character (so a second window takes over from the first),
-/// the channels, dungeons and parties (crate::directory), and whether the server is stopping.
-pub struct Hub {
-    live: Mutex<HashMap<i64, (i64, mpsc::Sender<()>)>>,
-    spaces: Mutex<Spaces>,
-    stage: watch::Sender<Stage>,
-    /// Asked to stop the way SIGTERM asks (the developer endpoint, for tests).
-    stop: Notify,
-    /// The one queue islands are written from, in the order they were taken (spawn_world): a
-    /// list is written in one transaction. Islands are queued with the channels locked, so an
-    /// older copy of an island can never be written over a newer one.
-    saver: Mutex<Option<mpsc::UnboundedSender<Vec<Save>>>>,
-}
-
-impl Default for Hub {
-    fn default() -> Self {
-        Hub { live: Mutex::default(), spaces: Mutex::default(), stage: watch::channel(Stage::Running).0, stop: Notify::new(), saver: Mutex::default() }
-    }
-}
-
-impl Hub {
-    fn claim(&self, character: i64, session: i64, kick: mpsc::Sender<()>) {
-        if let Some((_, old)) = self.live.lock().unwrap().insert(character, (session, kick)) {
-            let _ = old.try_send(());
-        }
-    }
-
-    fn release(&self, character: i64, session: i64) {
-        let mut live = self.live.lock().unwrap();
-        if live.get(&character).is_some_and(|(s, _)| *s == session) {
-            live.remove(&character);
-        }
-    }
-
-    /// Players connected right now.
-    pub fn count(&self) -> usize {
-        self.live.lock().unwrap().len()
-    }
-
-    /// Whether a connection is playing this character right now.
-    pub fn is_playing(&self, character: i64) -> bool {
-        self.live.lock().unwrap().contains_key(&character)
-    }
-
-    /// Everyone's games, the dungeons' copies and the parties, locked for one change.
-    fn with_spaces<T>(&self, f: impl FnOnce(&mut Spaces) -> T) -> T {
-        // A connection that failed halfway through a change mustn't stop everyone else's.
-        let mut spaces = self.spaces.lock().unwrap_or_else(|e| e.into_inner());
-        if spaces.saver.is_none() {
-            spaces.saver = self.saver();
-        }
-        f(&mut spaces)
-    }
-
-    fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
-        self.with_spaces(|sp| f(sp.channel(id)))
-    }
-
-    /// The game a character is playing in right now (a channel, or a dungeon's copy), if any.
-    fn with_member<T>(&self, character: i64, f: impl FnOnce(&mut ChannelGame) -> T) -> Option<T> {
-        self.with_spaces(|sp| sp.game_of(character).map(f))
-    }
-
-    fn saver(&self) -> Option<mpsc::UnboundedSender<Vec<Save>>> {
-        self.saver.lock().unwrap_or_else(|e| e.into_inner()).clone()
-    }
-
-    /// A character is gone for good (deleted): their estate comes down in their channel, if that
-    /// channel is running (one that isn't reads its residents without them when it starts).
-    pub fn remove_resident(&self, channel: i32, character: i64) {
-        let mut spaces = self.spaces.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(ch) = spaces.games.get_mut(&channel) {
-            ch.remove_resident(character);
-        }
-        // Out of their party too.
-        spaces.forget(character);
-    }
-
-    pub fn stage(&self) -> Stage {
-        *self.stage.borrow()
-    }
-
-    /// Stops the server the way SIGTERM does (the developer endpoint).
-    pub fn ask_to_stop(&self) {
-        self.stop.notify_one();
-    }
-
-    /// Resolves once ask_to_stop is called.
-    pub async fn stop_asked(&self) {
-        self.stop.notified().await
-    }
-}
-
-/// Plays every channel with anyone in it (or a game going on), TICK_HZ times a second, on a
-/// thread of its own; and writes the islands that are due a save.
-pub fn spawn_world(app: App) {
-    let (saves_tx, mut saves_rx) = mpsc::unbounded_channel::<Vec<Save>>();
-    *app.world.saver.lock().unwrap_or_else(|e| e.into_inner()) = Some(saves_tx.clone());
-    if let Some(db) = app.db.clone() {
-        tokio::spawn(async move {
-            while let Some(batch) = saves_rx.recv().await {
-                match write_islands(&db, &batch).await {
-                    Ok(written) => {
-                        for (s, ok) in batch.iter().zip(written) {
-                            if let (true, Some(out)) = (ok, &s.out) {
-                                let _ = out.try_send(json!({ "t": "saved", "at": now_ms() }).to_string());
-                            }
-                        }
-                    }
-                    Err(e) => eprintln!("could not save characters {:?}: {e}", batch.iter().map(|s| s.character).collect::<Vec<_>>()),
-                }
-            }
-        });
-    }
-    let hub = app.clone();
-    std::thread::Builder::new()
-        .name("world".into())
-        .spawn(move || {
-            let period = Duration::from_secs_f64(1.0 / TICK_HZ as f64);
-            let mut next = Instant::now() + period;
-            let mut saves = Vec::new();
-            loop {
-                {
-                    let mut spaces = hub.world.spaces.lock().unwrap_or_else(|e| e.into_inner());
-                    if spaces.saver.is_none() {
-                        spaces.saver = Some(saves_tx.clone());
-                    }
-                    for ch in spaces.games.values_mut() {
-                        if ch.has_players() || ch.has_tables() {
-                            // One channel's bad moment mustn't stop all the others.
-                            let id = ch.id;
-                            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ch.step(&mut saves))).is_err() {
-                                eprintln!("channel {id} failed a tick");
-                            }
-                        }
-                        // Games paid out before the channel had the queue (it hands them over
-                        // itself as they're paid): both islands together.
-                        for batch in ch.take_joint() {
-                            let _ = saves_tx.send(batch);
-                        }
-                    }
-                    // Copies of dungeons long empty close; whoever is in one that isn't theirs is put out.
-                    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| spaces.sweep(Instant::now()))).is_err() {
-                        eprintln!("the dungeons' sweep failed");
-                    }
-                    // Queued with the channels still locked, so they're in the order they were taken.
-                    for s in saves.drain(..) {
-                        let _ = saves_tx.send(vec![s]);
-                    }
-                }
-                let now = Instant::now();
-                if next > now {
-                    std::thread::sleep(next - now);
-                    next += period;
-                } else {
-                    next = now + period;
-                }
-            }
-        })
-        .expect("start the world thread");
-}
-
-/// The server is stopping (Railway stops the old server once the new one is up, and DEV_LOGIN's
-/// /api/dev/stop does the same). Everyone hears that the game is being updated, so their browser
-/// freezes the world; a moment later, once inputs already on their way have landed, their islands
-/// are written; then their connections close as a service restart (1012), and their browsers come
-/// back, on the new server, to where they were.
-pub async fn stop_world(app: &App) {
-    app.world.stage.send_replace(Stage::Updating);
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    save_everyone(app).await;
-    app.world.stage.send_replace(Stage::Closing);
-    // A moment for the connections to close properly.
-    let deadline = Instant::now() + Duration::from_secs(3);
-    while app.world.count() > 0 && Instant::now() < deadline {
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-}
-
-/// Writes the island of everyone playing right now (the server is stopping).
-pub async fn save_everyone(app: &App) {
-    let Some(db) = app.db.clone() else { return };
-    let saves: Vec<Save> = {
-        let mut spaces = app.world.spaces.lock().unwrap_or_else(|e| e.into_inner());
-        spaces.games.values_mut().flat_map(|ch| ch.islands_now()).collect()
-    };
-    let mut written = 0;
-    for s in saves {
-        match write_island(&db, s.character, s.session, s.island).await {
-            Ok(r) if r.rows_affected() == 1 => written += 1,
-            Ok(_) => {}
-            Err(e) => eprintln!("could not save character {} while stopping: {e}", s.character),
-        }
-    }
-    println!("saved {written} islands");
-}
 
 /// Which character a browser wants to play (/ws/world?character=<id>).
 #[derive(Deserialize)]
@@ -300,7 +103,7 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, Query(which): Q
         return (StatusCode::FORBIDDEN, "wrong origin").into_response();
     }
     // Stopping for an update: the browser keeps trying, and finds the new server.
-    if app.world.stage() != Stage::Running {
+    if app.gate.stage() != Stage::Running {
         return (StatusCode::SERVICE_UNAVAILABLE, "the server is restarting").into_response();
     }
     let account = match signed_in(&headers, &db).await {
@@ -319,14 +122,13 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, Query(which): Q
             return (StatusCode::INTERNAL_SERVER_ERROR, "database error").into_response();
         }
     };
+    let admin = app.is_admin(&account);
     ws.max_message_size(MAX_MESSAGE).on_upgrade(move |socket| async move {
-        let session = (OsRng.next_u64() >> 1) as i64;
-        let (kick, kicked) = mpsc::channel(1);
-        app.world.claim(character, session, kick);
-        if let Err(e) = play(socket, &app, &db, &account, (character, name), session, kicked).await {
+        let gate = app.gate.clone();
+        let conn = Conn { gate: gate.id, character, session: (OsRng.next_u64() >> 1) as i64 };
+        if let Err(e) = play(socket, &gate, &account, conn, name, admin).await {
             eprintln!("world connection for {} ended: {e}", account.username);
         }
-        app.world.release(character, session);
     })
 }
 
@@ -364,19 +166,19 @@ enum FromBrowser {
     Concede {
         table: u64,
     },
-    /// Through a dungeon's portal (crates/server/src/directory/mod.rs), or back out of it.
+    /// Through a dungeon's portal (crates/server/src/sim/host.rs), or back out of it.
     Dungeon {
         id: String,
         enter: bool,
     },
-    /// Into a developer zone, from the Admin menu (admins only: spaces.rs enter_zone), on a side
-    /// (the battlefield's), or onto another side there.
+    /// Into a developer zone, from the Admin menu (admins only), on a side (the battlefield's), or
+    /// onto another side there.
     Zone {
         id: String,
         #[serde(default)]
         team: Option<u8>,
     },
-    /// Parties (crates/server/src/social/parties.rs): invite someone (by id, or by name), answer an invitation,
+    /// Parties (crates/server/src/social): invite someone (by id, or by name), answer an invitation,
     /// leave, remove someone, hand on the lead.
     PartyInvite {
         #[serde(default)]
@@ -399,72 +201,116 @@ enum FromBrowser {
 
 type Tx = SplitSink<WebSocket, Message>;
 
-/// Takes the player out of their game however the connection ends (unless a newer window has
-/// taken their seat), and saves the island they leave behind.
-struct Seat {
-    app: App,
-    db: PgPool,
-    character: i64,
-    session: i64,
+/// A connection's seat in the world: however the connection ends, the simulation it plays in lets
+/// the character go (their life is written; a newer window that took their seat keeps it), the
+/// directory hears it let go, and the gate forgets it.
+pub struct Seat {
+    gate: Arc<Gate>,
+    pub conn: Conn,
+    /// The simulation it plays in now (none until it was taken in).
+    pub sim: Option<SimId>,
+}
+
+impl Seat {
+    pub fn new(gate: Arc<Gate>, conn: Conn, tx: mpsc::Sender<Event>) -> Seat {
+        gate.open(conn, tx);
+        Seat { gate, conn, sim: None }
+    }
 }
 
 impl Drop for Seat {
     fn drop(&mut self) {
-        // Into the queue with everything else, while the channel is still locked: a game paid out
-        // a moment later is written after this, never under it.
-        let saver = self.app.world.saver();
-        let island = self.app.world.with_spaces(|sp| {
-            let island = sp.depart(self.character, self.session)?;
-            let save = Save { character: self.character, session: self.session, island, out: None };
-            match &saver {
-                Some(tx) => tx.send(vec![save]).err().map(|e| e.0.into_iter().next().unwrap().island),
-                None => Some(save.island),
-            }
-        });
-        if let Some(island) = island {
-            let (db, character, session) = (self.db.clone(), self.character, self.session);
-            tokio::spawn(async move {
-                if let Err(e) = write_island(&db, character, session, island).await {
-                    eprintln!("could not save character {character} on leaving: {e}");
-                }
-            });
+        let post = &self.gate.post;
+        if let Some(sim) = self.sim {
+            post.sim(sim, ToSim::Depart { conn: self.conn });
+        }
+        post.directory(ToDirectory::Release { conn: self.conn });
+        self.gate.close(self.conn);
+    }
+}
+
+/// What a connection's way in found: the grant, the life read and where it was taken in, with the
+/// estates of its home channel.
+pub struct WayIn {
+    pub claimed: Claimed,
+    pub build: Value,
+    pub space: Value,
+    pub estates: Estates,
+    /// What came for the connection meanwhile, to go after the welcome.
+    pub held: VecDeque<Event>,
+}
+
+/// Waits for the message `pick` takes, keeping whatever else comes meanwhile.
+async fn wait_for<T>(rx: &mut mpsc::Receiver<Event>, held: &mut VecDeque<Event>, mut pick: impl FnMut(ToConn) -> Result<T, Box<ToConn>>) -> Result<T, String> {
+    let deadline = tokio::time::Instant::now() + WAY_IN;
+    loop {
+        match tokio::time::timeout_at(deadline, rx.recv()).await {
+            Err(_) => return Err("the server didn't answer in time".into()),
+            Ok(None) => return Err("the gate is gone".into()),
+            Ok(Some(Event::Msg(ToConn::Turned { text }))) => return Err(text),
+            Ok(Some(Event::Msg(m))) => match pick(m) {
+                Ok(t) => return Ok(t),
+                Err(other) => held.push_back(Event::Msg(*other)),
+            },
+            // Ticks before the welcome are of no use: the next come in a moment.
+            Ok(Some(Event::Tick(_))) => {}
         }
     }
 }
 
-/// The character's home channel: the one they were given the first time, or the first with room.
-async fn home_channel(db: &PgPool, character: i64) -> Result<i32, sqlx::Error> {
-    sqlx::query_scalar(
-        "UPDATE characters SET home_channel = COALESCE(home_channel, \
-           (SELECT c FROM generate_series(1, 100000) AS c \
-            WHERE (SELECT count(*) FROM characters WHERE home_channel = c) < $2 ORDER BY c LIMIT 1)) \
-         WHERE id = $1 RETURNING home_channel",
-    )
-    .bind(character)
-    .bind(CHANNEL_CAP)
-    .fetch_one(db)
-    .await
-}
-
-/// Reads what everyone who lives in a channel has built, the first time anyone arrives there.
-async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::Error> {
-    if app.world.with_channel(channel, |ch| ch.estates.loaded) {
-        return Ok(());
+/// The way in: the directory takes the character up for this connection (the seat's), the store
+/// reads their life, and the simulation the directory names takes them in.
+pub async fn way_in(seat: &mut Seat, rx: &mut mpsc::Receiver<Event>, name: &str, admin: bool) -> Result<WayIn, String> {
+    let post = seat.gate.post.clone();
+    let conn = seat.conn;
+    let mut held = VecDeque::new();
+    post.directory(ToDirectory::Claim { conn, name: name.to_string() });
+    let claimed = wait_for(rx, &mut held, |m| match m {
+        ToConn::Claimed(c) => Ok(*c),
+        other => Err(Box::new(other)),
+    })
+    .await?;
+    post.store(ToStore::LoadLife { character: conn.character, reply: conn });
+    let (life, build, saved_at) = wait_for(rx, &mut held, |m| match m {
+        ToConn::Life { life, build, saved_at } => Ok((life, build, saved_at)),
+        other => Err(Box::new(other)),
+    })
+    .await?;
+    let arrival = Arrival {
+        conn,
+        name: name.to_string(),
+        dev: admin,
+        epoch: claimed.epoch,
+        party: claimed.party,
+        home: claimed.home.clone(),
+        life,
+        build,
+        saved_at,
+        now: now_ms(),
+    };
+    seat.sim = Some(claimed.sim);
+    if !post.sim(claimed.sim, ToSim::Arrive(Box::new(arrival))) {
+        return Err("the place you play in is gone".into());
     }
-    let rows: Vec<(i64, String, Option<Json<Value>>)> =
-        sqlx::query_as("SELECT id, name, island->'state' FROM characters WHERE home_channel = $1 AND island IS NOT NULL").bind(channel).fetch_all(db).await?;
-    app.world.with_channel(channel, |ch| {
-        if ch.estates.loaded {
-            return;
+    let (space, build, estates) = wait_for(rx, &mut held, |m| match m {
+        ToConn::Arrived { space, build, estates } => Ok((space, build, estates)),
+        other => Err(Box::new(other)),
+    })
+    .await?;
+    // In a copy, the estates are their home channel's all the same: they come back to it.
+    let estates = match estates {
+        Some(e) => e,
+        None => {
+            post.sim(claimed.home_sim, ToSim::Estates { conn });
+            wait_for(rx, &mut held, |m| match m {
+                ToConn::Estates(e) => Ok(e),
+                other => Err(Box::new(other)),
+            })
+            .await?
         }
-        for (id, name, state) in rows {
-            if let Some(Json(state)) = state {
-                ch.add_resident(id, &name, &state);
-            }
-        }
-        ch.estates.loaded = true;
-    });
-    Ok(())
+    };
+    let space = serde_json::to_value(&space).unwrap_or(Value::Null);
+    Ok(WayIn { claimed, build, space, estates, held })
 }
 
 /// A build as it comes on the wire (src/content/build.ts): the learned skills, weapon, hotbar and
@@ -492,59 +338,29 @@ pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {
     allowed(&b, budget).then_some(b)
 }
 
-async fn play(
-    socket: WebSocket,
-    app: &App,
-    db: &PgPool,
-    account: &Account,
-    (character, name): (i64, String),
-    session: i64,
-    mut kicked: mpsc::Receiver<()>,
-) -> Result<(), String> {
+async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn, name: String, admin: bool) -> Result<(), String> {
     let (mut tx, mut rx) = socket.split();
-    let mut stage = app.world.stage.subscribe();
-
-    let channel = home_channel(db, character).await.map_err(|e| e.to_string())?;
-    load_channel(app, db, channel).await.map_err(|e| e.to_string())?;
-    let world = &app.world;
-
-    // Taking the character over: from here on only this connection's saves are written, so a
-    // window it replaced can't write over it.
-    let (island, build, saved_at): (Option<Json<Value>>, Option<Json<Value>>, Option<i64>) = sqlx::query_as(
-        "UPDATE characters SET live_session = $2, last_played_at = now() WHERE id = $1 \
-         RETURNING island, build, (extract(epoch FROM saved_at) * 1000)::bigint",
-    )
-    .bind(character)
-    .bind(session)
-    .fetch_one(db)
-    .await
-    .map_err(|e| e.to_string())?;
-    let build_json = build.map(|j| j.0);
+    let mut stage = gate.subscribe();
+    let (events_tx, mut events) = mpsc::channel::<Event>(256);
+    let mut seat = Seat::new(gate.clone(), conn, events_tx);
     let now = now_ms();
-
-    // Into the channel's game.
-    let (out, mut outbox) = mpsc::channel::<String>(256);
-    let arrival =
-        Arrival { character, session, name: name.clone(), out, dev: app.is_admin(account), island: island.map(|j| j.0), saved_at, now, build: build_json };
-    // The build they play with comes back: the one kept, if what they've earned still covers it.
-    // Into their home channel, or back into the copy of a dungeon they were in.
-    let (estates, claims, build, space) = world.with_spaces(|sp| sp.arrive(channel, arrival));
-    let _seat = Seat { app: app.clone(), db: db.clone(), character, session };
+    let way = way_in(&mut seat, &mut events, &name, admin).await?;
+    let post = gate.post.clone();
     send(
         &mut tx,
         json!({
             "t": "welcome",
             "protocol": WORLD_PROTOCOL,
             "content": content_hash(),
-            "character": { "id": character, "name": name },
+            "character": { "id": conn.character, "name": name },
             "account": account.username,
-            "build": build,
+            "build": way.build,
             "now": now,
-            "channel": channel,
-            "dev": app.is_admin(account),
-            "estates": estates,
-            "claims": claims,
-            "space": space,
+            "channel": way.claimed.channel,
+            "dev": admin,
+            "estates": way.estates.estates,
+            "claims": way.estates.claims,
+            "space": way.space,
         }),
     )
     .await?;
@@ -553,6 +369,12 @@ async fn play(
     let now = *stage.borrow_and_update();
     if let Some(done) = stopping(&mut tx, now, &mut told).await? {
         return Ok(done);
+    }
+    // What came meanwhile (their party, an invitation), after the welcome.
+    for e in way.held {
+        if let Some(done) = deliver(&mut tx, &mut seat, e, admin).await? {
+            return Ok(done);
+        }
     }
 
     let mut last_heard = Instant::now();
@@ -564,104 +386,21 @@ async fn play(
                 last_heard = Instant::now();
                 match msg {
                     Some(Ok(Message::Binary(b))) => {
-                        if let Some(list) = read_inputs(&b) {
-                            world.with_member(character, |ch| ch.inputs_seen(character, list.into_iter()));
+                        if let (Some(inputs), Some(sim)) = (read_inputs(&b), seat.sim) {
+                            post.sim(sim, ToSim::Inputs { conn, inputs });
                         }
                     }
                     Some(Ok(Message::Text(text))) => match serde_json::from_str::<FromBrowser>(text.as_str()) {
-                        Ok(FromBrowser::Cmd { s, c }) => match serde_json::from_value::<Command>(c) {
-                            Ok(c) => {
-                                if !world.with_member(character, |ch| ch.command(character, s, c)).unwrap_or(false) {
-                                    send(&mut tx, json!({ "t": "error", "text": "That isn't allowed here." })).await?;
+                        Ok(m) => {
+                            if let Some(ask) = asked(m, conn, admin, post.as_ref()) {
+                                match ask {
+                                    Ok(ask) => {
+                                        if let Some(sim) = seat.sim {
+                                            post.sim(sim, ToSim::Ask { conn, ask });
+                                        }
+                                    }
+                                    Err(text) => send(&mut tx, json!({ "t": "error", "text": text })).await?,
                                 }
-                            }
-                            Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that command." })).await?,
-                        },
-                        Ok(FromBrowser::Build { build }) => {
-                            // Checked against the skill points this character has earned so far, and
-                            // kept by id.
-                            let Some(build) = world.with_member(character, |ch| ch.set_build(character, &build)).flatten() else {
-                                send(&mut tx, json!({ "t": "error", "text": "That build isn't allowed." })).await?;
-                                continue;
-                            };
-                            let result = sqlx::query("UPDATE characters SET build = $3 WHERE id = $1 AND live_session = $2")
-                                .bind(character)
-                                .bind(session)
-                                .bind(Json(saved_build(&build)))
-                                .execute(db)
-                                .await;
-                            if let Wrote::Replaced = outcome(result, &mut tx).await? {
-                                return replaced(&mut tx).await;
-                            }
-                        }
-                        // Starting an island over is a developer command: an admin's only.
-                        Ok(FromBrowser::Reset) if !app.is_admin(account) => {}
-                        Ok(FromBrowser::Reset) => {
-                            let Some(fresh) = world.with_spaces(|sp| sp.reset(character)) else { continue };
-                            match outcome(write_island(db, character, session, fresh).await, &mut tx).await? {
-                                Wrote::Yes => send(&mut tx, json!({ "t": "reset" })).await?,
-                                Wrote::Replaced => return replaced(&mut tx).await,
-                                Wrote::Failed => {}
-                            }
-                        }
-                        Ok(FromBrowser::Challenge { to, game, stake, seed, turn }) => {
-                            if let Err(text) = world.with_member(character, |ch| ch.challenge_timed(character, to, game, stake, seed, turn)).unwrap_or_else(|| Err("You aren't playing.".into())) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::Withdraw) => {
-                            world.with_member(character, |ch| ch.withdraw(character));
-                        }
-                        Ok(FromBrowser::Answer { from, accept }) => {
-                            if let Err(text) = world.with_member(character, |ch| ch.answer(character, from, accept)).unwrap_or_else(|| Err("You aren't playing.".into())) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::Move { table, m }) => {
-                            if let Err(text) = world.with_member(character, |ch| ch.table_move(character, table, &m)).unwrap_or_else(|| Err("You aren't playing.".into())) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::Concede { table }) => {
-                            if let Err(text) = world.with_member(character, |ch| ch.concede(character, table)).unwrap_or_else(|| Err("You aren't playing.".into())) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::Zone { id, team }) => {
-                            let admin = app.is_admin(account);
-                            if let Err(text) = world.with_spaces(|sp| sp.enter_zone(character, &id, admin, team)) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::Dungeon { id, enter }) => {
-                            let done = world.with_spaces(|sp| if enter { sp.enter_dungeon(character, &id) } else { sp.leave_dungeon(character) });
-                            if let Err(text) = done {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::PartyInvite { to, name }) => {
-                            if let Err(text) = world.with_spaces(|sp| sp.party_invite(character, to, name.as_deref())) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::PartyAnswer { from, accept }) => {
-                            if let Err(text) = world.with_spaces(|sp| sp.party_answer(character, from, accept)) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::PartyLeave) => {
-                            if let Err(text) = world.with_spaces(|sp| sp.party_leave(character)) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::PartyKick { id }) => {
-                            if let Err(text) = world.with_spaces(|sp| sp.party_kick(character, id)) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
-                            }
-                        }
-                        Ok(FromBrowser::PartyLead { id }) => {
-                            if let Err(text) = world.with_spaces(|sp| sp.party_lead(character, id)) {
-                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
                         Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that message." })).await?,
@@ -671,8 +410,11 @@ async fn play(
                     Some(Err(e)) => return Err(e.to_string()),
                 }
             }
-            Some(text) = outbox.recv() => tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?,
-            _ = kicked.recv() => return replaced(&mut tx).await,
+            Some(e) = events.recv() => {
+                if let Some(done) = deliver(&mut tx, &mut seat, e, admin).await? {
+                    return Ok(done);
+                }
+            }
             Ok(()) = stage.changed() => {
                 let now = *stage.borrow_and_update();
                 if let Some(done) = stopping(&mut tx, now, &mut told).await? {
@@ -693,9 +435,65 @@ async fn play(
     Ok(())
 }
 
+/// What a browser's text asks: of its game (an `Ask` for the simulation it plays in), or of the
+/// social tier (sent there now: None). Err: why it can't be asked, to say to the browser.
+fn asked(m: FromBrowser, conn: Conn, admin: bool, post: &dyn ruina_world_api::Transport) -> Option<Result<Ask, String>> {
+    let social = |msg: ToSocial| {
+        post.social(msg);
+        None
+    };
+    Some(Ok(match m {
+        FromBrowser::Cmd { s, c } => match serde_json::from_value::<Command>(c) {
+            Ok(command) => Ask::Command { seq: s, command },
+            Err(_) => return Some(Err("The server didn't understand that command.".into())),
+        },
+        FromBrowser::Build { build } => Ask::Build { build },
+        // Starting a life over is a developer command: an admin's only.
+        FromBrowser::Reset if !admin => return None,
+        FromBrowser::Reset => Ask::Reset,
+        FromBrowser::Challenge { to, game, stake, seed, turn } => Ask::Challenge { to, game, stake, seed, turn },
+        FromBrowser::Withdraw => Ask::Withdraw,
+        FromBrowser::Answer { from, accept } => Ask::Answer { from, accept },
+        FromBrowser::Move { table, m } => Ask::Move { table, m },
+        FromBrowser::Concede { table } => Ask::Concede { table },
+        FromBrowser::Dungeon { id, enter } => Ask::Dungeon { id, enter },
+        FromBrowser::Zone { id, team } => Ask::Zone { id, team },
+        FromBrowser::PartyInvite { to, name } => return social(ToSocial::Invite { conn, to, name }),
+        FromBrowser::PartyAnswer { from, accept } => return social(ToSocial::Answer { conn, from, accept }),
+        FromBrowser::PartyLeave => return social(ToSocial::Leave { conn }),
+        FromBrowser::PartyKick { id } => return social(ToSocial::Kick { conn, who: id }),
+        FromBrowser::PartyLead { id } => return social(ToSocial::Lead { conn, who: id }),
+    }))
+}
+
+/// Passes one thing on to the browser: a tick built into its update, or a message. Some(()) once
+/// the connection is over (another window took the character over).
+async fn deliver(tx: &mut Tx, seat: &mut Seat, e: Event, admin: bool) -> Result<Option<()>, String> {
+    match e {
+        Event::Tick(out) => {
+            // A tick from where they were a moment ago, without them in it, is no use to them.
+            if Some(out.sim) == seat.sim
+                && let Some(me) = out.private_of(seat.conn.character)
+            {
+                tx.send(Message::Text(encode::tick(&out, me, admin).into())).await.map_err(|e| e.to_string())?;
+            }
+        }
+        Event::Msg(ToConn::Kicked) => return replaced(tx).await.map(Some),
+        Event::Msg(m) => {
+            if let ToConn::Moved { sim, .. } = &m {
+                seat.sim = Some(*sim);
+            }
+            if let Some(text) = encode::message(&m) {
+                tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// A batch of inputs: 7, the count, then per input a u32 sequence number and the u32 tick (× 16)
 /// the browser drew everyone else at (little-endian), and its OPEN_INPUT bytes. None if it isn't one.
-fn read_inputs(b: &[u8]) -> Option<Vec<(u32, u32, [u8; OPEN_INPUT])>> {
+fn read_inputs(b: &[u8]) -> Option<Vec<Input>> {
     const EACH: usize = 8 + OPEN_INPUT;
     if b.len() < 2 || b[0] != SEND_INPUTS {
         return None;
@@ -712,61 +510,10 @@ fn read_inputs(b: &[u8]) -> Option<Vec<(u32, u32, [u8; OPEN_INPUT])>> {
                 let view = u32::from_le_bytes(b[at + 4..at + 8].try_into().unwrap());
                 let mut raw = [0u8; OPEN_INPUT];
                 raw.copy_from_slice(&b[at + 8..at + EACH]);
-                (seq, view, raw)
+                Input { seq, view, raw }
             })
             .collect(),
     )
-}
-
-async fn write_island(db: &PgPool, character: i64, session: i64, island: Value) -> Result<sqlx::postgres::PgQueryResult, sqlx::Error> {
-    sqlx::query("UPDATE characters SET island = $3, saved_at = now() WHERE id = $1 AND live_session = $2")
-        .bind(character)
-        .bind(session)
-        .bind(Json(island))
-        .execute(db)
-        .await
-}
-
-/// Writes a list of islands: one alone, or several in one transaction, so that when a game's pot
-/// changes hands both players' islands are kept or neither is. Whether each was written (one a
-/// newer window has taken over is that window's to write).
-async fn write_islands(db: &PgPool, batch: &[Save]) -> Result<Vec<bool>, sqlx::Error> {
-    if let [s] = batch {
-        return Ok(vec![write_island(db, s.character, s.session, s.island.clone()).await?.rows_affected() == 1]);
-    }
-    let mut tx = db.begin().await?;
-    let mut written = Vec::new();
-    for s in batch {
-        let r = sqlx::query("UPDATE characters SET island = $3, saved_at = now() WHERE id = $1 AND live_session = $2")
-            .bind(s.character)
-            .bind(s.session)
-            .bind(Json(&s.island))
-            .execute(&mut *tx)
-            .await?;
-        written.push(r.rows_affected() == 1);
-    }
-    tx.commit().await?;
-    Ok(written)
-}
-
-enum Wrote {
-    Yes,
-    /// Another connection has taken the character over.
-    Replaced,
-    /// The database refused. The browser is told and keeps playing; the next save tries again.
-    Failed,
-}
-
-async fn outcome(result: Result<sqlx::postgres::PgQueryResult, sqlx::Error>, tx: &mut Tx) -> Result<Wrote, String> {
-    match result {
-        Ok(r) if r.rows_affected() == 1 => Ok(Wrote::Yes),
-        Ok(_) => Ok(Wrote::Replaced),
-        Err(e) => {
-            eprintln!("could not save: {e}");
-            send(tx, json!({ "t": "error", "text": "The server couldn't save just now. It will try again." })).await?;
-            Ok(Wrote::Failed)
-        }
-    }
 }
 
 /// Another window took this character over: say so and hang up.
@@ -777,9 +524,9 @@ async fn replaced(tx: &mut Tx) -> Result<(), String> {
 }
 
 /// The server is stopping for an update. The browser hears it first (`updating`: it freezes the
-/// world); once the islands are written it's hung up on as a service restart (1012), and waits for
+/// world); once the lives are written it's hung up on as a service restart (1012), and waits for
 /// the new server. Some(()) once the connection is closed. `told`: whether it has heard already (a
-/// busy connection may only notice the stop once the islands are written, and still hears it first).
+/// busy connection may only notice the stop once the lives are written, and still hears it first).
 async fn stopping(tx: &mut Tx, stage: Stage, told: &mut bool) -> Result<Option<()>, String> {
     if stage == Stage::Running {
         return Ok(None);
@@ -799,10 +546,6 @@ async fn send(tx: &mut Tx, v: Value) -> Result<(), String> {
     tx.send(Message::Text(v.to_string().into())).await.map_err(|e| e.to_string())
 }
 
-fn now_ms() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -817,9 +560,9 @@ mod tests {
         }
         let list = read_inputs(&b).unwrap();
         assert_eq!(list.len(), 2);
-        assert_eq!(list[1].0, 6);
-        assert_eq!(list[1].1, 104);
-        assert_eq!(list[0].2[9], 127);
+        assert_eq!(list[1].seq, 6);
+        assert_eq!(list[1].view, 104);
+        assert_eq!(list[0].raw[9], 127);
         assert!(read_inputs(&b[..b.len() - 1]).is_none());
         assert!(read_inputs(&[SEND_INPUTS, 0]).is_none());
     }
@@ -837,54 +580,5 @@ mod tests {
         let three = json!({ "skills": crate::skills::skills_from(&["sword", "cleave", "whirlwind"]), "weapon": crate::tuning::weapon_index("sword") });
         assert!(parse_build(&three, 2).is_none());
         assert!(parse_build(&three, 3).is_some());
-    }
-
-    fn app() -> App {
-        std::sync::Arc::new(crate::http::AppState {
-            db: None,
-            world: Hub::default(),
-            dev_login: true,
-            admin_users: Default::default(),
-            secure_cookies: false,
-            failed_logins: Mutex::new(HashMap::new()),
-        })
-    }
-
-    #[tokio::test]
-    async fn stopping_tells_every_connection_before_it_closes_them() {
-        let app = app();
-        // What each connection watches (play() subscribes the same way).
-        let mut heard = app.world.stage.subscribe();
-        assert_eq!(app.world.stage(), Stage::Running);
-        let stop = tokio::spawn({
-            let app = app.clone();
-            async move { stop_world(&app).await }
-        });
-        heard.changed().await.unwrap();
-        assert_eq!(*heard.borrow_and_update(), Stage::Updating, "told before anything closes");
-        heard.changed().await.unwrap();
-        assert_eq!(*heard.borrow_and_update(), Stage::Closing);
-        // Nobody connected: it doesn't hang about waiting for anyone.
-        tokio::time::timeout(Duration::from_secs(2), stop).await.expect("stopped promptly").unwrap();
-    }
-
-    #[tokio::test]
-    async fn the_developer_endpoint_stops_the_server_like_a_deploy() {
-        let app = app();
-        let asked = tokio::spawn({
-            let app = app.clone();
-            async move { app.world.stop_asked().await }
-        });
-        // Asked before or after anyone listens, it isn't lost.
-        app.world.ask_to_stop();
-        tokio::time::timeout(Duration::from_secs(2), asked).await.expect("heard").unwrap();
-    }
-
-    #[test]
-    fn deleting_a_character_leaves_channels_nobody_started_alone() {
-        let hub = Hub::default();
-        hub.remove_resident(4, 99);
-        assert!(hub.spaces.lock().unwrap().games.is_empty(), "no channel made just to delete from it");
-        assert!(!hub.is_playing(99));
     }
 }

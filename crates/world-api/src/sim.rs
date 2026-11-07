@@ -18,7 +18,7 @@ use ruina_engine::player::{Build, Player};
 use ruina_engine::world::Spawn;
 
 use crate::directory::{Destination, Grant};
-use crate::ids::{CharacterId, Conn, Epoch, Millis, Owner, PartyId, SessionId, SimId, SpaceId};
+use crate::ids::{CharacterId, Conn, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
 use crate::input::Input;
 use crate::store::Resident;
 
@@ -30,9 +30,9 @@ pub enum ToSim {
     Arrive(Box<Arrival>),
     /// A connection ended: out they go (unless a newer connection has their seat), and their life
     /// is written.
-    Depart { character: CharacterId, session: SessionId },
-    /// What a player pressed, frame by frame.
-    Inputs { character: CharacterId, inputs: Vec<Input> },
+    Depart { conn: Conn },
+    /// What a player pressed, frame by frame, from their connection (a replaced window's are dropped).
+    Inputs { conn: Conn, inputs: Vec<Input> },
     /// What a player asks of their game (the browser's text messages), from their connection, to
     /// answer it there.
     Ask { conn: Conn, ask: Ask },
@@ -47,10 +47,11 @@ pub enum ToSim {
     /// A character this simulation handed over, sent back by one that couldn't take them (it's
     /// full), with why.
     Returned { moving: Box<Moving>, text: String },
-    /// A character's party, as the social tier keeps it (whose copies they may be in).
-    PartyOf { character: CharacterId, party: Option<PartyId> },
-    /// A copy's owner changed (a party formed and took its leader's copies, or broke up).
-    Owner(Owner),
+    /// Parties changed (the social tier's, passed on by the directory): the party of each character
+    /// here who changed, and this copy's new owner if it has one (a party formed and took its
+    /// leader's copies, or broke up and left them to whoever was left). One message, so the two
+    /// are never seen half done.
+    Parties { changed: Vec<(CharacterId, Option<PartyId>)>, owner: Option<Owner> },
     /// A channel's residents and what they've built, as the store read them when it started.
     Residents(Vec<Resident>),
     /// A resident gone for good (their character was deleted): what they built comes down.

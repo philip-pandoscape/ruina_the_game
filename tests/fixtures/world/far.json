@@ -1,0 +1,10 @@
+{
+  "comment": "The tests' world for drawing far from the origin (docs/world.md, Testing), in the shape of shared/world.json: Emberholm round the origin, and Farholt, a small flat isle 102 km to its west (x 102400 to 102912 m), where 32-bit floats without the floating origin are a few millimetres apart and the world-space shaders break up. ?fixture=far in the page on a development server; tests/integration/bigworld.spec.ts.",
+  "chunk": 256,
+  "blend": 64,
+  "sea": { "level": 0, "depth": 30 },
+  "regions": [
+    { "id": "emberholm", "chunks": { "x": -3, "z": -3, "w": 6, "d": 6 } },
+    { "id": "farholt", "chunks": { "x": 400, "z": -1, "w": 2, "d": 2 } }
+  ]
+}

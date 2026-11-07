@@ -26,7 +26,7 @@ use ruina_world_api::input::Input;
 use ruina_world_api::post::{Address, Envelope, Message};
 use ruina_world_api::records::{Cell, LifeView, Presence, PresenceRecord, Private, TickOut, You};
 use ruina_world_api::sim::{Carried, Entry, Member, Moving, ToSim};
-use ruina_world_api::store::{LifeWrite, Then, ToStore};
+use ruina_world_api::store::{LifeWrite, Then, ToStore, Writer};
 use serde::{Deserialize, Serialize};
 
 fn player(k: usize) -> Player {
@@ -60,14 +60,15 @@ fn tick() -> Envelope {
             told: vec![],
         })
         .collect();
-    let out = TickOut { sim: SimId(3), space: Some(SpaceId::channel("emberholm", 1)), tick: 9_000_000, cells, private, stats: None };
+    let out = TickOut { sim: SimId(3), lease: Epoch(2), space: Some(SpaceId::channel("emberholm", 1)), tick: 9_000_000, cells, private, stats: None };
     Envelope { to: Address::Gate(GateId(1)), msg: Message::Gate(ToGate::Tick(Arc::new(out))) }
 }
 
 /// A player's inputs as a gate forwards them: three frames (60 a second, 20 ticks).
 fn inputs() -> Envelope {
     let inputs = (0..3).map(|k| Input { seq: 1000 + k, view: 9_000_000 * 16 + k * 5, raw: [127, 0, 1, 0, 0, 3, 0, 0, 0, 127] }).collect();
-    Envelope { to: Address::Sim(SimId(3)), msg: Message::Sim(ToSim::Inputs { character: 1042, inputs }) }
+    let conn = Conn { gate: GateId(1), character: 1042, session: 77 };
+    Envelope { to: Address::Sim(SimId(3)), msg: Message::Sim(ToSim::Inputs { conn, inputs }) }
 }
 
 /// A life to write, fenced by its epoch.
@@ -79,6 +80,7 @@ fn life_write() -> Envelope {
         epoch: Epoch(17),
         life: saved,
         space: SpaceId::channel("emberholm", 1),
+        writer: Some(Writer { sim: SimId(3), space: SpaceId::channel("emberholm", 1), epoch: Epoch(2) }),
         tell: Some(Conn { gate: GateId(1), character: 1042, session: 77 }),
     };
     Envelope { to: Address::Store, msg: Message::Store(ToStore::WriteLives { writes: vec![write], then: Then::Nothing }) }
@@ -137,7 +139,8 @@ fn codecs() {
         row(name, &e);
     }
     // What a format with a schema would save, on the one message it can carry as it is.
-    let Message::Sim(ToSim::Inputs { character, inputs }) = inputs().msg else { unreachable!() };
+    let Message::Sim(ToSim::Inputs { conn, inputs }) = inputs().msg else { unreachable!() };
+    let character = conn.character;
     #[derive(Serialize, Deserialize)]
     struct Bare {
         character: i64,

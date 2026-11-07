@@ -1,10 +1,11 @@
 import { questsAt } from '../../../engine/island';
 import { el } from '../../components/dom';
 import type { IslandUI } from '../context';
-import { type IslandPicture, questMark } from '../map';
+import { type WorldPictures, questMark } from '../map';
 
-// The minimap, top right: the island around you, north up, with the places, who has a quest for
-// you, other players, the quest's goal, the way you're travelling and you. Zooms in and out.
+// The minimap, top right: the world around you, north up (each region's picture where the world
+// places it, the sea between), with the places, who has a quest for you, other players, the quest's
+// goal, the way you're travelling and you. Zooms in and out.
 
 export class Minimap {
   readonly el = el('div');
@@ -13,7 +14,7 @@ export class Minimap {
 
   constructor(
     private ui: IslandUI,
-    private picture: IslandPicture,
+    private pictures: WorldPictures,
   ) {
     this.el.id = 'hud-minimap';
     this.el.innerHTML =
@@ -35,31 +36,33 @@ export class Minimap {
     if (frame % 2 === 0 && !this.ui.life.dungeon) this.draw();
   }
 
-  /** The island around you, north up, with what you're looking for. */
+  /** The world around you, north up, with what you're looking for. */
   private draw(): void {
-    const hf = this.ui.world.terrain;
-    if (!hf) return;
-    const image = this.picture.get();
+    if (!this.ui.world.terrain) return;
     const g = this.canvas.getContext('2d')!;
     const N = this.canvas.width;
     const p = this.ui.sim.player;
-    const toPx = (x: number, z: number): [number, number] => [((hf.max - x) / hf.size) * 768, ((hf.max - z) / hf.size) * 768];
-    const [px, py] = toPx(p.pos.x, p.pos.z);
-    const span = 150 / this.zoom; // map pixels across the minimap
+    // 300 m across at the first zoom: north up, east to the right (x grows to the left).
+    const span = 300 / this.zoom;
     const k = N / span;
-    const at = (x: number, z: number): [number, number] => {
-      const [mx, my] = toPx(x, z);
-      return [(mx - px) * k + N / 2, (my - py) * k + N / 2];
-    };
+    const at = (x: number, z: number): [number, number] => [(p.pos.x - x) * k + N / 2, (p.pos.z - z) * k + N / 2];
     g.fillStyle = '#3f8fa6';
     g.fillRect(0, 0, N, N);
     g.imageSmoothingEnabled = true;
-    g.drawImage(image, px - span / 2, py - span / 2, span, span, 0, 0, N, N);
+    // Each region's picture where the world places it, those in view.
+    for (const region of this.pictures.all()) {
+      const f = region.frame;
+      const [x0, y0] = at(f.minX + f.size, f.minZ + f.size);
+      const w = f.size * k;
+      if (x0 > N || y0 > N || x0 + w < 0 || y0 + w < 0) continue;
+      const image = this.pictures.picture(region);
+      if (image) g.drawImage(image, x0, y0, w, w);
+    }
     const life = this.ui.life;
     const r = life.zone.recipe;
     g.font = 'bold 20px "Ruina Serif", Georgia, serif';
     g.textAlign = 'center';
-    for (const pl of r.places) {
+    for (const pl of this.pictures.all().flatMap((region) => region.places)) {
       const [x, y] = at(pl.x, pl.z);
       if (x < -40 || y < -40 || x > N + 40 || y > N + 40) continue;
       g.lineWidth = 4;

@@ -25,6 +25,8 @@ type Press = 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset' | 't
 export interface TravelDeps {
   walk: AutoWalk;
   world: World;
+  /** The square of the world the big map shows now, and whether it's the whole world's (no clicks to travel then). */
+  frame: () => { minX: number; minZ: number; size: number; world: boolean };
   places: () => Place[];
   /** Where you are. */
   player: () => Point;
@@ -162,6 +164,8 @@ export class TravelUI {
   attachMap(canvas: HTMLCanvasElement): void {
     canvas.addEventListener('click', (e) => {
       e.stopPropagation();
+      // The whole world's map is to look at: travel is by the region's.
+      if (this.d.frame().world) return;
       const at = this.spotAt(canvas, e);
       const m = this.walk.marker;
       // A second click on the marker while on the way there: stop and forget it.
@@ -172,6 +176,7 @@ export class TravelUI {
     canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (this.d.frame().world) return;
       const at = this.spotAt(canvas, e);
       const why = this.walk.refusal();
       openMenu(e.clientX, e.clientY, at.label, [
@@ -198,8 +203,8 @@ export class TravelUI {
     const pl = this.placeAt(canvas, e);
     if (pl) return { x: pl.x, z: pl.z, label: pl.name };
     const [px, py] = this.pixel(canvas, e);
-    const hf = this.d.world.terrain!;
-    return { x: hf.max - (px / MAP_PX) * hf.size, z: hf.max - (py / MAP_PX) * hf.size, label: SPOT };
+    const f = this.d.frame();
+    return { x: f.minX + f.size - (px / MAP_PX) * f.size, z: f.minZ + f.size - (py / MAP_PX) * f.size, label: SPOT };
   }
 
   /** Where on the map's own pixels a mouse event is. */
@@ -209,8 +214,8 @@ export class TravelUI {
   }
 
   private toPx(x: number, z: number): Point {
-    const hf = this.d.world.terrain!;
-    return [((hf.max - x) / hf.size) * MAP_PX, ((hf.max - z) / hf.size) * MAP_PX];
+    const f = this.d.frame();
+    return [((f.minX + f.size - x) / f.size) * MAP_PX, ((f.minZ + f.size - z) / f.size) * MAP_PX];
   }
 
   private placeAt(canvas: HTMLCanvasElement, e: MouseEvent): Place | null {

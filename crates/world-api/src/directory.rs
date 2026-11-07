@@ -24,11 +24,11 @@ pub enum ToDirectory {
     Placed { character: CharacterId, space: SpaceId, sim: SimId },
     /// A copy's occupancy changed: how many are in it, and since when nobody has been.
     Occupancy { space: SpaceId, inside: usize, empty_since: Option<Millis> },
-    /// The social tier: someone's party changed.
-    PartyOf { character: CharacterId, party: Option<PartyId> },
-    /// The social tier: the copies that were `from`'s are `to`'s now (a party formed and took its
-    /// leader's copies, or broke up and left them to whoever was left).
-    HandCopies { from: Owner, to: Owner },
+    /// The social tier: parties changed. The party of each character who changed, and copies that
+    /// were one owner's and are another's now (a party formed and took its leader's copies, or
+    /// broke up and left them to whoever was left). The directory passes each simulation its part
+    /// in one message (`ToSim::Parties`).
+    Parties { changed: Vec<(CharacterId, Option<PartyId>)>, hand: Vec<(Owner, Owner)> },
     /// Whether a character is being played (answered with `Answer::Playing`).
     IsPlaying { character: CharacterId, reply: Reply },
     /// A character is gone for good (deleted): forget them, and their home channel's simulation

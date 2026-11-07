@@ -1,3 +1,4 @@
+import { toScene } from './origin';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { toon } from './toon';
@@ -354,7 +355,7 @@ export class SpellView {
 
   /** Testing: the height of the highest circle drawn over (x, z), inside its ring, or null. */
   heightAt(x: number, z: number): number | null {
-    const ray = new THREE.Raycaster(new THREE.Vector3(x, 1e4, z), new THREE.Vector3(0, -1, 0), 0, 2e4);
+    const ray = new THREE.Raycaster(toScene(new THREE.Vector3(x, 1e4, z)), new THREE.Vector3(0, -1, 0), 0, 2e4);
     let best: number | null = null;
     for (let i = 0; i < this.circleCount; i++) {
       const c = this.circles[i];

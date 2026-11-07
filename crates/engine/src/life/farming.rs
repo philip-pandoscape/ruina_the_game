@@ -10,6 +10,7 @@ use super::state::{Plant, Scarecrow};
 use super::weather::raining;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::{js_hypot, js_max, js_min};
+use crate::open::map::{WorldMap, world_map};
 use crate::open::zone::{Obstacle, ObstacleKind, surface, to_local, to_world};
 use crate::open::{OpenWorld, Sim};
 
@@ -71,7 +72,14 @@ fn rate(p: &Plant, rain: bool, climate: &str) -> f64 {
     (wet * climate) / def.grow_seconds
 }
 
-/// Growth per second right now.
+/// The climate where a farm stands at (x, z): the region it's in's, read from where the world places
+/// its regions (nothing grown to read it), or out at sea none's but `home`'s.
+pub fn climate_at<'a>(map: &'a WorldMap, home: &'a str, x: f64, z: f64) -> &'a str {
+    map.region_at(x, z).map_or(home, |r| r.recipe().climate.as_str())
+}
+
+/// Growth per second right now, in the climate of the life's own region (a farm grows in its own
+/// region's: `step_farms`).
 pub fn growth_rate(life: &Life, p: &Plant) -> f64 {
     rate(p, raining(life), &life.zone.recipe.climate)
 }
@@ -90,10 +98,12 @@ pub fn seconds_to_ripe(life: &Life, p: &Plant) -> f64 {
 pub fn step_farms(life: &mut Life, dt: f64) {
     // Nothing a step changes here moves the rain or the clock, so they are read once.
     let rain = raining(life);
-    let climate = life.zone.recipe.climate.as_str();
+    let home = life.zone.recipe.climate.as_str();
     let clock = life.state.clock;
     let mut changed = 0;
     for sc in life.state.scarecrows.iter_mut() {
+        // Each farm grows in the climate of the region it stands in.
+        let climate = climate_at(world_map(), home, sc.x, sc.z);
         for p in sc.cells.iter_mut().flatten() {
             if p.is_animal() {
                 if step_animal(clock, p, dt) {
@@ -118,9 +128,10 @@ pub fn step_farms(life: &mut Life, dt: f64) {
 /// Advances every plant by a long stretch at once (time away, or the dev panel's warp).
 pub fn grow_for(life: &mut Life, seconds: f64) {
     let rain = raining(life);
-    let climate = life.zone.recipe.climate.as_str();
+    let home = life.zone.recipe.climate.as_str();
     let clock = life.state.clock;
     for sc in life.state.scarecrows.iter_mut() {
+        let climate = climate_at(world_map(), home, sc.x, sc.z);
         for p in sc.cells.iter_mut().flatten() {
             if p.is_animal() {
                 step_animal(clock, p, seconds);
@@ -490,6 +501,21 @@ pub(crate) mod tests {
         assert_eq!(seconds_to_ripe(&life, &crop("barley", 1.0)), 0.0);
         life.state.weather.rain_until = life.state.clock + 60.0;
         assert_eq!(growth_rate(&life, &crop("barley", 0.0)), 1.25 / 200.0);
+    }
+
+    #[test]
+    fn a_farm_grows_in_the_climate_of_the_region_it_stands_in() {
+        // The fixture world: Thornmarch is frost, Saltmere and Emberholm temperate, the open sea none's.
+        let w = crate::open::fixture::world();
+        assert_eq!(climate_at(w, "temperate", 0.0, -200.0), "temperate");
+        assert_eq!(climate_at(w, "temperate", 2400.0, 0.0), "frost");
+        assert_eq!(climate_at(w, "temperate", 1700.0, 0.0), "temperate");
+        assert_eq!(climate_at(w, "warm", 900.0, 0.0), "warm", "out at sea, the life's own region's");
+        // A temperate crop grows at its own pace on Emberholm, slower in Thornmarch's frost.
+        let barley = crop("barley", 0.0);
+        let (here, there) = (rate(&barley, false, climate_at(w, "temperate", 0.0, -200.0)), rate(&barley, false, climate_at(w, "temperate", 2400.0, 0.0)));
+        assert_eq!(here, 1.0 / 200.0);
+        assert!(there < here, "{there} in the frost");
     }
 
     #[test]
