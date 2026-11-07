@@ -12,9 +12,9 @@ use crate::event::Event;
 use crate::jsmath::JsMath;
 use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
+use crate::open::spawns::SpawnPoint;
 use crate::pack::step_packs;
 use crate::tuning::tuning;
-use crate::open::spawns::SpawnPoint;
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
 /// Ids go out on the wire as 16 bits.
