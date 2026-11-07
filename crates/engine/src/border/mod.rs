@@ -80,6 +80,10 @@ pub struct Owners {
     pub chunk: f64,
     table: BTreeMap<(i32, i32), SimId>,
     rest: SimId,
+    /// Every simulation that owns a chunk, in order, and the chunks round all of each's (worked out
+    /// from the table): what's farther than that from a simulation's box is farther from its ground.
+    sims: Vec<SimId>,
+    boxes: BTreeMap<SimId, [i32; 4]>,
 }
 
 /// How [`Owners`] is written: each chunk as `[x, z, sim]`.
@@ -92,7 +96,7 @@ struct OwnersForm {
 
 impl From<OwnersForm> for Owners {
     fn from(f: OwnersForm) -> Owners {
-        Owners { chunk: f.chunk, table: f.chunks.into_iter().map(|(x, z, s)| ((x, z), s)).collect(), rest: f.rest }
+        Owners::made(f.chunk, f.chunks.into_iter().map(|(x, z, s)| ((x, z), s)).collect(), f.rest)
     }
 }
 
@@ -129,7 +133,7 @@ impl Owners {
             }
         }
         let rest = table.values().next().copied().unwrap_or_default();
-        Owners { chunk, table, rest }
+        Owners::made(chunk, table, rest)
     }
 
     /// The whole world one simulation's.
@@ -159,12 +163,21 @@ impl Owners {
         self.owner(cx, cz)
     }
 
+    fn made(chunk: f64, table: BTreeMap<(i32, i32), SimId>, rest: SimId) -> Owners {
+        let mut sims: Vec<SimId> = table.values().copied().chain([rest]).collect();
+        sims.sort();
+        sims.dedup();
+        let mut boxes: BTreeMap<SimId, [i32; 4]> = BTreeMap::new();
+        for (&(x, z), &s) in &table {
+            let b = boxes.entry(s).or_insert([x, z, x, z]);
+            *b = [b[0].min(x), b[1].min(z), b[2].max(x), b[3].max(z)];
+        }
+        Owners { chunk, table, rest, sims, boxes }
+    }
+
     /// Every simulation that owns a chunk, in order.
     pub fn sims(&self) -> Vec<SimId> {
-        let mut s: Vec<SimId> = self.table.values().copied().chain([self.rest]).collect();
-        s.sort();
-        s.dedup();
-        s
+        self.sims.clone()
     }
 
     /// How far a point is from chunk (`kx`, `kz`), squared (0 inside it).
@@ -178,6 +191,16 @@ impl Owners {
     /// How far a point is from the nearest chunk `sim` owns, squared, if that's within `r` metres
     /// of it (0 inside one): the chunks round the point's own, ring by ring, out to `r`.
     pub fn nearest2(&self, sim: SimId, x: f64, z: f64, r: f64) -> Option<f64> {
+        // Farther than that from all its chunks together, it's farther from each.
+        let &[x0, z0, x1, z1] = self.boxes.get(&sim)?;
+        {
+            let c = self.chunk;
+            let ox = (f64::from(x0) * c - x).max(0.0).max(x - f64::from(x1 + 1) * c);
+            let oz = (f64::from(z0) * c - z).max(0.0).max(z - f64::from(z1 + 1) * c);
+            if ox * ox + oz * oz > r * r {
+                return None;
+            }
+        }
         let (cx, cz) = self.chunk_of(x, z);
         let rings = (r / self.chunk).ceil() as i32 + 1;
         let mut best: Option<f64> = None;
@@ -193,7 +216,8 @@ impl Owners {
                         continue;
                     }
                     let (kx, kz) = (cx + dx, cz + dz);
-                    if self.owner(kx, kz) != sim {
+                    // Only the world's own chunks: past its edge nothing stands to be near.
+                    if self.table.get(&(kx, kz)) != Some(&sim) {
                         continue;
                     }
                     let d2 = self.to_chunk2(kx, kz, x, z);
@@ -213,7 +237,7 @@ impl Owners {
 
     /// The simulations other than `not` that own a chunk within `r` metres of a point, in order.
     pub fn near(&self, not: SimId, x: f64, z: f64, r: f64) -> Vec<SimId> {
-        self.sims().into_iter().filter(|&s| s != not && self.within(s, x, z, r)).collect()
+        self.sims.iter().copied().filter(|&s| s != not && self.within(s, x, z, r)).collect()
     }
 
     /// Whom something `sim` owns at a point is handed to: the owner of the chunk it stands in, once

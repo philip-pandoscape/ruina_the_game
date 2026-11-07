@@ -65,6 +65,7 @@ const RULES = [
 const PLUMBING_NAMES: Array<[RegExp, string]> = [
   [/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet'],
   [/^crates\/engine\/src\/checks\//, 'scenarios run through the rules, whose answers the golden tests hold'],
+  [/^crates\/engine\/src\/border\//, 'one world played by several simulations, its borders crossed as if they weren’t there: nothing a player meets'],
 ];
 
 /** Rules files that hold no rule a player meets, with why. */

@@ -399,6 +399,66 @@ mod tests {
         assert!(c.across_bytes > 0 && c.struck_bytes > 0, "{c:?}");
     }
 
+    /// What borders cost, for the report: what crosses (bytes written out as JSON) and the time a
+    /// tick takes split against one simulation (`cargo test --release -p ruina-engine
+    /// what_borders_cost -- --ignored --nocapture`).
+    #[test]
+    #[ignore]
+    #[allow(clippy::disallowed_methods, clippy::disallowed_types)]
+    fn what_borders_cost() {
+        let path = format!("{}/tests/golden/bordercheck.json", env!("CARGO_MANIFEST_DIR"));
+        let file: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("the golden file")).expect("golden JSON");
+        for (case, rule) in [(0, Rule::Line { chunk: 4.0, x: None, z: Some(-44.0) }), (1, Rule::X(0))] {
+            let s: Scenario = serde_json::from_value(file["cases"][case]["input"].clone()).expect("a scenario");
+            let time = |rule: Option<Rule>| {
+                let t = std::time::Instant::now();
+                for _ in 0..5 {
+                    play(&s, rule, Posts::Passed, false);
+                }
+                t.elapsed().as_secs_f64() * 1000.0 / 5.0 / s.ticks as f64
+            };
+            let (one, split) = (time(None), time(Some(rule)));
+            let counted = play(&s, Some(rule), Posts::Counted, false);
+            let c = &counted.split.counts;
+            let ticks = s.ticks as f64;
+            eprintln!("case {case} {rule:?}: {:.3} ms a tick as one, {:.3} split", one, split);
+            eprintln!(
+                "  ghosts {:.0} B a tick ({:.1} players, {:.1} creatures a tick; {:.0} B a ghost on average); across {:.0} B a tick; struck {:.0} B a tick; {} handoffs, {} B in all, the biggest {} B",
+                c.ghost_bytes as f64 / ticks,
+                c.ghost_players as f64 / ticks,
+                c.ghost_creatures as f64 / ticks,
+                c.ghost_bytes as f64 / (c.ghost_players + c.ghost_creatures).max(1) as f64,
+                c.across_bytes as f64 / ticks,
+                c.struck_bytes as f64 / ticks,
+                c.handoffs,
+                c.handoff_bytes,
+                c.handoff_most
+            );
+            // One of each, written out on its own.
+            let sim = &counted.split.sims[0];
+            let slot = sim.own().first().expect("someone").0;
+            let p = sim.players.player(slot).expect("the player").clone();
+            let g = crate::border::messages::GhostPlayer {
+                slot,
+                client: client(slot),
+                owner: 1,
+                epoch: crate::border::Epoch(1),
+                player: p,
+                vehicles: Vec::new(),
+                history: None,
+            };
+            let with = crate::border::messages::GhostPlayer { history: Some(sim.players.history(slot)), ..g.clone() };
+            let creature =
+                sim.actors.list.first().map(|a| serde_json::to_string(&crate::border::messages::GhostCreature::of(a, None)).unwrap_or_default().len());
+            eprintln!(
+                "  a ghost player {} B ({} B with its history), a ghost creature {:?} B",
+                serde_json::to_string(&g).unwrap_or_default().len(),
+                serde_json::to_string(&with).unwrap_or_default().len(),
+                creature
+            );
+        }
+    }
+
     #[test]
     fn split_through_the_fight_its_blows_and_heals_cross_written_out_and_read_back() {
         // The two sides on either side of a line through the fight: everything that crosses goes
