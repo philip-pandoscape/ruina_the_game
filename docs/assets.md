@@ -120,7 +120,7 @@ arrives), sign-in, and character select with its hero (three.js and the hero's c
 weapons and moves), the interface's style sheets and typefaces. The rest of the game's code
 (`src/main.ts` and everything it imports: the island, its rules, the HUD, the windows) is fetched
 once a character is chosen, while the world link opens; straight in (`?as=name`, a reload into the
-world) at once; the offline pages the tests use (`?test`, `?world&test`) at once. The island's files
+world) at once; the offline pages the tests use (`?test`, `?test=<instance>`) at once. The island's files
 follow as it is built.
 
 Measured over the wire with brotli from the game server, a browser with nothing cached (2026-11-06):

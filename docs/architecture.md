@@ -84,8 +84,8 @@ How each side reaches it: [engine.md](engine.md).
 
 Without the server, the browser's session plays everything: you, the creatures, your life, and
 copies of instances (`crates/engine/src/session.rs`). Offline, the session also stands in for the
-server's combat (`training.rs`): blows with their hit pause and aim assist, arrows, meteors and
-heals. The tests play this way: paused and stepped a frame at a time with `?test`, or in a copy of
+server's combat (`training.rs`): blows, arrows, meteors and heals, and in a copy whose file switches
+them on the practice rules, the hit pause and aim assist (`docs/world.md`). The tests play this way: paused and stepped a frame at a time with `?test`, or in a copy of
 an instance with `?test=<instance>`. So does development, running, with `?offline`. The rules tests
 play it in Node, with no page (`tests/support/headless.ts`).
 

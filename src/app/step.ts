@@ -1,9 +1,9 @@
 // One step of the rules (1/60 s) with what you pressed, and what it shows: the effects of what
-// happened, your levels and the yard's practice, the server's word on you taken in (syncNet) before
-// the step online. The loop calls it each step; tests step it a frame at a time.
+// happened and what the island said, the server's word on you taken in (syncNet) before the step
+// online. The loop calls it each step; tests step it a frame at a time.
 import { NO_ACTIONS, type Actions, type GameEvent, heightAboveGround } from '../engine/rules';
-import { levelsFrom, sameLevels } from '../content/skills';
 import { MOVEMENT_SKILLS, comboFor, COMBAT, meleeTargets, STEP } from '../content/tuning';
+import { dungeonDef } from '../engine/zone';
 import type { GameRefs } from '../main';
 
 export function makeStep(g: GameRefs) {
@@ -26,8 +26,6 @@ export function makeStep(g: GameRefs) {
     shownById,
     vfx,
     walker,
-    yardTrain,
-    yardXp,
   } = g;
   let lastSnapshot = 0;
   let lastHp: number = COMBAT.maxHp;
@@ -67,8 +65,16 @@ export function makeStep(g: GameRefs) {
       if (!net?.you) return; // wait until the server has placed us
       events = prediction.step(actions);
     } else {
-      // Offline the rules decide, the yard's arrows, meteors and heals among them.
+      // Offline the rules decide, your arrows, meteors and heals among them.
       events = engine.step(actions);
+      // Where the space you're in doesn't stop the game for a landed blow (the world never does; a
+      // copy whose practice rules have it does), the swing pauses on it in the drawing, as online.
+      if (!(engine.inside && dungeonDef(engine.inside)?.practice?.hitPause)) {
+        const p = g.sim.player;
+        const landed = events.find((e) => e.type === 'hit' && e.weapon === p.weapon && p.mode === 'attack');
+        const swing = landed?.type === 'hit' ? comboFor(p.weapon, g.sim.stats)[landed.index] : undefined;
+        if (landed?.type === 'hit' && swing) hero.hitPause(swing.hitstop, landed.index);
+      }
     }
     if (netSpells) {
       // Online: your own arrows, meteors and heals show straight away.
@@ -106,22 +112,15 @@ export function makeStep(g: GameRefs) {
       events = events.concat(hits);
     }
     for (const e of events) drawing.showEvent(e);
-    if (!life && !net) {
-      for (const e of events) yardTrain(e);
-      const lv = levelsFrom(yardXp);
-      if (!sameLevels(lv, g.sim.levels)) engine.setLevels(lv);
-    }
-    const le = life ? life.drainEvents() : [];
+    const le = life.drainEvents();
     g.bugs?.step(g.sim.frame, actions, events, le);
-    if (life) {
-      lifeUI?.onEvents(le);
-      for (const e of le) {
-        if (e.t === 'harvest') vfx.lifeEffect('harvest', e.x, e.y, e.z);
-        else if (e.t === 'gather') vfx.lifeEffect(e.kind, e.x, e.y, e.z);
-        else if (e.t === 'build') vfx.lifeEffect('build', e.x, groundY(e.x, e.z), e.z);
-        else if (e.t === 'thunder') vfx.lifeEffect('thunder', e.x, e.y, e.z);
-        else if (e.t === 'sold') vfx.lifeEffect('coins', g.sim.player.pos.x, g.sim.player.pos.y, g.sim.player.pos.z);
-      }
+    lifeUI?.onEvents(le);
+    for (const e of le) {
+      if (e.t === 'harvest') vfx.lifeEffect('harvest', e.x, e.y, e.z);
+      else if (e.t === 'gather') vfx.lifeEffect(e.kind, e.x, e.y, e.z);
+      else if (e.t === 'build') vfx.lifeEffect('build', e.x, groundY(e.x, e.z), e.z);
+      else if (e.t === 'thunder') vfx.lifeEffect('thunder', e.x, e.y, e.z);
+      else if (e.t === 'sold') vfx.lifeEffect('coins', g.sim.player.pos.x, g.sim.player.pos.y, g.sim.player.pos.z);
     }
     const p = g.sim.player;
     // Dust while sliding. Which action that is comes from its pose, not from a mode of its own.

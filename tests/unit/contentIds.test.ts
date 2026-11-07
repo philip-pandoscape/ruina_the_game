@@ -72,18 +72,17 @@ const ALLOWED: Allowance[] = [
     ids: ['dummy'],
   },
   {
-    why: "the offline training yard's own layout, its dummy and slimes, until the yard is an instance played offline (R10.11)",
-    files: ['crates/engine/src/yard.rs'],
-    ids: ['slime', 'dummy'],
-  },
-  {
-    why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal), the offline yard (R10.4)",
-    files: ['src/dev/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts', 'src/render/scene.ts'],
+    why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal)",
+    files: ['src/dev/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts'],
   },
   { why: 'the bible explains the game with particular things as its examples, and its completeness test holds it to the content', files: ['src/bible/'] },
   {
     why: "the server's tests of its tiers together, a file of tests alone (crates/server/src/lib.rs brings it in only for the tests): its players go through Goblin's Dread's portal and into the developer zones by name",
     files: ['crates/server/src/tests.rs'],
+  },
+  {
+    why: "the borders crossed, a file of tests alone (crates/engine/src/border/mod.rs brings it in only for the tests): its players drive a farm cart, row a rowboat and glide on a wayfarer by name, and its fixture regions' recipes have a training dummy",
+    files: ['crates/engine/src/border/crossings.rs'],
   },
 ];
 

@@ -13,7 +13,9 @@
 //! development; ignored on Railway),
 //! COOKIE_SECURE=1 (https without Railway),
 //! PARALLEL=on (--parallel on: each channel steps its players all at once on the machine's cores, as
-//! many as RAYON_NUM_THREADS says or all of them; play/stepping.rs).
+//! many as RAYON_NUM_THREADS says or all of them; play/stepping.rs),
+//! MAX_BOTS=<n> (--max-bots <n>: the most bots a game holds, 64 unless a load test asks for more;
+//! crates/tools/src/bin/loadtest.rs).
 //!
 //! The world on several processes (crates/server/src/cluster, docs/deploys.md): --role all (ROLE;
 //! the default: everything in this one process, as always), or gate, sim or services, each a
@@ -34,7 +36,7 @@ use ruina_server::cluster::Role;
 use ruina_server::cluster::keeper::Timing;
 use ruina_server::cluster::roles::{self, Options};
 use ruina_server::http::{self, AppState};
-use ruina_server::sim::stepping;
+use ruina_server::sim::{self, stepping};
 use ruina_server::start;
 use ruina_server::store::{Db, db};
 
@@ -46,6 +48,8 @@ struct Args {
     static_dir: Option<PathBuf>,
     /// Step each channel's players all at once (`--parallel on`).
     parallel: bool,
+    /// The most bots a game holds, if not the developer panel's limit (`--max-bots`, for load tests).
+    max_bots: Option<usize>,
     /// What this process plays (`--role`): everything, or one role of several processes.
     role: Role,
     node: Option<String>,
@@ -63,11 +67,13 @@ fn parse_args() -> Args {
     let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
     let everywhere = std::env::var("LISTEN").is_ok_and(|v| v == "all");
     let parallel = std::env::var("PARALLEL").is_ok_and(|v| v == "on");
+    let max_bots = std::env::var("MAX_BOTS").ok().and_then(|n| n.parse().ok());
     let mut a = Args {
         port: env_port.unwrap_or(7777),
         everywhere,
         static_dir,
         parallel,
+        max_bots,
         role: env("ROLE").map(|r| r.parse().unwrap_or_else(|e: String| panic!("ROLE: {e}"))).unwrap_or_default(),
         node: env("NODE_ID"),
         link: env("LINK_LISTEN"),
@@ -100,6 +106,7 @@ fn parse_args() -> Args {
                     _ => panic!("--parallel takes on or off"),
                 }
             }
+            "--max-bots" => a.max_bots = Some(v.parse().expect("--max-bots needs a number")),
             other => panic!("unknown argument {other}"),
         }
         i += 2;
@@ -165,6 +172,10 @@ fn main() {
     // Faster from a few hundred players a channel; slower below (crates/server/src/sim/stepping.rs).
     stepping::set_parallel(args.parallel);
     println!("players: {}", if args.parallel { "stepped all at once (--parallel on)" } else { "stepped one after another" });
+    if let Some(n) = args.max_bots {
+        sim::set_bot_limit(n);
+        println!("bots: up to {n} a game (--max-bots)");
+    }
     if dev_login && admin_users.is_empty() {
         println!("admins: everyone (developer sign-in is on and ADMIN_USERS names nobody)");
     } else if admin_users.is_empty() {

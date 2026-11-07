@@ -24,11 +24,11 @@ import {
 //           (grace period after leaving the ground), bufferFrames (how early a jump press still
 //           counts), doubleJumpSteer (redirect toward the stick at this × run speed), flipFrames
 // slide     speed → endSpeed (m/s) over `frames`, steer (rad/s), jumpCarry (speed a slide jump keeps)
-// attack    bufferFrames (how early an attack press counts), auto-aim for the training dummy,
+// attack    bufferFrames (how early an attack press counts), auto-aim (an instance's practice rules),
 //           airGravityScale (hang time while swinging in the air)
 // special   bufferFrames for ability presses; cooldown after cancelling or being interrupted
 // weapons   sword, club, staff, bow. Each has a combo; per hit: startup / active / recovery frames,
-//           damage, lunge (m/s), reach (m), arcDeg (hit cone), hitstop (training only), knock (dummy
+//           damage, lunge (m/s), reach (m), arcDeg (hit cone), hitstop (an instance's practice rules), knock (dummy
 //           wobble), playerKnock (m/s), shake (0..1), cancelAfter (recovery frames before jump or
 //           slide can cancel), and for arrows projectileSpeed (m/s) and projectileRange (m).
 //           The sword's `whirlwind` hit replaces its third hit with the Whirlwind skill; the bow's
@@ -350,10 +350,10 @@ export const DUMMY = {
   resetFrames: 60,
 };
 
-// Slimes in the training yard and on the meadow. They leave you alone until you hit one; then
-// the pack fights back. What they do is data (shared/actors.json, shared/behaviours.json) that
-// the engine runs (crates/engine/src/actors.rs). These are the numbers the yard and its tests are
-// laid out with.
+// Slimes in the yard and on the meadow. They leave you alone until you hit one; then the pack
+// fights back. What they do is data (shared/actors.json, shared/behaviours.json) that the engine runs
+// (crates/engine/src/actors.rs). These are the numbers the yard's tests are laid out with (the yard
+// instance brings five, content/instances/yard.json).
 export const SLIME = {
   count: 5,
   hp: 40,

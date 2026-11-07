@@ -1,5 +1,5 @@
-// The training yard's arrows and meteors in flight, as the page draws them: the engine flies them
-// (crates/engine/src/training.rs, the yard standing in for the server) and hands them over each step.
+// Your arrows and meteors in flight offline, as the page draws them: the engine flies them
+// (crates/engine/src/training.rs, standing in for the server) and hands them over each step.
 
 export interface ArrowFlight {
   x: number;

@@ -10,6 +10,8 @@
 //!   off while it's badly hurt; with nobody to fight it wanders.
 //! - a wanderer walks between places near home, stopping a while at each.
 
+use serde::{Deserialize, Serialize};
+
 use crate::jsmath::{JsMath, len};
 use crate::player::{Actions, Mode, Player};
 use crate::rng::Rng;
@@ -23,7 +25,7 @@ pub struct FoeSeen {
     pub hp: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Brain {
     Skirmisher,
     Wanderer,
@@ -50,6 +52,9 @@ const RALLY_AT: f64 = 0.6;
 /// How far from home a bot wanders.
 const WANDER: f64 = 12.0;
 
+/// A bot's brain and what it has in mind, read and written whole where its player is handed between
+/// simulations (crate::border).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Bot {
     pub brain: Brain,
     rng: Rng,

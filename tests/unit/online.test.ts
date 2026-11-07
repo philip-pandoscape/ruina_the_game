@@ -16,8 +16,8 @@ test("online: the server's word on you, your island as it sends it and commands 
   const build = defaultBuild();
   // An offline island stands in for the server, the engine's own (the page's island is built once
   // and every Engine on it shares its colliders): it runs the same inputs, a round trip behind.
-  const server = new EngineSession({ openWorld: true, online: false, build });
-  const client = new Engine({ openWorld: true, online: true, build });
+  const server = new EngineSession({ online: false, build });
+  const client = new Engine({ online: true, build });
   const life = client.life!;
   const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
   const p0 = { ...server.player().pos };

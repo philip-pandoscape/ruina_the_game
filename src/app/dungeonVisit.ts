@@ -4,7 +4,7 @@ import { arrivalOf, dungeonDef, dungeonDoor } from '../engine/zone';
 
 // Going into a copy of a dungeon and out again, as this browser sees it: a space of its own played
 // in place of the world and the world back after (the engine's: Engine.enterDungeon), its cave or
-// arena drawn and the island put away, no rain under the rock. Offline (?world&test) this is the
+// arena drawn and the island put away, no rain under the rock. Offline (?test) this is the
 // whole visit and it moves you too; online the server takes you (and your party) through and moves
 // you, and this only follows (main.ts: onPortal and the server's word).
 

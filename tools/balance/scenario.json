@@ -1,4 +1,5 @@
 {
+  "arena": "battlefield",
   "duels": 16,
   "seed": 7,
   "maxSeconds": 30,

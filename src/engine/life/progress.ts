@@ -1,6 +1,5 @@
 import type { LifeState } from './state';
-import type { GameEvent } from '../shapes';
-import { BOOK, START_POINTS } from '../../content/skills';
+import { START_POINTS } from '../../content/skills';
 import { QUESTS } from '../../content/quests';
 
 // Getting better: the skills you use level up, and the tree grows with what you've done.
@@ -8,28 +7,11 @@ import { QUESTS } from '../../content/quests';
 // Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill adds
 // one to that skill (state.skillXp, kept with your island), and a level comes at each step of the
 // curve in tuning.json skills.levels. A level-up is a quest event too, for the milestones that count
-// them. The engine counts them (crates/engine/src/life/progress.rs); trainedBy tells the page which
-// skill an event trains, for the yard's practice.
+// them. The engine counts them (crates/engine/src/life/progress.rs).
 //
 // Skill points. Everyone starts with START_POINTS, and each quest or milestone you finish adds its
 // skillPoints. They're worked out from the quests you've done rather than kept, so they can never
 // drift from them, and finishing a quest that gained points later still counts.
-
-/** Which skill in the book (an index into BOOK) an event trains, or -1. */
-export function trainedBy(e: GameEvent): number {
-  switch (e.type) {
-    case 'hit':
-      // The weapon that landed it, not whatever is in your hands by then; a blast trains nothing
-      // (its cast already did).
-      return BOOK.findIndex((b) => b.kind === 'weapon' && b.index === e.weapon);
-    case 'cast':
-      return BOOK.findIndex((b) => b.kind === 'ability' && b.index === e.ability);
-    case 'action':
-      return BOOK.findIndex((b) => b.kind === 'movement' && b.index === e.id);
-    default:
-      return -1;
-  }
-}
 
 /** Skill points the quests and milestones you've finished have given you. */
 export function pointsEarned(state: Pick<LifeState, 'quests'>): number {

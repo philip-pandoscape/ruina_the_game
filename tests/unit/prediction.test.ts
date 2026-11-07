@@ -9,7 +9,7 @@ import { NO_ACTIONS } from '../../src/engine/rules';
 // answered yet must not run the clock everything is drawn by faster than time.
 
 test('online, running the unanswered inputs again on each server update leaves the clock everything is drawn by at the speed of time', () => {
-  const engine = new Engine({ openWorld: false, online: true, build: defaultBuild() });
+  const engine = new Engine({ online: true, build: defaultBuild() });
   const net = { renderTick: () => 0, sendInput: () => {} } as unknown as WorldFeed;
   const prediction = new Prediction(engine, net);
   const state = () => JSON.parse(JSON.stringify(engine.player));
@@ -40,7 +40,7 @@ test("moved into another game, the last word heard from the one you left doesn't
   // heard just before that, was taken as the server's word on you at the next step, so you were put
   // back at that game's spot (its own frame, far off in the world) until the next tick came.
   const feed = new WorldFeed(() => {});
-  const engine = new Engine({ openWorld: false, online: true, build: defaultBuild() });
+  const engine = new Engine({ online: true, build: defaultBuild() });
   const inCopy = { ...JSON.parse(JSON.stringify(engine.player)), pos: { x: 0, y: 0.5, z: -3.5 } };
   feed.applyWorld(40, { id: 1, ack: 12, player: inCopy }, [], [], [], []);
   expect(feed.you?.player.pos.z).toBe(-3.5);

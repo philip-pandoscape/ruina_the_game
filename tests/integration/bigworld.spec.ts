@@ -21,7 +21,7 @@ const LONG_FRAME_MS = 50;
 type Act = Partial<{ moveX: number; moveZ: number; stickX: number; stickY: number; sprintHeld: boolean; jumpPressed: boolean; jumpHeld: boolean }>;
 
 async function open(page: Page, fixture = 'world'): Promise<string[]> {
-  const errors = await openGame(page, `/?world&test&fixture=${fixture}`);
+  const errors = await openGame(page, `/?test&fixture=${fixture}`);
   await page.evaluate(() => window.__game.reset());
   return errors;
 }

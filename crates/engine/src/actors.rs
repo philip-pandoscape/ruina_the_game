@@ -13,9 +13,9 @@ use crate::ids::EntityId;
 use crate::jsmath::JsMath;
 use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
+use crate::open::spawns::SpawnPoint;
 use crate::pack::step_packs;
 use crate::tuning::tuning;
-use crate::yard::SpawnPoint;
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
 /// A creature's number (its [`EntityId`](crate::ids::EntityId)): its spawn in the low 16 bits, the
@@ -108,6 +108,10 @@ pub struct Actors {
     pub list: Vec<Actor>,
     /// What creatures have thrown, still in the air.
     pub missiles: Vec<Missile>,
+    /// Creatures another simulation owns, seen here across a border (crate::border): players' blows,
+    /// arrows and blasts reach them as they reach these, and land where their owner is. Never
+    /// stepped here.
+    pub ghosts: Vec<Actor>,
     next_id: u32,
     next_group: u32,
     next_band: u32,
@@ -139,6 +143,8 @@ pub struct Slam {
     pub radius: f64,
     pub damage: f64,
     pub knock: f64,
+    /// The creature that slammed.
+    pub by: u32,
 }
 
 /// A creature's blow or missile reached a foe (not in a dodge's untouchable frames), travelling
@@ -150,6 +156,9 @@ pub struct FoeHit {
     pub nx: f64,
     pub nz: f64,
     pub knock: f64,
+    /// The creature that struck or threw it, and what it threw (a missile's id; 0 for a blow).
+    pub by: u32,
+    pub missile: u32,
 }
 
 /// What a frame of actors did to the world beyond them.
@@ -179,7 +188,7 @@ impl StepOut {
 
 impl Actors {
     pub fn new() -> Self {
-        Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
+        Self { list: Vec::new(), missiles: Vec::new(), ghosts: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
     }
 
     /// A new crowd for somewhere else that numbers on from this one: none of its creatures, groups,
@@ -276,6 +285,16 @@ impl Actors {
 
     pub fn get(&self, id: u32) -> Option<&Actor> {
         self.list.iter().find(|a| a.id == id)
+    }
+
+    /// A creature seen here across a border, by its id.
+    pub fn ghost(&self, id: u32) -> Option<&Actor> {
+        self.ghosts.iter().find(|a| a.id == id)
+    }
+
+    /// A creature here or seen here across a border, by its id.
+    pub fn any(&self, id: u32) -> Option<&Actor> {
+        self.get(id).or_else(|| self.ghost(id))
     }
 
     pub fn get_mut(&mut self, id: u32) -> Option<&mut Actor> {
@@ -480,7 +499,7 @@ impl Actors {
                 Request::Slam(_) => {
                     let a = &self.list[i];
                     if let Some(s) = kind(&a.kind).and_then(|k| k.slam.as_ref()) {
-                        on_blow(Blow::Slam(Slam { x: a.x, z: a.z, radius: s.radius, damage: s.damage, knock: s.knock }), ev);
+                        on_blow(Blow::Slam(Slam { x: a.x, z: a.z, radius: s.radius, damage: s.damage, knock: s.knock, by: a.id }), ev);
                     }
                 }
                 Request::FuseOut(_) => self.fuse_out(i, foes, ground, ev),
@@ -508,7 +527,7 @@ impl Actors {
         // Everything thrown, in flight.
         for f in step_missiles(&mut self.missiles, foes, ground) {
             match f {
-                Flight::Hit { foe, damage, knock, nx, nz } => on_blow(Blow::Hit(FoeHit { foe, damage, nx, nz, knock }), ev),
+                Flight::Hit { foe, damage, knock, nx, nz, missile, owner } => on_blow(Blow::Hit(FoeHit { foe, damage, nx, nz, knock, by: owner, missile }), ev),
                 Flight::Landed { x, y, z } => {
                     ev.push(Event::MissileLand { x, y, z });
                     landed.push((x, y, z));
@@ -581,7 +600,7 @@ impl Actors {
                 continue;
             }
             let (nx, nz) = if d > 0.01 { (dx / d, dz / d) } else { (a.facing.js_sin(), a.facing.js_cos()) };
-            hits.push(FoeHit { foe: f.id, damage: atk.damage, nx, nz, knock: atk.knock });
+            hits.push(FoeHit { foe: f.id, damage: atk.damage, nx, nz, knock: atk.knock, by: a.id, missile: 0 });
         }
     }
 
@@ -828,6 +847,7 @@ impl Actors {
         let mut hits: Vec<(f64, u32, f64, f64)> = self
             .list
             .iter()
+            .chain(&self.ghosts)
             .filter(|a| a.is_alive())
             .filter_map(|a| {
                 let (ax, az) = place(a)?;
@@ -850,7 +870,8 @@ impl Actors {
 
     /// A blast: everything whose body overlaps the circle, in the order of their ids.
     pub fn circle_hits(&self, x: f64, z: f64, radius: f64) -> Vec<u32> {
-        let mut hits: Vec<u32> = self.list.iter().filter(|a| a.is_alive() && len(a.x - x, a.z - z) <= radius + a.radius).map(|a| a.id).collect();
+        let mut hits: Vec<u32> =
+            self.list.iter().chain(&self.ghosts).filter(|a| a.is_alive() && len(a.x - x, a.z - z) <= radius + a.radius).map(|a| a.id).collect();
         hits.sort_unstable();
         hits
     }
@@ -859,7 +880,7 @@ impl Actors {
     /// near, the one with the lower id).
     pub fn point_hit(&self, x: f64, y: f64, z: f64, pad: f64) -> Option<u32> {
         let mut best: Option<(f64, u32)> = None;
-        for a in self.list.iter().filter(|a| a.is_alive()) {
+        for a in self.list.iter().chain(&self.ghosts).filter(|a| a.is_alive()) {
             if y > a.hit_ceiling {
                 continue;
             }

@@ -6,8 +6,9 @@
 //! kill — and not how hard a skill is to land in a real fight. Treat a big swing between runs as
 //! a question worth asking, and keep the browser tests for whether something feels right.
 //!
-//! Reads a scenario as JSON on stdin and writes JSON on stdout:
-//!   {"builds":[{"name":"sword","skills":["sword"],"weapon":"sword","abilities":["heal"]}],
+//! Reads a scenario as JSON on stdin and writes JSON on stdout (`arena`: the instance the duels are
+//! fought in, an arena of the world's instances):
+//!   {"arena":"battlefield","builds":[{"name":"sword","skills":["sword"],"weapon":"sword","abilities":["heal"]}],
 //!    "duels":16,"seed":1,"maxSeconds":30,"startDistance":8}
 
 use std::collections::HashMap;
@@ -16,10 +17,12 @@ use std::io::Read;
 use ruina_engine::actors::Actors;
 use ruina_engine::combat::Players;
 use ruina_engine::ids::EntityId;
-use ruina_engine::player::{Build, Mode};
+use ruina_engine::open::OpenWorld;
+use ruina_engine::open::dungeon::{DungeonDef, dungeon};
+use ruina_engine::open::zone::emberholm;
+use ruina_engine::player::{Build, Mode, Player};
 use ruina_engine::skills::{EMPTY_SKILLS, node_index, set_skill};
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability_index, movement_index, tuning, weapon_index};
-use ruina_engine::world::{SEED, battlefield};
 use ruina_world_api::input::actions_from;
 use serde::{Deserialize, Serialize};
 // mulberry32, the generator the world uses, so a run is repeatable from its seed.
@@ -41,6 +44,7 @@ struct BuildIn {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Scenario {
+    arena: String,
     builds: Vec<BuildIn>,
     #[serde(default = "default_duels")]
     duels: u32,
@@ -120,16 +124,21 @@ struct Outcome {
 /// hotbar slot whenever it is off cooldown. Any difference in the result is the builds.
 // `me` and `you` are the two duellists, indexes into every pair of arrays here.
 #[allow(clippy::needless_range_loop)]
-fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outcome {
-    let world = battlefield(SEED);
+fn duel(arena: &'static DungeonDef, a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outcome {
+    // In the arena, on its floor, as a copy of it is played on the server.
+    let def = arena;
+    let mut world = OpenWorld::instance(def, emberholm());
     let tick_ms = 1000.0 / tuning().sim_hz;
     let mut players = Players::new(tick_ms);
+    players.floor = Some(def);
     let mut actors = Actors::new(); // a duel has no monsters in it
     let mut rng = Rng(seed);
 
+    // One a side, where the arena is entered (its file's arrival), then stood apart.
     let fighter = |k: i64| EntityId::character(k);
-    players.join(fighter(1), 1, &world); // team 0
-    players.join(fighter(2), 2, &world); // team 1
+    let spot = world.spawn_point();
+    players.join_at(fighter(1), Player::new(spot, 0, Build::default()));
+    players.join_at(fighter(2), Player::new(spot, 1, Build::default()));
     players.sync_build(fighter(1), 1, *a);
     players.sync_build(fighter(2), 1, *b);
     // Face each other across the opening gap, clear of the spawn crowd.
@@ -177,7 +186,7 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
             players.queue_actions(client, std::iter::once((seq[me], f64::from(tick.saturating_sub(1)), actions_from(raw))));
         }
 
-        players.step(&mut actors, &world, tick as u64);
+        players.step_in(&mut actors, tick as u64, &mut world);
         players.step_effects(&mut actors);
         players.record_history(tick as u64, &actors);
 
@@ -221,6 +230,7 @@ fn main() {
     let s: Scenario = serde_json::from_str(&text).expect("valid scenario JSON");
     let hz = tuning().sim_hz;
     let max_ticks = (s.max_seconds * hz).round() as u32;
+    let arena = dungeon(&s.arena).unwrap_or_else(|| panic!("no instance {} to fight in", s.arena));
 
     let mut pairings = Vec::new();
     let mut wins: HashMap<String, (f64, f64)> = HashMap::new(); // name -> (wins, decided)
@@ -234,7 +244,7 @@ fn main() {
                 // Each duel is run both ways round, so which side spawns where cannot decide it.
                 let flip = d % 2 == 1;
                 let seed = s.seed.wrapping_add(d).wrapping_mul(2_654_435_761);
-                let o = if flip { duel(&bb, &ba, seed, max_ticks, s.start_distance) } else { duel(&ba, &bb, seed, max_ticks, s.start_distance) };
+                let o = if flip { duel(arena, &bb, &ba, seed, max_ticks, s.start_distance) } else { duel(arena, &ba, &bb, seed, max_ticks, s.start_distance) };
                 let winner = o.winner.map(|w| if flip { 1 - w } else { w });
                 let dmg = if flip { [o.damage[1], o.damage[0]] } else { o.damage };
                 dmg_a += dmg[0];

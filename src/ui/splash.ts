@@ -7,7 +7,7 @@ import './theme/front.css';
 // `layer`, scaled like the rest of the UI), and once the island is built and drawn, and the files it
 // can't be drawn without have arrived, it fades into the game. Going in, the bar's last part fills as
 // those files arrive, and under it is how much of them has (src/assets/loader.ts).
-// Automated tests and the battlefield never show it (index.html decides): `splash` is null there.
+// The offline modes (?test, ?offline) never show it (index.html decides): `splash` is null there.
 
 /**
  * The steps of loading and their share of the bar (the page itself is the first 5%). They can end

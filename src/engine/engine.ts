@@ -27,15 +27,11 @@ import { RangeView, SimView } from './views';
 // world's colliders whenever what's solid changes. Those are for reading.
 
 export interface EngineOptions {
-  /** The open world (Emberholm) rather than the training yard. */
-  openWorld: boolean;
   /**
    * Played on the game server, which decides hits: the rules here only predict your own moves,
-   * without the training dummy, hit pause or the yard's arrows and meteors.
+   * without the creatures, their blows, or your arrows and meteors landing.
    */
   online: boolean;
-  /** A war-band of `count` of a kind in the yard's far corner (`?goblins=`). */
-  band?: { kind: string; count: number };
   /** Your skills and loadout to start with. */
   build: Build;
 }
@@ -82,10 +78,10 @@ export class Engine {
   readonly online: boolean;
   /** You, the step count, your skills' numbers and the creatures, as the engine last showed them. */
   readonly sim: SimView;
-  /** Offline: the yard's arrows and meteors in flight. */
+  /** Offline: your arrows and meteors in flight. */
   readonly range: RangeView | null;
-  /** The island (trade, farming, housing, vehicles, quests) as the engine last showed it, in the open world. */
-  readonly life: IslandView | null;
+  /** The island (trade, farming, housing, vehicles, quests) as the engine last showed it. */
+  readonly life: IslandView;
   /**
    * Called when a step puts you somewhere by itself (offline, fallen out of the bottom of a copy:
    * back where it's entered), with the way you face, so the camera and auto-run can follow.
@@ -122,21 +118,20 @@ export class Engine {
 
   constructor(o: EngineOptions) {
     this.online = o.online;
-    this.session = new EngineSession({ openWorld: o.openWorld, online: o.online, band: o.band, build: o.build });
-    // The yard as the session lays it out (its props, the dummy, where you start, who stands about).
-    if (o.openWorld) {
-      const open = openWorld();
-      this.world = open.world;
-      this.layout = open.layout;
-      this.ground = open.ground;
-      this.home = open.home;
-      this.regions.set(open.home.place, open.home);
-    } else this.world = this.session.call<World>('world');
+    this.session = new EngineSession({ online: o.online, build: o.build });
+    const open = openWorld();
+    this.world = open.world;
+    this.layout = open.layout;
+    this.ground = open.ground;
+    this.home = open.home;
+    this.regions.set(open.home.place, open.home);
     const first = this.session.view(false);
+    const zone = this.world.zone;
+    if (!zone || !first.life) throw new Error('the engine started a session with no world in it');
     this.solid = first.solid;
     this.sim = new SimView(this.world, first.player);
     this.range = o.online ? null : new RangeView();
-    this.life = o.openWorld && this.world.zone && first.life ? new IslandView(this.world.zone, first.life.state, (c) => this.command(c)) : null;
+    this.life = new IslandView(zone, first.life.state, (c) => this.command(c));
     this.take(first);
   }
 
@@ -154,7 +149,7 @@ export class Engine {
       this.range.meteors = v.actors.meteors;
     }
     const life = this.life;
-    if (life && v.life) {
+    if (v.life) {
       life.state = v.life.state;
       life.focus = v.life.focus;
       life.placing = v.life.placing;
@@ -273,19 +268,19 @@ export class Engine {
     return this.sim.stats;
   }
 
-  /** Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0 on the yard's flat ground. */
+  /** Ground height under a point: a copy's floor where you're in one, else the ground of the space you're in. */
   groundY(x: number, z: number): number {
     return this.floorAt(x, z) ?? (this.terrain ? this.terrain.height(x, z) : 0);
   }
 
-  /** What someone at height `near` would stand on at (x, z): the ground, a deck, a roof (0 on the yard's flat ground). */
+  /** What someone at height `near` would stand on at (x, z): the ground, a deck, a roof. */
   standingAt(x: number, z: number, near: number, pad: number): number {
     return this.terrain ? groundAt(this.terrain, this.world.index, x, z, near, pad) : 0;
   }
 
   /**
-   * One fixed step: the rules, and offline the yard's arrows, meteors and heals against whatever
-   * stands about. Returns what happened. (Online, the prediction steps the rules: src/net/netPlayer.ts.)
+   * One fixed step: the rules, and offline your arrows, meteors and heals against whatever stands
+   * about. Returns what happened. (Online, the prediction steps the rules: src/net/netPlayer.ts.)
    */
   step(a: Actions): GameEvent[] {
     this.askPage();
@@ -302,7 +297,7 @@ export class Engine {
    * and whereabouts, the plots they hold), asked once and handed to the session.
    */
   private askPage(): void {
-    if (!this.life || !this.online) return;
+    if (!this.online) return;
     this.session.worldClock(this.worldClock?.() ?? null);
     const vehicles = this.othersVehicles?.() ?? [];
     const around = this.othersAround?.() ?? [];
@@ -315,7 +310,6 @@ export class Engine {
 
   /** A command for the island, run on the next step (online, it goes to the server instead: `remote`). */
   command(c: Command): void {
-    if (!this.life) return;
     if (this.online) {
       this.remote?.(c);
       return;
@@ -323,7 +317,7 @@ export class Engine {
     this.session.call('command', { command: c });
   }
 
-  /** Your skill levels (in the yard, from the experience earned there; on the island, from your quests). */
+  /** Your skill levels, set outright (tests): the island raises them as your skills learn from use. */
   setLevels(levels: Levels): void {
     this.sim.levels = levels;
     this.session.call('setLevels', { levels });
@@ -356,7 +350,7 @@ export class Engine {
     if (!this.session.call<boolean>('enterDungeon', { id })) return false;
     if (!this.dungeon) this.outsideTerrain = this.world.terrain;
     this.dungeon = id;
-    if (this.life) this.life.dungeon = id;
+    this.life.dungeon = id;
     // Its space has no ground but a long fall under its floors, and no sea: what the page reads of the
     // ground there (the camera, shadows, effects) is the engine's for it, not the world's.
     const g = this.session.call<{ floor: number; water: number } | null>('spaceGround');
@@ -370,13 +364,13 @@ export class Engine {
     if (!this.dungeon) return;
     this.session.call('leaveDungeon');
     this.dungeon = null;
-    if (this.life) this.life.dungeon = null;
+    this.life.dungeon = null;
     if (this.outsideTerrain) this.world.terrain = this.outsideTerrain;
     this.outsideTerrain = undefined;
     this.reread();
   }
 
-  /** The ground of the space you're in (null on the yard's flat ground): the world's, or in a copy of an instance the nothing under its floors. */
+  /** The ground of the space you're in: the world's, or in a copy of an instance the nothing under its floors. */
   get terrain(): Ground | null {
     return this.world.terrain ?? null;
   }
@@ -438,7 +432,6 @@ export class Engine {
    * Online: your island as a tick has it: its state, and whether you're placing something or resting.
    */
   takeIsland(island: { state: LifeState; placing: Placement | null; resting: boolean }): void {
-    if (!this.life) return;
     this.session.takeIsland(island);
     this.reread();
   }
@@ -448,7 +441,6 @@ export class Engine {
    * a copy of the island the server sent, so that one stays as it came.
    */
   runAhead(c: Command): void {
-    if (!this.life) return;
     this.session.call('runAhead', { command: c });
     this.reread();
   }
@@ -462,7 +454,6 @@ export class Engine {
     you: { clock: number; labor: number; weather: Weather; vehicles: Vehicle[]; resting: boolean; placing: Placement | null },
     ahead: readonly Command[],
   ): void {
-    if (!this.life) return;
     const { clock, labor, weather, vehicles, resting, placing } = you;
     this.session.call('replayIsland', { you: { clock, labor, weather, vehicles, resting, placing }, ahead });
   }
@@ -487,7 +478,7 @@ export class Engine {
 
   // ---------- For tests (the test API, src/app/testApi.ts) ----------
 
-  /** Starts you over at `at` with `build`, standing on whatever is solid there, the island's and the yard's parts with you. */
+  /** Starts you over at `at` with `build`, standing on whatever is solid there, with the island's parts and the creatures about you afresh. */
   reset(at: { x: number; z: number; facing: number }, build: Build): void {
     this.session.call('reset', { at, build });
     // A fresh start shows nothing that happened before it.

@@ -194,6 +194,19 @@ impl OpenWorld {
     pub fn grid(&self) -> &'static Heightfield {
         &self.zone.terrain
     }
+
+    /// Where someone gets back up after being knocked down, and where a player with nowhere of their
+    /// own stands: in a copy of an instance where it's entered (its file's arrival), else at the spawn
+    /// of the region this world is a copy of (its recipe's). Both are data: the rules name no spot.
+    pub fn spawn_point(&self) -> Spawn {
+        match self.respawn {
+            Some(r) => Spawn { x: r.x, z: r.z, facing: r.facing },
+            None => {
+                let s = self.zone.recipe.spawn;
+                Spawn { x: s.x, z: s.z, facing: s.facing }
+            }
+        }
+    }
 }
 
 /// What the open-world rules act on each step: one player, the world they are in, and whose
@@ -225,24 +238,22 @@ impl<'a> Sim<'a> {
 /// what they build is made solid once they all have (`Life::make_solid`).
 pub fn step_player(p: &mut Player, a: &Actions, world: &OpenWorld, mut life: Option<&mut Life>, owner: i64) {
     p.begin_step(a);
-    // The island has one spawn, for both teams.
-    let s = world.zone.recipe.spawn;
     let mut sim = Sim { player: p, world, owner };
 
     if sim.player.down_frame >= 0 {
-        // Knocked down: lie still, then get back up at the island's spawn (in a dungeon, where you
-        // came in).
+        // Knocked down: lie still, then get back up where this world puts you (a region's spawn, for
+        // both sides; in a copy of an instance, where you came in).
         if sim.player.update_down() {
-            if let Some(r) = sim.world.respawn {
-                sim.player.respawn(Spawn { x: r.x, z: r.z, facing: r.facing });
-                sim.player.pos.y = r.y;
-            } else {
-                sim.player.respawn(Spawn { x: s.x, z: s.z, facing: s.facing });
-                // On your feet on the ground there, not inside the hill (respawn() is the
-                // battlefield's, flat at 0).
-                let hf = sim.terrain();
-                sim.player.pos.y = colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2);
-            }
+            let s = sim.world.spawn_point();
+            sim.player.respawn(s);
+            sim.player.pos.y = match sim.world.respawn {
+                Some(r) => r.y,
+                // On your feet on the ground there, not inside the hill.
+                None => {
+                    let hf = sim.terrain();
+                    colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2)
+                }
+            };
             sim.player.respawned();
         }
     } else if sim.player.stun > 0 {

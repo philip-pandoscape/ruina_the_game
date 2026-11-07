@@ -69,7 +69,7 @@ useContent(fixture.bundles);
 
 /** A fresh island with you at its spawn, played offline. */
 function island(): Engine {
-  const e = new Engine({ openWorld: true, online: false, build: defaultBuild() });
+  const e = new Engine({ online: false, build: defaultBuild() });
   e.life!.drainEvents();
   return e;
 }
@@ -220,10 +220,11 @@ test('a new quest is offered by its giver, leads where it marks, counts what it 
 });
 
 test('a new creature comes in from its folder and fights by its brain', () => {
-  // The training ground, with one mossling a few metres off and the rest of the yard's creatures
-  // sent far away, so only it is about.
-  const e = new Engine({ openWorld: false, online: false, build: defaultBuild() });
-  for (const [i, a] of e.actors.list.entries()) e.setActor(a.id, { x: 200 + i * 4, z: 200, homeX: 200 + i * 4, homeZ: 200 });
+  // The yard (a copy of the instance, as through its door), with one mossling a few metres off and
+  // the yard's own creatures sent to its far corner, so only it is about.
+  const e = new Engine({ online: false, build: defaultBuild() });
+  expect(e.enterDungeon('yard')).toBe(true);
+  for (const [i, a] of e.actors.list.entries()) e.setActor(a.id, { x: -28 + i * 2, z: 28, homeX: -28 + i * 2, homeZ: 28 });
   const id = e.spawnActor('mossling', 0, 4);
   const m = () => e.actors.list.find((a) => a.id === id);
   expect([m()?.maxHp, m()?.brain]).toEqual([18, 'mossling']);

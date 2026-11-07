@@ -24,6 +24,7 @@
     "check:release": "npm run check:beta && npm run test:stress",
     "server": "node tools/cargo.mjs run --release --bin ruina-server",
     "balance": "node tools/cargo.mjs run --release --bin balance < tools/balance/scenario.json",
+    "loadtest": "node tools/cargo.mjs build --release -p ruina-server && node tools/cargo.mjs run --release --bin loadtest --",
     "icons": "node tools/icons/bake.mjs",
     "image": "node tools/images/gemini.mjs",
     "skilltree": "node tools/skilltree/gen.mjs",
