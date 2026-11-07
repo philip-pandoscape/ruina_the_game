@@ -24,8 +24,9 @@
 //! - the server's CPU (cores busy) and memory, the machine's load (before and during), and the
 //!   harness's own CPU.
 //!
-//! A sweep that ramps stops after the first size whose tick passes its 50 ms budget, or whose
-//! updates come less than 19 times a second. Results go to `--out` as JSON (every repetition, and
+//! A sweep that ramps stops after the first size that doesn't keep up: its tick past its 50 ms
+//! budget, its updates less than 19 a second, or its inputs answered more than 200 ms late (at the
+//! median), or no tick measured at all. Results go to `--out` as JSON (every repetition, and
 //! each point's medians across them) with a Markdown summary beside it; `--compare` puts another
 //! run's numbers beside these, as ratios.
 
@@ -56,6 +57,10 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 const BUDGET_MS: f64 = 50.0;
 /// Fewer updates a second than this and the server isn't keeping up.
 const KEEPING_UP: f64 = 19.0;
+/// Inputs answered later than this at the median and it isn't either: a server that stalls and
+/// catches up sends its updates in bursts (more than 20 a second, some of them), but its inputs
+/// pile up behind each stall.
+const ANSWERED_WITHIN_MS: f64 = 200.0;
 /// Inputs a second, as a browser sends them.
 const INPUT_HZ: f64 = 60.0;
 /// An input message: 7, the count, then per input its sequence number, the tick (× 16) its sender
@@ -142,7 +147,7 @@ impl Point {
     }
 }
 
-/// Points measured one after another; a ramp stops after the first that passes the budget.
+/// Points measured one after another; a ramp stops after the first that does not keep up.
 struct Sweep {
     title: String,
     points: Vec<Point>,
@@ -1174,7 +1179,11 @@ fn collect(clients: &[Client], secs: f64, games: usize) -> Value {
     }
     let tick = dist(ticks);
     let updates = dist(ups.clone());
-    let over = tick["median"].as_f64().is_some_and(|m| m > BUDGET_MS) || updates["median"].as_f64().is_some_and(|u| u < KEEPING_UP);
+    let answered = dist(latencies);
+    let over = tick["median"].as_f64().is_some_and(|m| m > BUDGET_MS)
+        || updates["median"].as_f64().is_some_and(|u| u < KEEPING_UP)
+        || answered["median"].as_f64().is_some_and(|l| l > ANSWERED_WITHIN_MS)
+        || tick["n"] == json!(0);
     json!({
         "games": games,
         "botsSeen": bots_seen,
@@ -1187,7 +1196,7 @@ fn collect(clients: &[Client], secs: f64, games: usize) -> Value {
         "kbPerSecond": dist(kbps),
         "updateKB": dist(sizes),
         "peersPerUpdate": dist(peers),
-        "inputToUpdateMs": dist(latencies),
+        "inputToUpdateMs": answered,
         "betweenUpdatesMs": dist(gaps),
         "overBudget": over,
         "notes": notes,
@@ -1252,11 +1261,13 @@ fn medians(reps: &[Value]) -> Value {
     m
 }
 
-/// The results as Markdown tables, a sweep at a time; with `compare`, that run's numbers beside.
+/// The results as Markdown tables, a sweep at a time; with `compare`, that run's numbers beside
+/// (another run's results, or the baseline, which keeps them under `loadtest`).
 fn summary(results: &Value, compare: Option<&Path>) -> String {
     let theirs: BTreeMap<String, Value> = compare
         .and_then(|p| std::fs::read_to_string(p).ok())
         .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .map(|v| if v.get("loadtest").is_some() { v["loadtest"].clone() } else { v })
         .map(|v| v["points"].as_array().into_iter().flatten().filter_map(|p| Some((p["point"]["key"].as_str()?.to_string(), p["median"].clone()))).collect())
         .unwrap_or_default();
     let mut s = String::new();

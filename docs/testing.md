@@ -142,15 +142,17 @@ npm run loadtest -- --help
 | Plan | What |
 |---|---|
 | `quick` | 64 skirmishers and one client: a look in a minute |
-| `bots` | skirmishers in the battlefield from 0 to 4,000 with one client watching, one after another and with `--parallel on`, until a tick passes 50 ms |
+| `bots` | skirmishers in the battlefield from 0 to 4,000 with one client watching, one after another and with `--parallel on`, until the server stops keeping up |
 | `wanderers` | the same with wanderers (no fighting) at 256, 1,024 and 4,000 |
 | `clients` | 5, 10 and 20 clients sharing the battlefield with 64 and with 256 skirmishers |
 | `channels` | 24 to 480 clients in their home channels (24 live in one), no bots, until the world thread runs out of time |
 | `baseline` | all four |
 
 Each point runs three times (`--reps`) on a fresh server, 5 s of warm-up and 15 s measured. A sweep
-stops after the first point past the budget: a median tick over 50 ms, or fewer than 19 updates a
-second. Results go to `--out` (JSON: every repetition and each point's medians) with a Markdown
+stops after the first point where the server doesn't keep up: a median tick over 50 ms, fewer than
+19 updates a second, or inputs answered more than 200 ms late at the median (a server that stalls
+and catches up sends updates in bursts, but its inputs pile up behind each stall). Results go to
+`--out` (JSON: every repetition and each point's medians) with a Markdown
 summary beside it, and the servers' logs in a folder beside that; `--compare` puts another run's
 numbers beside these. On a shared machine the numbers are noisy: the harness and its servers run at
 above-normal priority (Windows), and every point records how busy the machine was before and during.
