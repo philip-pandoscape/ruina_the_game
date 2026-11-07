@@ -45,7 +45,15 @@ and is merged here. Also formatted `tests/unit/bible.test.ts` as biome has it (t
 left it long), and the Dockerfile's dependency layer lists `crates/link` and `crates/world-api`
 (checked: that layer's workspace resolves with the committed lock).
 
-## The Second Half: Waiting on Tiers and Borders
+## The Second Half
+
+**Where it stands (2026-11-06, 23:05; the log's last entry has it all):** the code is in (b4e8034):
+the roles start the tiers, one post over channels and links, Postgres leases behind the tiers'
+`Leases` trait, the instance pool, players sent back in when a space is lost, both fences, `npm
+run cluster`. It has 11 new unit tests. Handoffs across processes wait for borders' second half.
+The integration, cluster and failure runs wait until everything is merged; the log's last entry
+lists them for the end agent. Below is the plan as it was written before the tiers landed (kept for
+the record; the tiers' side of it is done).
 
 What it does: the tiers' messages over the links between processes; gates routing players to sims
 in other processes, re-routing a player's inputs across a handoff by sequence number and buffering
@@ -225,3 +233,81 @@ What it needs:
 - **Checks** (summary above): all green but `tests/unit/paths.test.ts`, on five paths from the
   tiers' 86d6055, which pass at the tiers' tip. `npm run test:cluster` green.
 - **Next:** the second half, once tiers and borders are on `refactor/first` (above).
+
+## 2026-11-06 23:05: the second half, the code (integration runs wait until everything is merged)
+
+- **0de78c5** merged `refactor/first` 33ead3b (the tiers, bigworld); **d5a7184** merged f0ae550
+  (offline, borders' engine half). Both conflicts were `main.rs` (refactor/first's `--max-bots`
+  under the roles' options).
+- **b4e8034** the tiers across processes:
+  - **Roles** (`cluster/roles.rs`): `--role services` starts the store, social and the directory
+    (Postgres leases, lives fenced by the writer's lease too); `--role gate` a gate with an id from
+    `gate_ids` (migration 0031) and the server's one port; `--role sim` the simulations the
+    directory starts there. `--role all` (the default) is unchanged. `npm run cluster`
+    (`tools/cluster/run.mjs`) runs the services, two sims and a gate on `DATABASE_URL`, the gate
+    on 7790. `--spaces` and the first half's stand-in simulation are gone.
+  - **One post** (`cluster/process.rs`): the tiers' `Post` keeps its mailboxes, and `set_remote`
+    sends the rest through a `LinkPost<Wire>` whose book comes from the directory's tables (a sim
+    by `space_leases`, a gate by `nodes.gate`, the services by `nodes`). Mail for an address not
+    yet known is parked and looked up at once; mail parked 10 s comes back, and a player on their
+    way into a simulation nobody has is `Returned` to where they came from. What arrives is given
+    to `Post::here` (this process's mailboxes only, so two processes can't bounce a message).
+  - **Leases** (`cluster/pg.rs`): `PgLeases` behind the tiers' `Leases` trait. `grant` places a new
+    simulation on the sim process with the fewest live leases (the instance pool: channels and
+    copies alike) and takes as it is a space a live simulation still plays (a directory started
+    again). `renew` only checks: each sim's own process renews (a `Keeper` per hosted simulation,
+    its word passed in as `LeaseNote`). `RemoteSims` starts a simulation where it was placed
+    (`Wire::Spawn`).
+  - **Losing a space**: a simulation among several stops when its lease is lost
+    (`Sim::stop_when_lost`). The directory lets the space go and sends its players `ToConn::Rejoin`
+    (new in world-api): the gate closes them as a deploy does (1012), and the browser comes back in
+    under the next epoch, wherever the space is played now, to its life as last written.
+  - **Fences**: the store checks a life's writer lease (`LifeWrite::writer`) with
+    `cluster::leases::check` beside `characters.epoch`, once leases are Postgres's
+    (`store::fence_by_leases`). The gate drops ticks under an older lease than it has seen for
+    their space.
+  - **Small edits in the tiers' files**: `post.rs` (`here`, `holds`), `start.rs` (`services_with`),
+    `directory/mod.rs` (adopting, `let_go`), `sim/host.rs` (`stop_when_lost`), `store/mod.rs` (the
+    fence), `gate/mod.rs` and `gate/socket.rs` (the tick fence, `Rejoin`), `gate/encode.rs` (one
+    arm), `http.rs` (`stopped` public to the crate).
+- **Unit tests** (11 new, no database, no second process): what the links carry crosses whole; a
+  simulation among several stops when its lease is lost (one alone carries on); mail from another
+  process is delivered here or nowhere; leases lost once run out, let go or granted again; a
+  simulation started in the process it was placed on; a keeper that can't reach the directory stops
+  at its deadline, before the lease could run out, and reads its deadline from the clock; a player
+  sent into a missing simulation goes back; roles by name.
+- **Not done, and why:**
+  - **Handoffs across processes** wait for borders' second half. The clean place: a handoff is a
+    `ToSim::Transfer` across links (`Moving` serializes whole; a missing receiver bounces it). The
+    epoch is granted by the directory as a portal's is, and inputs for someone handed on are sent
+    on by the old simulation. Borders' exactness needs a trade at about 8 phase boundaries a tick.
+    Across processes that's 8 round trips a 50 ms tick (70 µs each on one machine, milliseconds
+    between machines). My call: **ghosts a tick late across processes**, with the two-phase handoff
+    exact under epochs; bit-exactness stays a one-process golden test.
+  - **Re-routing inputs by sequence number through a move**: the gate can resend its recent inputs
+    to the new simulation once `Moving` carries the player's last applied input (the slot's
+    `last_seq`), so the receiver drops what was already run. That's borders' handoff message; today
+    the old simulation sends on what reaches it, and a portal move resets the browser's inputs.
+  - **Docs**: `docs/deploys.md` and `docs/architecture.md` still describe the first half's stand-in
+    and `--spaces`; the final docs pass updates them.
+- **For the orchestrator**: refactor/first's `Dockerfile` doesn't list `crates/world-api` in its
+  dependency layer (a workspace member since the tiers), so its image wouldn't build. This branch
+  lists it, and `crates/link`.
+
+### Tests for the End Agent to Run or Write
+
+With `RUINA_DATABASE_URL` on a database of the run's own (the harness lets go of every lease and
+forgets every process there before each playing test):
+
+| Test | Where | What it proves |
+|---|---|---|
+| `npm run test:cluster`: the 8 lease tests | `crates/server/tests/leases.rs` | Ran green in the first half: one grant among sixteen racing, epochs bumped, stale writes refused, a grant waiting for a write under the old epoch, a keeper cut off from the database stopping 0.4 s before the takeover |
+| `processes_find_each_other_through_the_directory` | `crates/server/tests/cluster.rs` (written, never run) | The services, two sims and a gate in the directory; each sim answers on its link |
+| `a_player_plays_on_simulations_in_other_processes` | same | A player over the gate's WebSocket plays on a sim in another process (a grant there and back); a developer zone's copy is placed on the other sim process and the player is handed across |
+| `a_sim_killed_with_a_player_in_it_and_they_come_back_on_another` | same | A sim killed outright: its player is closed with 1012, comes back on the other sim under the next epoch with their coins as written (nothing lost, nothing twice), and plays on |
+| `a_sim_cut_off_from_the_directory_stops_and_its_player_comes_back_on_another` | same | A lease lost: the cut-off sim stops before the other is granted the space; the player comes back with their life |
+| `every_message_to_a_sim_written_twice_and_each_command_applied_once` | same | A message delivered twice end to end: three grants, each applied once; the sim's link drops the copies |
+| `a_link_between_processes_cut_and_doubled_loses_and_repeats_nothing` | same | Three cuts, then every third message doubled: 6,000 messages once and in order |
+| To write: a sim killed mid-handoff | after borders' second half | The two-phase handoff across processes: one owner after a kill at each phase, nothing duplicated |
+| To run: the online Playwright specs against `npm run cluster` | `RUINA_SERVER=http://localhost:7790` | online, party, dungeon-way-in (copies across processes), minigames (pots written together), update (a gate stopped: `SaveAll` across processes) |
+| To write: a services process restarted, a gate killed | the harness | Spaces still played are adopted, not started twice; players reconnect through another gate |
