@@ -12,6 +12,11 @@ them in. If arguments were given (`$ARGUMENTS`), that's what to find.
 
 ## 0. The rules
 
+- **High-performance models only.** The game has to run well with a crowd on screen, so every
+  model, found or made, is light: a clean, low-poly mesh within section 1's budget, textures of 512
+  to 1024 pixels. Make them that way from the start (Tripo's Smart Mesh at a set polycount, Meshy's
+  smart topology with a target polycount); never an HD model, a sculpt or a scan, however good it
+  looks on the maker's page, and never one "fixed" afterwards by decimating it.
 - **Free first** (AGENTS.md, "Art and assets"): look for a free asset before making one, and judge
   the best free candidates in the game's look beside what a paid maker would give. Make one only
   when nothing free is as good. Never trade quality for the saving.
@@ -37,7 +42,7 @@ wooden decks), how close it's seen, the style (Emberholm's painted, realistic lo
 | Kind | Budget |
 |---|---|
 | Prop or building piece | a few thousand triangles (props), tens of thousands (buildings); textures 512 to 1024 px |
-| Character | ~30k triangles, a humanoid skeleton |
+| Character | ~10k triangles for townsfolk and creatures (Tripo's Smart Mesh at 5,000 quads), up to ~30k for the hero; a humanoid skeleton; one 1024 px texture |
 | Texture | 1K JPG, only the maps the shader reads (colour, normal, roughness or ARM) |
 | Sky | an HDRI at 1K to 2K |
 | Animation | a humanoid clip on a skeleton the retarget tables know (or can learn) |
@@ -147,8 +152,10 @@ models and the buildings. Show the user the result beside what it replaced befor
 ## 9. Paid makers, last
 
 - **Meshy** (the `meshy` MCP server): image-to-3D from a concept painted for it, rigging, its
-  animation library. Check the balance first (free), say the credits, wait for a yes. AGENTS.md,
-  "Art and assets", has the settings that work and the pitfalls.
+  animation library. For the game, smart topology (`meshy-t2.5`, or `meshy-t2` for props) with a
+  `target_polycount` inside the budget, never a `meshy-7.1` model remeshed down. Check the balance
+  first (free), say the credits, wait for a yes. AGENTS.md, "Art and assets", has the settings that
+  work and the pitfalls.
 - **Tripo** (the `tripo` MCP server): models from a picture, several views of one or words, and
   rigging, retopology, texturing and segmenting them; its catalog (section 2). It works Tripo
   Studio (studio.tripo3d.ai) in a Chrome window of its own, signed in to the user's account. More

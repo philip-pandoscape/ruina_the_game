@@ -111,6 +111,10 @@ and CC BY only, never anything taken from another game) and credits them in `CRE
 find in the game's look beside what we would make; make one only when nothing free is as good.
 Concepts come first for whatever is made, shown to the user beside today's look.
 
+Models are high-performance: clean, low-poly meshes within the skill's budget (a townsperson about
+10k triangles) and textures of 512 to 1024 pixels, made that way from the start (Tripo's Smart Mesh,
+Meshy's smart topology), never HD models, sculpts or scans.
+
 Paid makers are the user's money: say what a batch makes, what it costs and what free option it
 beats before running it.
 - **Gemini** (`npm run image`, `GEMINI_API_KEY` in `.env`) for pictures: concepts, Meshy's input,
