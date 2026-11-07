@@ -8,13 +8,14 @@ integration and end-to-end tests are listed for the end agent.
 
 ## The Second Half, in Short (done; lean, unit tests only)
 
-**Landed** on `refactor/wire` (latest `refactor/first`, d90086d, merged in at f138d2b):
+**Landed** on `refactor/wire` (the latest `refactor/first`, b68e2ec, with the channels, merged in last):
 
 | Commit | What |
 |---|---|
 | c1f07b7 | Each sim packs a `Frame` once a tick (`crates/server/src/sim/publish.rs`: players and bots by `EntityId` with their names, the vehicles they have out and packs on the ground, creatures, arrows by their shooter, meteors, the effects shown). `TickOut.frame` replaces PresenceRecord, CreatureRecord, ArrowRecord, MeteorRecord and EffectRecord; `TickOut.tables` the tables; `Private.told` a player's own hits and hurts as wire events. The gate keeps an `Encoder` per connection (`gate/encode.rs`: the `Viewer`, and the JSON tick slimmed to your own player, your life, the tables near you, the admins' numbers), sends the JSON tick then the binary update, takes acknowledgements (8) into the viewer and starts it over after a move. `WORLD_PROTOCOL` 12 both sides; the browser reads updates through `WireFeed`. Scale's findings: a connection is sent no ticks while four things wait for it and writes only the newest waiting, with what the skipped ones said to its player (`Owed`); a bot's name is looked up once a tick |
 | f102498, f138d2b | `refactor/first` merged (offline, borders' engine half, scale's harness): the admins' stats keep `ticks` beside `bytes` (JSON and wire) and `wire`; the load harness's clients acknowledge updates as browsers do, so it measures deltas |
 | e8f2da9 | The sim's packing test reads its frame with the wire's own viewer, not the gate's (no multi-tier tests now); this entry |
+| 93ae2d8 | `refactor/first` with the channels: `WORLD_PROTOCOL` 13 both sides (the channels' 12 and the wire's 12 are different protocols); on a move the browser starts the wire over and asks for the channels again |
 
 **Numbers** (`tick_time_in_the_battlefield`, ignored, run once before the hold on measuring;
 battlefield bots, stepped one after another / all at once): 64 bots, the sim's tick 0.364 / 0.570 ms
@@ -22,7 +23,7 @@ battlefield bots, stepped one after another / all at once): 64 bots, the sim's t
 (the JSON tick alone was 43.5-44.4 KB); 256 bots, 1.115 / 1.082 ms (0.081 / 0.121), 0.063 / 0.081 ms,
 1,893 B; 1,024 bots, 4.532 / 2.243 ms (0.276 / 0.319), 0.184 / 0.192 ms, 3,982 B.
 
-**Checks.** `npm run check` passes after the merge: 286 TypeScript tests, 349 Rust.
+**Checks.** `npm run check` passes after the merges: 291 TypeScript tests, 385 Rust.
 
 **For others to know:**
 - Keys are the engine's `EntityId` words for players, bots and creatures; vehicles, packs on the
@@ -34,11 +35,13 @@ battlefield bots, stepped one after another / all at once): 64 bots, the sim's t
   again): a handoff between sims of one space would better keep both (`socket.rs`: reset only when
   the space changes).
 - The admins' `stats.bytes` is what a tick sent, JSON and wire; `stats.wire` the wire's part.
+- `WORLD_PROTOCOL` is 13 since the channels' merge: raise it again at the next merge that changes
+  what either side reads.
 
 **Integration and end-to-end tests for the end agent** (none written or run now, as asked):
 1. The online specs on the wire (`online`, `online-combat`, `party`, `dungeon-way-in`, `minigames`,
    `battlefield`, `crowd-bodies`, `update`): others, creatures, arrows, meteors, effects, vehicles,
-   packs and tables as before; into a copy and back (everyone reappears); a restart reconnects on 12.
+   packs and tables as before; into a copy and back (everyone reappears); a restart reconnects on 13.
 2. Two windows, one walking off and back (near, mid, far, gone past 250 m, back): tiers, removals and
    handles reused in a real browser; crowd bodies past 42 m.
 3. Rust, a sim's ticks through the gate's loop to a connection whose socket stalls: at most four
@@ -48,7 +51,9 @@ battlefield bots, stepped one after another / all at once): 64 bots, the sim's t
    bytes) arrives and reads the same.
 5. Borders: an entity crossing a sim border stays one entity to a viewer (same handle, not introduced
    again), and is seen from both sides near it.
-6. Stress: `npm run loadtest` with N bots against the before numbers: bytes per connection a second,
+6. Channels: a change of channel, or a merge moving you, starts the wire over: everyone in the new
+   channel appears, nobody from the old one stays.
+7. Stress: `npm run loadtest` with N bots against the before numbers: bytes per connection a second,
    the gate's CPU, a slow client's memory staying flat.
 
 **Left:** those tests, and the guides (`crates/wire/AGENTS.md` is current; `docs/` on `TickOut.frame`
