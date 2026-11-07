@@ -724,7 +724,7 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 | land | R10.21 | running (first half) | Land in the engine, apart from a life (257e538): the world's market, taxes on the world's clock, a neglected house demolished after 14 days; a save is its life, its land and its player, older ones read apart. Engine 187 and server 81 tests pass; the crowd scenario's golden answer kept anew on purpose (it now names each life and its land apart; the old shape gave the old answer before the move). Next: the browser, then the SQL and the store's functions |
 | borders | R10.19 | running (first half) | |
 | channels | R10.22 | running (first half) | Started (5540056): the policy as a pure crate, crates/channels, in the tiers' words (a region's channel n, character ids), its tuning in content/channels.json, the browser's side tested through the UI gallery; building the policy and its tests |
-| multiserver | issue #4, requirement 6 | running (first half) | |
+| multiserver | issue #4, requirement 6 | running (first half) | Owns the leases (agreed with tiers): space_leases, nodes and a sim_ids sequence in its migration 0030, with grant, renew, release, owner and a fence check inside a write's transaction; a life's write checks both the character's epoch and the writing sim's lease epoch. The TCP codec self-describing (JSON or named MessagePack, being measured) |
 | scale | R10.24 | running (first half) | Plan in its report (0c48b4c): a Rust loadtest (bots and virtual clients over the real WebSocket, the server's CPU and memory), two small server hooks (a bot limit, rules and sending timed apart), the battlefield stress spec for 0-256 peers, then the baseline sweeps; its rig is up |
 | words | R10.14 | last, once the rest are in | |
 
