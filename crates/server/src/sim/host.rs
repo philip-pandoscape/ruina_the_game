@@ -574,15 +574,22 @@ mod tests {
             post.sim(SimId(sim), ToSim::Residents(Vec::new()));
             post.sim(SimId(sim), ToSim::Arrive(Box::new(arrival(who, 1, "P", false, None))));
         }
-        let mut ticks = [0usize; 3];
-        let t = Instant::now();
-        while t.elapsed() < Duration::from_millis(1500) {
+        // When each tick came, once both are playing.
+        let mut heard: [Vec<Instant>; 3] = Default::default();
+        let started = Instant::now();
+        let mut watching: Option<Instant> = None;
+        while watching.is_none_or(|t| t.elapsed() < Duration::from_millis(1500)) {
+            assert!(started.elapsed() < Duration::from_secs(30), "both started playing");
             while let Ok(m) = gate.try_recv() {
                 if let ToGate::Tick(out) = m {
-                    ticks[out.sim.0 as usize] += 1;
+                    heard[out.sim.0 as usize].push(Instant::now());
                 }
             }
-            std::thread::sleep(Duration::from_millis(5));
+            if watching.is_none() && !heard[1].is_empty() && !heard[2].is_empty() {
+                watching = Some(Instant::now());
+                heard = Default::default();
+            }
+            std::thread::sleep(Duration::from_millis(2));
         }
         for sim in [1, 2] {
             post.sim(SimId(sim), ToSim::Stop);
@@ -590,8 +597,15 @@ mod tests {
         for th in threads {
             th.join().expect("stopped");
         }
-        // The first kept its 20 a second; the second managed what it could.
-        assert!(ticks[1] >= 24, "the healthy channel ticked {} times in 1.5 s", ticks[1]);
-        assert!(ticks[2] <= 6, "the slow one {} times", ticks[2]);
+        // The healthy one kept ticking all along, never waiting on the slow one's 300 ms; the slow
+        // one managed what it could.
+        let gaps = |ts: &[Instant]| ts.windows(2).map(|w| w[1] - w[0]).max().unwrap_or(Duration::MAX);
+        assert!(
+            heard[1].len() >= 6 && gaps(&heard[1]) < Duration::from_millis(250),
+            "the healthy channel: {} ticks, the longest wait {:?}",
+            heard[1].len(),
+            gaps(&heard[1])
+        );
+        assert!(heard[2].len() <= 6, "the slow one {} times", heard[2].len());
     }
 }
