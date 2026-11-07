@@ -728,3 +728,15 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 | scale | R10.24 | first half merged (a797e74); second half after the rest | The load harness (npm run loadtest), the browser among 0-256 bots, and the baseline before the tiers: ~100-120 real players a server, 512 bots with one client watching, the JSON updates the limit, not the rules. Found for others: outboxes bounded by count not bytes (to wire), arrivals racing for a channel (to channels), a backlog of inputs draining at one a second (for the end pass), a quadratic bot-name lookup (to wire) |
 | words | R10.14 | last, once the rest are in | |
 
+
+### Beta's Saves, Tried on a Copy
+
+At the user's word, beta's database was copied (read-only, through a TCP proxy on beta's Postgres
+that was made for the minute the dump took and deleted after; nothing written there) and restored on
+this machine. Its 11 characters, two of them played for real (one with a cottage, four vehicles, 19
+kinds of things in the bag and 19 quests done), were taken up by the server as `refactor/first`
+stood after the channels and the wire (19b2630): the tiers' and channels' migrations ran, both real
+builds were kept anew by id ("kept 2 builds by id"), and every character came in, welcome and
+ticks, with nothing lost: the same coins, bag and quests, the cottage on its plot with what it
+stores, the vehicles and the claim. The land migration is tried the same way once land is merged.
+The copy stays on this machine only, in `scratch/` (never committed), and goes once the merge is done.
