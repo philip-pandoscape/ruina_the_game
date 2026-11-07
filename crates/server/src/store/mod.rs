@@ -49,6 +49,16 @@ pub struct Saved {
     pub saved_at: Option<Millis>,
 }
 
+/// Whether a life's write is fenced by its writer's lease as well as by the character's epoch: so
+/// once the leases are Postgres's (several processes share the world: crates/server/src/cluster),
+/// not while one process keeps them in memory.
+static FENCED_BY_LEASES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// From now on every life written is fenced by its writer's lease too (`space_leases`).
+pub fn fence_by_leases() {
+    FENCED_BY_LEASES.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// The time now, in ms since 1970.
 pub fn now_ms() -> Millis {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as Millis).unwrap_or(0)
@@ -111,9 +121,12 @@ impl Db {
     /// each was written (one whose epoch is stale is refused, and left as it was).
     pub async fn write_lives(&self, writes: &[LifeWrite]) -> Result<Vec<bool>, String> {
         const UPDATE: &str = "UPDATE characters SET island = $3, saved_at = now(), space = $4 WHERE id = $1 AND epoch = $2";
+        let fenced = FENCED_BY_LEASES.load(std::sync::atomic::Ordering::Relaxed);
         match self {
             Db::Pg(db) => {
-                if let [w] = writes {
+                if let [w] = writes
+                    && !fenced
+                {
                     let r = sqlx::query(UPDATE)
                         .bind(w.character)
                         .bind(w.epoch.0 as i64)
@@ -127,6 +140,18 @@ impl Db {
                 let mut tx = db.begin().await.map_err(|e| e.to_string())?;
                 let mut written = Vec::new();
                 for w in writes {
+                    // Among several processes, the writing simulation's lease too: one that lost its
+                    // space can't write, even a life nobody has been granted anew.
+                    if fenced && let Some(writer) = &w.writer {
+                        let fence = crate::cluster::leases::Fence {
+                            leased: crate::cluster::leases::Leased::space(writer.space.to_string()),
+                            epoch: writer.epoch.0 as i64,
+                        };
+                        if crate::cluster::leases::check(&mut tx, &fence).await.map_err(|e| e.to_string())?.is_err() {
+                            written.push(false);
+                            continue;
+                        }
+                    }
                     let r = sqlx::query(UPDATE)
                         .bind(w.character)
                         .bind(w.epoch.0 as i64)

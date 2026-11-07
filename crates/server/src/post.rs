@@ -105,33 +105,59 @@ impl Post {
     }
 }
 
-impl Transport for Post {
+impl Post {
+    /// Delivers to a mailbox in this process only (mail that came from another process: never
+    /// sent on again, so two processes can't pass it back and forth). Handed back if there's none.
     #[allow(clippy::result_large_err)]
-    fn send(&self, to: Address, msg: Message) -> Result<(), Message> {
+    pub fn here(&self, to: Address, msg: Message) -> Result<(), Message> {
         match (to, msg) {
             (Address::Sim(id), Message::Sim(m)) => match read(&self.sims).get(&id).cloned() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Sim(e.0)),
-                None => self.elsewhere(to, Message::Sim(m)),
+                None => Err(Message::Sim(m)),
             },
             (Address::Gate(id), Message::Gate(m)) => match read(&self.gates).get(&id).cloned() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Gate(e.0)),
-                None => self.elsewhere(to, Message::Gate(m)),
+                None => Err(Message::Gate(m)),
             },
             (Address::Store, Message::Store(m)) => match read(&self.store).clone() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Store(e.0)),
-                None => self.elsewhere(to, Message::Store(m)),
+                None => Err(Message::Store(m)),
             },
             (Address::Social, Message::Social(m)) => match read(&self.social).clone() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Social(e.0)),
-                None => self.elsewhere(to, Message::Social(m)),
+                None => Err(Message::Social(m)),
             },
             (Address::Directory, Message::Directory(m)) => match read(&self.directory).clone() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Directory(e.0)),
-                None => self.elsewhere(to, Message::Directory(m)),
+                None => Err(Message::Directory(m)),
             },
             // A message that doesn't fit its address.
             (_, m) => Err(m),
         }
+    }
+
+    /// Whether a mailbox for  is in this process.
+    pub fn holds(&self, to: Address) -> bool {
+        match to {
+            Address::Sim(id) => read(&self.sims).contains_key(&id),
+            Address::Gate(id) => read(&self.gates).contains_key(&id),
+            Address::Store => read(&self.store).is_some(),
+            Address::Social => read(&self.social).is_some(),
+            Address::Directory => read(&self.directory).is_some(),
+        }
+    }
+}
+
+impl Transport for Post {
+    #[allow(clippy::result_large_err)]
+    fn send(&self, to: Address, msg: Message) -> Result<(), Message> {
+        if !msg.fits(to) {
+            return Err(msg);
+        }
+        if self.holds(to) {
+            return self.here(to, msg);
+        }
+        self.elsewhere(to, msg)
     }
 }
 
@@ -156,5 +182,36 @@ mod tests {
         assert!(post.send(Address::Store, Message::Sim(ToSim::Stop)).is_err());
         post.close_sim(SimId(5));
         assert!(!post.sim(SimId(5), ToSim::Stop));
+    }
+
+    /// The rest of the world, standing in: whatever is sent there is kept.
+    #[derive(Default)]
+    struct Elsewhere(std::sync::Mutex<Vec<Address>>);
+
+    impl Transport for Elsewhere {
+        fn send(&self, to: Address, _msg: Message) -> Result<(), Message> {
+            self.0.lock().unwrap().push(to);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn mail_for_another_process_goes_there_and_mail_from_one_stays_here() {
+        let post = Post::new();
+        let elsewhere = Arc::new(Elsewhere::default());
+        post.set_remote(elsewhere.clone());
+        let sim = post.open_sim(SimId(5));
+        assert!(post.holds(Address::Sim(SimId(5))) && !post.holds(Address::Sim(SimId(6))) && !post.holds(Address::Store));
+        // Held here: delivered here.
+        assert!(post.sim(SimId(5), ToSim::Stop));
+        assert!(matches!(sim.try_recv(), Ok(ToSim::Stop)));
+        // Not held here: on to the rest of the world.
+        assert!(post.sim(SimId(6), ToSim::Stop));
+        assert!(post.send(Address::Store, Message::Store(ruina_world_api::store::ToStore::LoadResidents { channel: 1, reply: SimId(5) })).is_ok());
+        assert_eq!(*elsewhere.0.lock().unwrap(), vec![Address::Sim(SimId(6)), Address::Store]);
+        // What came from another process is delivered here or not at all: never sent on again.
+        assert!(post.here(Address::Sim(SimId(6)), Message::Sim(ToSim::Stop)).is_err());
+        assert_eq!(elsewhere.0.lock().unwrap().len(), 2);
+        assert!(post.here(Address::Sim(SimId(5)), Message::Sim(ToSim::Stop)).is_ok());
     }
 }

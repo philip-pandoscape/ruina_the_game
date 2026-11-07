@@ -58,6 +58,9 @@ pub struct Sim {
     /// Ticks since a channel last told the directory what its players are doing.
     standings_in: u32,
     period: Duration,
+    /// Among several processes another may be granted this space once the lease is lost: then this
+    /// one stops at once (crates/server/src/cluster). One process alone carries on.
+    pub stop_when_lost: bool,
     /// Tests: this much longer each tick takes (a crowd too big for it).
     #[cfg(test)]
     pub(crate) slow: Duration,
@@ -98,6 +101,7 @@ impl Sim {
             told: None,
             standings_in: 0,
             period: Duration::from_secs_f64(1.0 / f64::from(TICK_HZ)),
+            stop_when_lost: false,
             #[cfg(test)]
             slow: Duration::ZERO,
         }
@@ -333,8 +337,13 @@ impl Sim {
                 self.post.store(ToStore::WriteLives { writes, then: Then::Answer(reply) });
             }
             ToSim::Lease(LeaseNote::Lost { epoch }) => {
-                // One process carries on (nobody else plays its spaces); among several this stops.
+                // One process carries on (nobody else plays its spaces); among several this stops,
+                // writing nothing more (the store would refuse it): whoever is granted the space
+                // next starts from what was written.
                 eprintln!("simulation {} lost its lease on {} (epoch {})", self.id.0, self.game.at, epoch.0);
+                if self.stop_when_lost {
+                    return false;
+                }
             }
             ToSim::Lease(LeaseNote::Renewed { epoch, .. }) => self.game.lease = epoch,
             ToSim::Stop => {
@@ -680,5 +689,25 @@ mod tests {
             gaps(&heard[1])
         );
         assert!(heard[2].len() <= 6, "the slow one {} times", heard[2].len());
+    }
+
+    #[test]
+    fn a_simulation_among_several_stops_when_its_lease_is_lost() {
+        let post = Post::new();
+        let make = || {
+            let lease = Lease { space: SpaceId::copy("yard", 1), sim: SimId(3), epoch: Epoch(2), until: 0, chunks: Vec::new() };
+            let inbox = post.open_sim(SimId(3));
+            let transport: Arc<dyn Transport> = post.clone();
+            Sim::new(SimSetup { lease, owner: None, expel_after: EXPEL_AFTER }, inbox, transport)
+        };
+        let lost = || ToSim::Lease(LeaseNote::Lost { epoch: Epoch(2) });
+        // One process alone carries on: nobody else plays its spaces.
+        let mut alone = make();
+        assert!(alone.handle(lost()), "carries on");
+        // Among several, another may be granted the space: it stops at once.
+        let mut among = make();
+        among.stop_when_lost = true;
+        assert!(among.handle(ToSim::Lease(LeaseNote::Renewed { epoch: Epoch(2), until: 0 })), "renewed, it plays on");
+        assert!(!among.handle(lost()), "lost, it stops");
     }
 }

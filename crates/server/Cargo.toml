@@ -13,6 +13,8 @@ ruina-wire.workspace = true
 ruina-world-api.workspace = true
 # The channels' policy, which the directory plays (crates/channels).
 ruina-channels.workspace = true
+# Links to the other processes when the world runs on several (crates/server/src/cluster).
+ruina-link.workspace = true
 # Accounts: password hashes and session tokens.
 argon2 = { version = "0.5.3", features = ["std"] }
 sha2 = "0.10.9"
@@ -34,3 +36,7 @@ socket2 = "0.6.5"
 # A channel's players stepped all at once on the machine's cores (play/stepping.rs), when the server
 # is started so. The engine itself stays on one thread.
 rayon = "1.12.0"
+
+[dev-dependencies]
+# The harness's players (tests/cluster.rs): a browser's WebSocket to a gate, as axum's own is built on.
+tokio-tungstenite = "0.29.0"

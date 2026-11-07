@@ -14,6 +14,8 @@
     "test:unit": "npm run engine && vitest run --project unit && npm run test:rust",
     "test:rust": "node tools/cargo.mjs test --workspace",
     "test:conformance": "node tools/cargo.mjs build --release && npm run engine && vitest run --project conformance",
+    "cluster": "node tools/cargo.mjs build --release --bin ruina-server && node tools/cluster/run.mjs",
+    "test:cluster": "node tools/cargo.mjs test -p ruina-server --test leases --test cluster -- --ignored --test-threads=1",
     "test:integration": "playwright test",
     "test:stress": "playwright test -c playwright.stress.config.ts",
     "test:all": "npm run test:unit && npm run test:conformance && npm run test:integration && npm run test:stress",
