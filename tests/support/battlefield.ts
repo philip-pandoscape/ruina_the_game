@@ -35,12 +35,13 @@ const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.flo
  * Sets up a spec's battlefield: its own server, the built game, and every fighter's window closed
  * after each test. Returns `fighter`, which brings someone into the battlefield. The server's port is
  * `base` plus the worker's place among those running: a spec whose tests are tagged differently
- * (@gpu and not) runs in two workers at once, each with its own server.
+ * (@gpu and not) runs in two workers at once, each with its own server. `env` adds to the server's
+ * environment (MAX_BOTS: more bots than the developer panel's 64).
  */
-export function battlefield(base: number) {
+export function battlefield(base: number, env: Record<string, string> = {}) {
   const port = base + (Number(process.env.TEST_PARALLEL_INDEX) || 0);
   const built = join(tmpdir(), `ruina-battlefield-${port}-${process.pid}`);
-  const server = new GameServer(port, { STATIC_DIR: built });
+  const server = new GameServer(port, { STATIC_DIR: built, ...env });
   const contexts: BrowserContext[] = [];
 
   // One server, so one test at a time.
