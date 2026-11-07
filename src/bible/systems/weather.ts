@@ -69,7 +69,7 @@ export const weather = system({
     );
     const [strMid, strA, strP] = numbers(weatherSource, /wind_speed = ([\d.]+) \+ ([\d.]+) \* \(c \/ ([\d.]+) \+ [\d.]+\)\.js_sin\(\)/, 'how the wind blows');
     const [sailBase, sailWind] = numbers(vehiclesSource, /eff \* \(([\d.]+) \+ ([\d.]+) \* wind_speed\)/, 'how much the wind’s strength fills a sail');
-    const [stormBase, stormWind] = numbers(weatherSource, /k \* \(([\d.]+) \+ ([\d.]+) \* life\.state\.weather\.wind_speed\)/, 'how the wind whips up a storm');
+    const [stormBase, stormWind] = numbers(weatherSource, /k \* \(([\d.]+) \+ ([\d.]+) \* life\.weather\.wind_speed\)/, 'how the wind whips up a storm');
     // The time away is caught up as the server loads your island (load_island).
     const awayAtAll = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.state\.clock \+= away;/, 'how long away counts as away');
     const welcome = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.toast\(/, 'how long away earns a welcome back');
@@ -80,7 +80,9 @@ Your island keeps time, and the sky and the weather run on a clock everyone in t
 
 ## Your Island's Clock
 
-Your island has a clock of its own: the seconds it has run. It moves on by a step each frame of play, ${SIM_HZ} times a second, and everything on your island that takes time counts on it: crops and animals growing, a pack going stale, a gathering spot coming back, a contract running out, the tax falling due.
+Your island has a clock of its own: the seconds it has run. It moves on by a step each frame of play, ${SIM_HZ} times a second, and what is yours alone counts on it: crops growing, a gathering spot coming back, a contract running out, a vehicle being repaired.
+
+What stands in the world (your house, your farm's animals, a pack you made) counts on the land's clock instead: online the world's (the server's), the same for everyone and running whether or not you play, so the tax falls due, an animal's feed runs out and a pack goes stale while you are away. Playing alone, the world is yours and the land's clock is your island's.
 
 ## Day and Night
 
@@ -152,10 +154,9 @@ $$
 
 When you come back to your island (online, when the server loads it as you join; playing alone, when the game loads it), the time since you left is caught up at once: up to ${duration(CLOCK.maxOfflineSeconds)} of it, counted at ${pct(CLOCK.offlineFactor, 0)} of its length. Away for less than ${duration(awayAtAll)}, nothing happens.
 
-- Your island's clock moves on by that much, and everything that waits on it with it: gathering spots come back, contracts run out, tax falls due.
+- Your island's clock moves on by that much, and everything that waits on it with it: gathering spots come back, contracts run out. (The tax, an animal's feed and a pack's age wait on the land's clock, which never stopped.)
 - Every crop grows by that much, at the pace it had when you left (watered or not), and wakes unwatered. Rain while you were away doesn't count.
 - Every animal grows and gives for as much of that time as it was fed for ([[systems/livestock]]).
-- The trading posts' demand recovers as it would have ([[systems/trade]]).
 - Labor comes back at ${LABOR.offlinePerMinute} a minute, rather than the ${LABOR.perMinute} it does while you play ([[systems/economy]]).
 - Away for more than ${duration(welcome)}, you are told how long has passed on ${EMBERHOLM.name}.
 

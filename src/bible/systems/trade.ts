@@ -1,7 +1,7 @@
 // Trade and Pack Running: written from its rules (`rules` below); every number from the content and the rules.
 
 import { ITEMS, RECIPES, VENDORS } from '../../content/items';
-import { CARRY, CLOCK, DEMAND, FRESHNESS, type PackDef, PACKS, placeName, ROUTES } from '../../content/trade';
+import { CARRY, DEMAND, FRESHNESS, type PackDef, PACKS, placeName, ROUTES } from '../../content/trade';
 import { MOUNTS } from '../../content/vehicles';
 import { freshness } from '../../engine/island';
 import { EMBERHOLM as Z } from '../../engine/zone';
@@ -35,7 +35,7 @@ export const trade = system({
   summary: 'Making packs at a workbench, carrying them, and selling them far away: routes, demand, freshness and seals.',
   icon: '📦',
   keywords: ['pack', 'packs', 'trade pack', 'workbench', 'trading post', 'route', 'demand', 'freshness', 'fresh', 'stale', 'sell', 'seal', 'carry', 'haul'],
-  rules: ['crates/engine/src/life/trade.rs', 'crates/engine/src/life/interact.rs'],
+  rules: ['crates/engine/src/life/trade.rs', 'crates/engine/src/life/market.rs', 'crates/engine/src/life/interact.rs'],
   content: [
     'shared/trade.json#carry',
     'shared/trade.json#demand',
@@ -102,7 +102,7 @@ You carry a single pack, on your back, and it weighs on everything you do:
 
 ${key('X')} sets your pack down on the ground in front of you, except while you ride or swim. ${key('F')} within ${metres(
       CARRY.pickupRange,
-    )} of a pack on the ground picks it up again, if your back is free. Packs you set down stay where they are, on your island.
+    )} of a pack on the ground picks it up again, if your back is free. Packs you set down stay where they are, in the world.
 
 ${key('F')} at a vehicle's cargo bed loads your pack into its first free place, and with your back free, ${key(
       'F',
@@ -149,11 +149,11 @@ ${table(
 
 ## Demand
 
-Every trading post keeps a demand for every pack, on your island. It starts at ${pct(DEMAND.start)}. Each sale is paid at the demand there was, then lowers it by ${pct(
+Every trading post keeps a demand for every pack, the world's: the same for everyone who sells there, in every channel. It starts at ${pct(DEMAND.start)}. Each sale is paid at the demand there was, then lowers it by ${pct(
       DEMAND.dropPerSale,
-    )}, never below ${pct(DEMAND.min)}. A demand you have lowered climbs back steadily, ${pct(DEMAND.recoverPerMinute)} a minute, all the way to ${pct(
-      DEMAND.max,
-    )}: past where it started, so a post you sold to once and then left alone pays more than one you never sold to.
+    )} for everyone, never below ${pct(DEMAND.min)}. Two sales of the same pack at the same post in the same moment are both paid at the demand there was, and both lower it. A demand someone has lowered climbs back steadily, ${pct(
+      DEMAND.recoverPerMinute,
+    )} a minute, all the way to ${pct(DEMAND.max)}: past where it started, so a post that was sold to once and then left alone pays more than one nobody ever sold to.
 
 $$
 after a sale: demand = the larger of (${pct(DEMAND.min)}, demand − ${pct(DEMAND.dropPerSale)})
@@ -162,13 +162,11 @@ $$
 
 A single sale takes ${duration((DEMAND.dropPerSale / DEMAND.recoverPerMinute) * 60)} to win back; a post sold down to the bottom takes ${duration(
       ((DEMAND.max - DEMAND.min) / DEMAND.recoverPerMinute) * 60,
-    )} to climb all the way to the top. Demand recovers while you are away too.
+    )} to climb all the way to the top. Demand recovers by the world's clock, whoever is playing.
 
 ## Freshness
 
-A pack's age is how long the island's clock has run since it was made, and that clock runs while you are away (up to ${duration(
-      CLOCK.maxOfflineSeconds,
-    )} at a time), so packs age while you are gone. Until it is ${duration(FRESHNESS.bonusSeconds)} old a pack is fresh and pays ${change(
+A pack's age is how long the world's clock has run since it was made, and that clock runs whether or not you play, so packs age while you are gone. Until it is ${duration(FRESHNESS.bonusSeconds)} old a pack is fresh and pays ${change(
       FRESHNESS.bonus,
     )}; from then until ${duration(FRESHNESS.staleSeconds)} its bonus falls in a straight line to ${change(FRESHNESS.penalty)}, and it stays there.
 

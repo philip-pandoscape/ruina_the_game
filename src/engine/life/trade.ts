@@ -1,4 +1,4 @@
-import type { Pack } from './state';
+import type { Pack } from './land';
 import { DEMAND, FRESHNESS, packDef, route } from '../../content/trade';
 import type { IslandRead } from './life';
 import type { SimRead } from '../shapes';
@@ -12,10 +12,10 @@ import type { SimRead } from '../shapes';
 
 // ---------- Prices ----------
 
-const demandKey = (outpost: string, pack: string) => `${outpost}:${pack}`;
-
+/** What `outpost` pays for `pack` against its base price right now: the world's demand there, recovering by the land's clock since it last moved (crates/engine/src/life/market.rs). */
 export function demandAt(life: IslandRead, outpost: string, pack: string): number {
-  return life.state.demand[demandKey(outpost, pack)] ?? DEMAND.start;
+  const d = life.market[`${outpost}:${pack}`];
+  return d ? Math.min(DEMAND.max, d.value + (DEMAND.recoverPerMinute * Math.max(0, life.now - d.at)) / 60) : DEMAND.start;
 }
 
 /** Freshness multiplier for a pack of this age (seconds). */
@@ -49,7 +49,7 @@ export function quote(life: IslandRead, pack: Pack, outpost: string): Quote | nu
 
 // ---------- Where packs are ----------
 
-export const packById = (life: IslandRead, id: number): Pack | undefined => life.state.packs.find((p) => p.id === id);
+export const packById = (life: IslandRead, id: number): Pack | undefined => life.land.packs.find((p) => p.id === id);
 export const carried = (life: IslandRead, sim: SimRead): Pack | undefined => (sim.player.pack ? packById(life, sim.player.pack) : undefined);
 
 // ---------- Buyback ----------

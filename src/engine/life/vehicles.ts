@@ -1,5 +1,5 @@
 import type { Mover } from '../shapes';
-import type { Vehicle } from './state';
+import type { Vehicle } from './land';
 import { rideable, type RideableDef } from '../../content/vehicles';
 import { groundAt, pushOutOfBox } from '../world/colliders';
 import { toWorld } from '../world/frames';
@@ -11,7 +11,7 @@ import type { SimRead } from '../shapes';
 // Vehicles as the page reads them: which one you ride, where you'd step out, what of one is solid to
 // others, how a sail takes the wind. The engine drives them (crates/engine/src/life/vehicles.rs).
 
-export const vehicleById = (life: IslandRead, id: number): Vehicle | undefined => life.state.vehicles.find((v) => v.id === id);
+export const vehicleById = (life: IslandRead, id: number): Vehicle | undefined => life.land.vehicles.find((v) => v.id === id);
 /**
  * The vehicle of yours you are riding. Riding along in someone else's (`host` set), it's theirs, not
  * one of your island's, even when one of yours has the same number.

@@ -13,7 +13,7 @@ import type { IslandUI } from '../context';
 
 export function storageView(ui: IslandUI, houseId: number): View {
   const life = ui.life;
-  const h = life.state.houses.find((x) => x.id === houseId);
+  const h = life.land.houses.find((x) => x.id === houseId);
   if (!h || !isComplete(h)) return { title: 'Storage Chest', w: 420, body: '<p>Gone.</p>' };
   const bp = blueprintDef(h.blueprint);
   const list = (stacks: Array<{ item: string; n: number }>, act: string) =>

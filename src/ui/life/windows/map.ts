@@ -103,17 +103,17 @@ export class MapWindow {
       g.fillStyle = '#fff6e2';
       g.fillText(pl.name, px, py + 20);
     }
-    for (const sc of life.state.scarecrows) {
+    for (const sc of life.land.scarecrows) {
       const [px, py] = toPx(sc.x, sc.z);
       g.fillStyle = '#7e5636';
       g.fillRect(px - 4, py - 4, 8, 8);
     }
-    for (const h of life.state.houses) {
+    for (const h of life.land.houses) {
       const pose = housePose(life, h);
       const [px, py] = toPx(pose.x, pose.z);
       mapIcon(g, iconImage('🏠'), px, py, 26);
     }
-    for (const v of life.state.vehicles) {
+    for (const v of life.land.vehicles) {
       const [px, py] = toPx(v.x, v.z);
       mapIcon(g, iconImage(rideable(v.def).icon), px, py, 26);
     }

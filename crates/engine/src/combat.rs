@@ -38,8 +38,8 @@ use crate::content::kind_at;
 use crate::ids::EntityId;
 use crate::jsmath::{JsMath, js_hypot};
 use crate::life::content::rideable;
+use crate::life::land::Vehicle;
 use crate::life::progress::{Observed, sync_levels};
-use crate::life::state::Vehicle;
 use crate::life::{Command, Life, vehicles};
 use crate::open::dungeon::DungeonDef;
 use crate::open::zone::Heightfield;
@@ -1593,7 +1593,7 @@ impl Players {
     fn vehicles(s: &Slot) -> &[Vehicle] {
         match (&s.away, s.life.as_deref()) {
             (Some(vs), _) => vs,
-            (None, Some(l)) => &l.state.vehicles,
+            (None, Some(l)) => &l.land.vehicles,
             (None, None) => &[],
         }
     }

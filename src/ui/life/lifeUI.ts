@@ -489,7 +489,7 @@ export class LifeUI {
       this.d.sim.player.pack,
       this.d.sim.player.weapon,
       this.d.sim.player.skills.join(),
-      s.vehicles.length,
+      this.life.land.vehicles.length,
       s.glider,
       s.seed,
       s.contracts?.active.length,
@@ -526,7 +526,7 @@ export class LifeUI {
     const pos = this.d.sim.player.pos;
     let at: { x: number; z: number } | undefined;
     if (p.kind === 'storage') {
-      const h = this.life.state.houses.find((x) => x.id === Number(p.id));
+      const h = this.life.land.houses.find((x) => x.id === Number(p.id));
       if (h) at = housePose(this.life, h);
     } else at = r.npcs.find((n) => n.id === p.id) ?? r.workbenches.find((b) => b.id === p.id);
     if (at && Math.hypot(at.x - pos.x, at.z - pos.z) > WALK_AWAY) this.close();
@@ -610,7 +610,7 @@ export class LifeUI {
 
   /** Stand-in for the old stage name; kept so callers can check how much of a site is left. */
   siteSummary(houseId: number): string {
-    const h = this.life.state.houses.find((x) => x.id === houseId);
+    const h = this.life.land.houses.find((x) => x.id === houseId);
     if (!h) return '';
     return stillNeeds(h)
       .map((n) => `${packDef(n.pack).name} ${n.have}/${n.need}`)

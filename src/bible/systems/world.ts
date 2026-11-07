@@ -131,7 +131,7 @@ export const world = system({
       'how near a person F reaches',
     );
     const fBench = near(/format!\("Use \{name\}"\)[\s\S]*?pick\.consider\(f, d, ([\d.]+)\);/, 'how near a workbench F reaches');
-    const fRide = near(/for v in &life\.state\.vehicles \{\s*let d = distance_to\(v, px, pz\);\s*if d > ([\d.]+) \{/, 'how near a vehicle F reaches');
+    const fRide = near(/for v in &life\.land\.vehicles \{\s*let d = distance_to\(v, px, pz\);\s*if d > ([\d.]+) \{/, 'how near a vehicle F reaches');
     const fCell = near(/let tx = px \+ fx \* ([\d.]+);/, 'how far ahead F looks for a plot cell');
     const fCellScore = near(/Z: Change Seed", life\.count\(&seed\)\), true\), ([\d.]+), [\d.]+\);/, 'how near a plot cell counts');
     const fNode = near(/- sd\.w \/ 2\.0\);\s*if d > ([\d.]+) \{/, 'how near a gathering spot F reaches');

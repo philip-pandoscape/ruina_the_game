@@ -109,6 +109,7 @@ Several checkouts and sessions run suites on one machine, so a run can be moved 
 | `PW_WORKERS` | 6 | pages side by side |
 | `RUINA_SERVER` | http://localhost:7777 | the world server the online specs and the dev server use |
 | `RUINA_DATABASE_URL` | none | the database update.spec starts its own server on, and `npm run test:cluster`'s processes and lease tests use (the processes take ports 9100-9199) |
+| `RUINA_TEST_DATABASE_URL` | none | a Postgres the store's Rust tests (`crates/server/tests/land.rs`: plots, the ledger, land by chunk, the market, moving saves) make a database each in; without it they say so and pass |
 
 A private rig for the online specs, clear of `npm run up`'s ports:
 
@@ -116,6 +117,7 @@ A private rig for the online specs, clear of `npm run up`'s ports:
 docker run -d --rm --name ruina-<you>-db -e POSTGRES_USER=ruina -e POSTGRES_PASSWORD=ruina -e POSTGRES_DB=ruina -p 127.0.0.1:5461:5432 postgres:18
 DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina DEV_LOGIN=1 target/release/ruina-server --port 7871
 PW_PORT=5261 TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871 RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina npx playwright test
+RUINA_TEST_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina cargo test --release -p ruina-server --test land
 ```
 
 Run the server from a copy of the binary (in `scratch/`) if you'll rebuild while it runs. Servers

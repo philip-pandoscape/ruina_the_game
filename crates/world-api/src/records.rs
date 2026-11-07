@@ -11,7 +11,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use ruina_engine::life::state::{LifeState, Vehicle, Weather};
+use ruina_engine::life::land::{Land, Vehicle};
+use ruina_engine::life::market::Market;
+use ruina_engine::life::state::{LifeState, Weather};
 use ruina_engine::life::{Life, LifeEvent, Placement};
 use ruina_engine::player::{Mode, Player, V3};
 use ruina_engine::skills::SkillSet;
@@ -95,25 +97,35 @@ impl You {
             clock: life.state.clock,
             labor: life.state.labor,
             resting: life.resting,
-            vehicles: life.state.vehicles.clone(),
-            weather: life.state.weather.clone(),
+            vehicles: life.land.vehicles.clone(),
+            weather: life.weather.clone(),
             placing: life.placing.clone(),
         }
     }
 }
 
-/// A whole life, for its owner's browser to show.
+/// A whole life, for its owner's browser to show: their own state, their land, and the world's
+/// market they price packs by.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LifeView {
     pub rev: u64,
     pub state: LifeState,
+    pub land: Land,
+    pub market: Market,
     pub placing: Option<Placement>,
     pub resting: bool,
 }
 
 impl LifeView {
     pub fn of(life: &Life) -> LifeView {
-        LifeView { rev: life.revision, state: life.state.clone(), placing: life.placing.clone(), resting: life.resting }
+        LifeView {
+            rev: life.revision,
+            state: life.state.clone(),
+            land: life.land.clone(),
+            market: life.market.clone(),
+            placing: life.placing.clone(),
+            resting: life.resting,
+        }
     }
 }
 

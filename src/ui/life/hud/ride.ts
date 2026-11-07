@@ -50,7 +50,7 @@ export class RideBox {
     }
     const def = rideable(v.def);
     const slots = v.cargo.map((id) => {
-      const pk = id ? life.state.packs.find((x) => x.id === id) : null;
+      const pk = id ? life.land.packs.find((x) => x.id === id) : null;
       return `<div class="slot">${pk ? iconHtml(packDef(pk.def).icon, undefined, 20) : ''}</div>`;
     });
     let extra = '';
@@ -60,7 +60,7 @@ export class RideBox {
       extra += `<div style="margin-top:4px">Hull <b style="color:${hull > 0.5 ? 'var(--good)' : hull > 0.25 ? 'var(--accent)' : 'var(--bad)'}">${Math.round(hull * 100)}%</b>${storm > 0 ? ' · <b style="color:var(--bad)">Rough Seas</b>' : ''}</div>`;
     }
     if (isBoat(def) && def.sail) {
-      const rel = angleDiff(life.state.weather.windDir, v.heading);
+      const rel = angleDiff(life.weather.windDir, v.heading);
       const eff = sailEfficiency(rel);
       extra += `<div class="wind">Wind <span class="arrow" style="transform:rotate(${(rel * 180) / Math.PI}deg)">⬆</span> ${Math.round(eff * 100)}% · Sail</div><div class="trim"><i style="width:${v.sail * 100}%"></i></div><div style="color:var(--ink-2);margin-top:3px">W/S Raise / Lower Sail</div>`;
     }

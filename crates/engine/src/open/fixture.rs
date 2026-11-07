@@ -247,7 +247,7 @@ mod tests {
         life.give("deed.farmCart", 1, true);
         let id = vehicles::summon(life, &mut Sim { player: p, world: &open, owner: 1 }, "deed.farmCart").expect("a cart");
         // Turned to face west, the driver in its seat.
-        let v = life.state.vehicles.iter_mut().find(|v| v.id == id).expect("the cart");
+        let v = life.land.vehicles.iter_mut().find(|v| v.id == id).expect("the cart");
         (v.x, v.z, v.heading) = (x0, z0, FRAC_PI_2);
         assert!(vehicles::board(life, &mut Sim { player: p, world: &open, owner: 1 }, id), "in the driver's seat");
         let (fx, fz) = {

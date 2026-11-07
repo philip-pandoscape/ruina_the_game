@@ -148,7 +148,7 @@ pub(crate) fn tick_json(players: &Players, actors: &Actors, done: &StepOut) -> V
         .each_open()
         .map(|(client, owner, p, life)| {
             let told = players.slot_index(client).map(|s| effects(players.told(s))).unwrap_or_default();
-            json!({ "id": owner, "p": player_state_json(p), "told": told, "vehicles": life.map(|l| &l.state.vehicles) })
+            json!({ "id": owner, "p": player_state_json(p), "told": told, "vehicles": life.map(|l| &l.land.vehicles) })
         })
         .collect();
     let mut creatures: Vec<&Actor> = actors.list.iter().collect();
@@ -169,11 +169,12 @@ pub(crate) fn tick_json(players: &Players, actors: &Actors, done: &StepOut) -> V
     })
 }
 
-/// Runs a scenario (JSON) and gives back a hash of each tick and the islands at the end (JSON).
+/// Runs a scenario (JSON) and gives back a hash of each tick, and each life and its land at the end (JSON).
 pub fn run(input: &str) -> serde_json::Result<String> {
     let s: Scenario = serde_json::from_str(input)?;
     let (players, _, ticks) = play(&s);
-    let islands: Vec<Value> = players.each_open().map(|(_, o, _, life)| json!({ "id": o, "state": life.map(|l| &l.state) })).collect();
+    let islands: Vec<Value> =
+        players.each_open().map(|(_, o, _, life)| json!({ "id": o, "state": life.map(|l| &l.state), "land": life.map(|l| &l.land) })).collect();
     serde_json::to_string(&json!({ "ticks": ticks, "islands": islands }))
 }
 
@@ -206,7 +207,7 @@ fn play(s: &Scenario) -> (Players, Actors, Vec<String>) {
         let life = life.expect("an island");
         life.give(&drive.deed, 1, true);
         let id = vehicles::summon(life, &mut Sim { player: p, world: &world, owner: owner(k) }, &drive.deed).expect("a vehicle on the road");
-        let v = life.state.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
+        let v = life.land.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
         let (x, _, z) = vehicles::anchor_world(&v, &rideable(&v.def).seats[0]);
         p.pos.x = x + v.heading.js_cos();
         p.pos.z = z - v.heading.js_sin();
@@ -331,7 +332,7 @@ mod tests {
         // The cart went up the road with its passenger in his seat.
         let (k, f) = s.fighters.iter().enumerate().find(|(_, f)| f.drives.is_some()).expect("a driver");
         let (driver, _, life) = players.open_view(EntityId::character(k as i64 + 1)).expect("the driver");
-        let v = &life.expect("an island").state.vehicles[0];
+        let v = &life.expect("an island").land.vehicles[0];
         let went = crate::jsmath::len(v.x - f.x, v.z - f.z);
         assert!(went > 10.0, "the cart went {went} m");
         assert_eq!(driver.vehicle, v.id);

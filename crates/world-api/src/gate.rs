@@ -33,8 +33,9 @@ pub enum ToConn {
     /// The directory took the character up for this connection: their grant, their home channel,
     /// and where they play (both simulations running).
     Claimed(Box<Claimed>),
-    /// The store read their life.
-    Life { life: Option<Value>, build: Option<Value>, saved_at: Option<Millis> },
+    /// The store read their life (with their land beside it), and gave them a block of ids for what
+    /// they place (`next`, `end`).
+    Life { life: Option<Value>, build: Option<Value>, saved_at: Option<Millis>, ids: Option<(i64, i64)> },
     /// The simulation took them in: where they are, the build they play with, and (in a channel) its
     /// estates and plot claims.
     Arrived { space: SpaceView, build: Value, estates: Option<Estates> },

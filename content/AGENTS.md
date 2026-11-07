@@ -59,7 +59,9 @@ that a cave's dressing names its own walls and pieces (`docs/world.md`, Dressing
   hold builds by place as the wire does, need their answers kept anew (`crates/engine/AGENTS.md`).
 - **What's kept names things by id**: a character's build (the server's `characters.build`) and the
   browser's own (`crates/engine/src/skills.rs` and `src/content/build.ts`: weapon, skill nodes,
-  hotbar and movement slots), and the island, so a kept thing means the same in any order. Builds kept
+  hotbar and movement slots), a life, and land (a house's blueprint and plot, a crop, a pack, a
+  vehicle), so a kept thing means the same in any order. A house plot's id is its claim in the
+  world's registry (`plots`), so it must stay the same once anyone may have built on it. Builds kept
   by index before that are read in the order they were kept in, frozen in `shared/buildsByIndex.json`
   (not built from here, never edited).
 

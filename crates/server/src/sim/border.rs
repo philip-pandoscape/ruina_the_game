@@ -133,10 +133,12 @@ impl Game {
                     self.said.push((m.conn, ToConn::Crossed { sim: self.sim, from }));
                     self.members.insert(c, m);
                 }
-                // What they built, solid here as everywhere they play.
+                // Their land, lent to their life, comes with them: solid here as everywhere they play,
+                // and not kept here for them while it's theirs to change.
                 if let Some((_, _, Some(life))) = self.players.open_view(client) {
-                    let state = life.state.clone();
-                    make_solid(&mut self.open, c, &state);
+                    let land = life.land.clone();
+                    make_solid(&mut self.open, c, &land);
+                    self.lands.lend(c);
                 }
             }
             if !t.players.is_empty() {
@@ -261,6 +263,10 @@ impl Game {
             for m in &h.players {
                 let Some(c) = m.client.as_character() else { continue };
                 if let Some(member) = self.members.remove(&c) {
+                    // Their land goes with their life; it stands here, kept for them, as they left it.
+                    if let Some(life) = &m.life {
+                        self.lands.keep(c, &member.name, life.land.clone());
+                    }
                     self.said.push((member.conn, ToConn::Crossing));
                     side.leaving.insert(c, member.info());
                     gone.push((c, SimId(p.to.0)));
@@ -289,8 +295,8 @@ mod tests {
         let mut games = (Game::channel(SimId(1), "emberholm", 1), Game::channel(SimId(2), "emberholm", 1));
         games.0.play_part(Border::new(BorderSim(1), owners.clone()), parts::seats(0), &split[0]);
         games.1.play_part(Border::new(BorderSim(2), owners), parts::seats(1), &split[1]);
-        games.0.estates.loaded = true;
-        games.1.estates.loaded = true;
+        games.0.lands.loaded = true;
+        games.1.lands.loaded = true;
         (games.0, games.1)
     }
 

@@ -133,7 +133,10 @@ foundations are laid in one process:
 - the world map of regions on chunks, its ground answered across them;
 - spaces, so an instance is played round its own origin;
 - a tick that splits, so players can be stepped all at once;
-- the world's clock.
+- the world's clock;
+- land, kept by where it stands and lent to its owner's life while they play; house plots claimed
+  once in the world and contested; the ledger and the world's market (the engine's and the
+  store's; the server moves onto them with its tiers).
 
 - the server in tiers, joined by messages, a simulation on a thread of its own for each channel
   and copy.

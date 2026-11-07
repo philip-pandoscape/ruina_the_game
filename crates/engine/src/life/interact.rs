@@ -16,13 +16,14 @@ use super::farming::{
     stage_of, water,
 };
 use super::housing::{
-    DAY, Need, build_stage, deliver_material, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs, tax_due,
+    DAY, Need, build_stage, deliver_material, demolished_at, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs,
+    tax_due,
 };
 use super::livestock::{collect, feed, grown_up, hungry, produce_ready, raise};
 use super::quests::{abandon, accept, complete, quests_at};
 use super::shipyard::{build_ship_stage, deliver_ship_material, design_items_in_bag, launch, lay_keel, ship_finished, ship_needs, ship_on, ship_stage_ready};
 use super::state::{Home, Stack};
-use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
+use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, run_recipe, sell, sell_pack, unload_pack};
 use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, pack_blocks, recall, ridden, summon, vehicle_index};
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
 use crate::jsmath::{js_hypot, js_max, js_min, js_round};
@@ -158,7 +159,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     let p = &*sim.player;
     let hf = sim.terrain();
     if p.mode == Mode::Ride {
-        let mount = ridden(life, sim).is_some_and(|i| rideable(&life.state.vehicles[i].def).is_mount());
+        let mount = ridden(life, sim).is_some_and(|i| rideable(&life.land.vehicles[i].def).is_mount());
         return Some(Focus {
             action: "exit".into(),
             key: "exit".into(),
@@ -207,7 +208,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     let fx = p.facing.js_sin();
     let fz = p.facing.js_cos();
     let mut pick = Pick { x: px, z: pz, fx, fz, best: None, score: f64::INFINITY };
-    let back = carried(life, sim).map(|i| &life.state.packs[i]);
+    let back = carried(life, sim).map(|i| &life.land.packs[i]);
 
     // People.
     for n in here.recipes().flat_map(|r| &r.npcs) {
@@ -294,7 +295,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
     // Packs lying on the ground.
     if back.is_none() {
-        for pk in &life.state.packs {
+        for pk in &life.land.packs {
             if pk.at != "ground" {
                 continue;
             }
@@ -315,7 +316,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
 
     // Vehicles: the seat to get in, the cargo bed to load or unload.
-    for v in &life.state.vehicles {
+    for v in &life.land.vehicles {
         let d = distance_to(v, px, pz);
         if d > 2.2 {
             continue;
@@ -404,7 +405,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     let tx = px + fx * 1.3;
     let tz = pz + fz * 1.3;
     if let Some((k, idx)) = cell_at(life, tx, tz) {
-        let sc = &life.state.scarecrows[k];
+        let sc = &life.land.scarecrows[k];
         let here = sc.cells.get(idx).and_then(|c| c.as_ref());
         let (cx, cz) = cell_centre(sc, idx);
         let y = hf.height(cx, cz);
@@ -534,7 +535,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             pick.consider(f, score, 12.0);
             continue;
         };
-        let b = &life.state.ships[bi];
+        let b = &life.land.ships[bi];
         let design = ship_design(&b.design);
         if ship_finished(b) {
             pick.consider(at("launch", format!("Launch the {}", design.name), None, true), score, 12.0);
@@ -562,7 +563,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         if lx.abs() > 9.0 || lz.abs() > 9.0 {
             continue;
         }
-        let h = house_on(life, &plot.id).map(|i| &life.state.houses[i]);
+        let h = house_on(life, &plot.id).map(|i| &life.land.houses[i]);
         let y = hf.height(plot.x, plot.z);
         let d = js_hypot(lx, lz) * 0.25 + 1.5;
         let owner = if h.is_some() { None } else { life.plot_owners.get(&plot.id).filter(|o| !o.is_empty()) };
@@ -608,7 +609,9 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 z: hz,
                 ..Default::default()
             };
-            if stage_ready(h) {
+            if h.pending {
+                pick.consider(site("info", "Claiming the Plot".into(), "Waiting for the Land Registry".into(), false), d, 9.0);
+            } else if stage_ready(h) {
                 pick.consider(site("build", format!("Build the {}", stage.name), format!("{} Labor", num(stage.labor)), true), d, 9.0);
             } else if let Some(back) = back.filter(|bk| needs.iter().any(|n| n.pack == bk.def && n.have < n.need)) {
                 pick.consider(
@@ -654,7 +657,11 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
         let (owed, due_in) = tax_due(life, h);
         if lz.abs() > 5.0 {
-            let detail = if due_in > 0.0 { format!("Paid for {}", short_time(due_in)) } else { "Overdue".into() };
+            let detail = if due_in > 0.0 {
+                format!("Paid for {}", short_time(due_in))
+            } else {
+                format!("Overdue · Taken Down in {}", short_time(demolished_at(h) - super::land::now(life)))
+            };
             let f = Focus {
                 action: "tax".into(),
                 key: format!("tax:{}", h.id),
@@ -751,7 +758,7 @@ fn near_npc(sim: &Sim, npc: &str, range: f64) -> bool {
 }
 
 fn house_index(life: &Life, id: i64) -> Option<usize> {
-    life.state.houses.iter().position(|x| x.id == id)
+    life.land.houses.iter().position(|x| x.id == id)
 }
 
 pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
@@ -861,24 +868,28 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
         }
         Command::Rest => life.resting = true,
         Command::Grant { item, n, coins, seals, labor } => {
+            let mut items = Vec::new();
             if let Some(item) = item.as_deref().filter(|i| !i.is_empty()) {
-                life.give(item, n.unwrap_or(1), false);
+                let n = n.unwrap_or(1);
+                let left = life.give(item, n, false);
+                items.push(Stack { item: item.to_string(), n: n - left });
             }
-            if let Some(coins) = coins.filter(|&c| truthy(c)) {
-                life.state.coins += coins;
-            }
-            if let Some(seals) = seals.filter(|&s| truthy(s)) {
-                life.state.seals += seals;
+            let coins = coins.filter(|&c| truthy(c)).unwrap_or(0.0);
+            let seals = seals.filter(|&s| truthy(s)).unwrap_or(0.0);
+            life.state.coins += coins;
+            life.state.seals += seals;
+            if coins != 0.0 || seals != 0.0 || !items.is_empty() {
+                life.record("grant", "world".into(), coins, seals, items, None);
             }
             if let Some(labor) = labor.filter(|&l| truthy(l)) {
                 life.state.labor = js_min(labor_settings().max, life.state.labor + labor);
             }
         }
         Command::Warp { seconds } => {
+            // (The trading posts' demand recovers by the clock it runs on: offline the life's.)
             let seconds = *seconds;
             life.state.clock += seconds;
             grow_for(life, seconds);
-            recover_demand(life, seconds);
             life.regen_labor(seconds, false, false);
         }
         // The channel moves you itself (crates/server/src/sim/mod.rs); it never reaches an island.
@@ -893,31 +904,31 @@ fn store_or_take(life: &mut Life, store: bool, house: i64, item: &str, n: i64) {
         return;
     }
     let Some(hi) = house_index(life, house) else { return };
-    if !is_complete(&life.state.houses[hi]) {
+    if !is_complete(&life.land.houses[hi]) {
         return;
     }
-    let bp = blueprint_def(&life.state.houses[hi].blueprint);
+    let bp = blueprint_def(&life.land.houses[hi].blueprint);
     if store {
         let n = n.min(life.count(item));
-        let slots: BTreeSet<&str> = life.state.houses[hi].storage.iter().map(|s| s.item.as_str()).collect();
+        let slots: BTreeSet<&str> = life.land.houses[hi].storage.iter().map(|s| s.item.as_str()).collect();
         if n == 0 || (!slots.contains(item) && slots.len() >= bp.perks.storage_slots) {
             return;
         }
         life.take(item, n);
-        let h = &mut life.state.houses[hi];
+        let h = &mut life.land.houses[hi];
         // (Saturating: a count no browser sends must not overflow.)
         match h.storage.iter_mut().find(|x| x.item == item) {
             Some(s) => s.n = s.n.saturating_add(n),
             None => h.storage.push(Stack { item: item.to_string(), n }),
         }
     } else {
-        let Some(si) = life.state.houses[hi].storage.iter().position(|x| x.item == item) else { return };
-        let n = n.min(life.state.houses[hi].storage[si].n);
+        let Some(si) = life.land.houses[hi].storage.iter().position(|x| x.item == item) else { return };
+        let n = n.min(life.land.houses[hi].storage[si].n);
         let left = life.give(item, n, true);
-        let s = &mut life.state.houses[hi].storage[si];
+        let s = &mut life.land.houses[hi].storage[si];
         s.n = s.n.saturating_sub(n.saturating_sub(left));
         if s.n <= 0 {
-            life.state.houses[hi].storage.remove(si);
+            life.land.houses[hi].storage.remove(si);
         }
     }
     life.revision += 1;
@@ -1072,7 +1083,7 @@ fn interact(life: &mut Life, sim: &mut Sim) {
         }
         "rest" => {
             let Some(hi) = house.and_then(|h| house_index(life, h)) else { return };
-            let (bx, bz) = interior_point(&life.state.houses[hi], "bed");
+            let (bx, bz) = interior_point(&life.land.houses[hi], "bed");
             life.resting = true;
             life.state.home = Some(Home { x: bx, z: bz });
             sim.player.vel.x = 0.0;
@@ -1088,6 +1099,10 @@ fn interact(life: &mut Life, sim: &mut Sim) {
         "placeScarecrow" => {
             let Some(pl) = life.placing.clone() else { return };
             if pl.problem.as_deref().is_some_and(|p| !p.is_empty()) {
+                return;
+            }
+            if life.land.ids.left() == 0 {
+                life.toast(super::land::NO_IDS, "bad");
                 return;
             }
             if !life.take(&pl.item, 1) {
@@ -1106,19 +1121,19 @@ fn interact(life: &mut Life, sim: &mut Sim) {
         }
         "shipDeliver" => {
             if let Some(b) = ship_on(life, &slip) {
-                let id = life.state.ships[b].id;
+                let id = life.land.ships[b].id;
                 deliver_ship_material(life, sim, id);
             }
         }
         "shipBuild" => {
             if let Some(b) = ship_on(life, &slip) {
-                let id = life.state.ships[b].id;
+                let id = life.land.ships[b].id;
                 build_ship_stage(life, id);
             }
         }
         "launch" => {
             if let Some(b) = ship_on(life, &slip) {
-                let id = life.state.ships[b].id;
+                let id = life.land.ships[b].id;
                 launch(life, id);
             }
         }
@@ -1221,7 +1236,7 @@ mod tests {
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         let aim = |life: &Life, sim: &mut Sim, idx: usize| {
-            let (x, z) = cell_centre(&life.state.scarecrows[0], idx);
+            let (x, z) = cell_centre(&life.land.scarecrows[0], idx);
             stand(sim, x, z - 1.3, 0.0);
         };
         aim(&life, &mut sim, 0);
@@ -1307,7 +1322,7 @@ mod tests {
         assert!((pl.x + 207.3011660834722).abs() < 1e-9 && (pl.z + 240.03497084305383).abs() < 1e-9, "{pl:?}");
         assert_eq!((pl.rot, pl.problem), (0.0, None));
         run_command(&mut life, &mut sim, &Command::Interact);
-        let sc = &life.state.scarecrows;
+        let sc = &life.land.scarecrows;
         assert!(sc.len() == 1 && (sc[0].x, sc[0].z, sc[0].rot) == (pl.x, pl.z, 0.0));
         assert!(life.placing.is_none() && life.count("scarecrow") == 1);
         assert_eq!(
@@ -1321,7 +1336,7 @@ mod tests {
         run_command(&mut life, &mut sim, &Command::Use { item: "scarecrow".into() });
         assert_eq!(prompt(&mut life, &sim).1, "Too close to a road or building");
         run_command(&mut life, &mut sim, &Command::Interact);
-        assert_eq!((life.state.scarecrows.len(), life.count("scarecrow")), (1, 1));
+        assert_eq!((life.land.scarecrows.len(), life.count("scarecrow")), (1, 1));
         // Turning snaps the scarecrow round in 15 degree steps; Esc puts it away.
         stand(&mut sim, -150.0, -214.0, 0.5);
         find_focus(&mut life, &sim);
@@ -1376,7 +1391,7 @@ mod tests {
         let f = find_focus(&mut life, &sim).expect("the plot");
         assert_eq!((f.action.as_str(), f.label), ("claim", format!("Place {}", deed.name)));
         run_command(&mut life, &mut sim, &Command::Interact);
-        assert_eq!(life.state.houses.iter().map(|h| h.blueprint.as_str()).collect::<Vec<_>>(), [deed.places.as_deref().unwrap_or("")]);
+        assert_eq!(life.land.houses.iter().map(|h| h.blueprint.as_str()).collect::<Vec<_>>(), [deed.places.as_deref().unwrap_or("")]);
         assert_eq!(life.count(&deed.id), 0);
     }
 

@@ -5,8 +5,9 @@
 // nothing here changes the island: a command goes to whoever runs it.
 
 import type { Focus, Placement } from './life/interact';
+import { type Land, type Market, newLand } from './life/land';
 import type { Command, LifeEvent } from './life/life';
-import type { LifeState } from './life/state';
+import { initialWeather, type LifeState, type Weather } from './life/state';
 import type { ZoneData } from './world/region';
 
 /** How many things the island has said that are kept for the page to show (the oldest go first). */
@@ -15,6 +16,14 @@ const KEPT = 200;
 export class IslandView {
   /** The island's state as last read: replaced whole each time, so read it afresh rather than keep parts of it. */
   state: LifeState;
+  /** Your land as last read (houses, farms, ships, packs, vehicles): replaced whole each time too. */
+  land: Land = newLand();
+  /** The trading posts' demand, the world's, as last read. */
+  market: Market = {};
+  /** The weather where you are, as last read. */
+  weather: Weather = initialWeather();
+  /** The land's clock as last read (seconds: the world's online, the life's offline). */
+  now = 0;
   /** What F does here (the prompt on screen). */
   focus: Focus | null = null;
   /** A scarecrow being walked to its spot, if one is. */
@@ -33,6 +42,7 @@ export class IslandView {
     private readonly send: (c: Command) => void,
   ) {
     this.state = state;
+    this.now = state.clock;
   }
 
   /** How many of an item are in your bag. */

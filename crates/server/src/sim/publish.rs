@@ -13,9 +13,9 @@ use ruina_wire::pack;
 use ruina_wire::schema::Kind;
 use ruina_world_api::EntityId;
 use ruina_world_api::records::{Frame, LifeView, Private, Stats, TableRecord, TickOut, You};
-use ruina_world_api::store::Then;
+use ruina_world_api::store::{Then, ToStore};
 
-use super::{Game, LIFE_EVERY, SAVE_EVERY, STATS_EVERY, client, island_of, outside_of};
+use super::{Game, LIFE_EVERY, LOW_IDS, SAVE_AFTER, SAVE_ANYWAY, STATS_EVERY, client, island_of, marks, outside_of};
 use crate::gate::encode::wire_id;
 
 impl Game {
@@ -57,10 +57,15 @@ impl Game {
             let Some((p, ack, Some(life))) = self.players.open_view(c) else { continue };
             let you = You::of(slot, ack, p, life);
             let rev = life.revision;
+            let (marked, ids) = (marks(life), life.land.ids);
             let m = self.members.get_mut(&id).expect("a member");
             let send_life = m.life_due > 0 || rev != m.last_rev || now - m.last_life >= LIFE_EVERY;
             let life_view = send_life.then(|| LifeView::of(life));
-            let save_due = now - m.last_save >= SAVE_EVERY && !m.keep_saved;
+            // Written a moment after it changes (or now and then anyway), on its own.
+            if marked != m.saved_marks && m.changed.is_none() {
+                m.changed = Some(now);
+            }
+            let save_due = !m.keep_saved && (m.changed.is_some_and(|t| now - t >= SAVE_AFTER) || now - m.last_save >= SAVE_ANYWAY);
             m.life_due = m.life_due.saturating_sub(1);
             if send_life {
                 m.last_rev = rev;
@@ -68,6 +73,13 @@ impl Game {
             }
             if save_due {
                 m.last_save = now;
+                m.changed = None;
+                m.saved_marks = marked;
+            }
+            // A run of the world's ids running low is topped up (one of its own never runs out).
+            if ids.left() < LOW_IDS && ids.end != i64::MAX && !m.asked_ids {
+                m.asked_ids = true;
+                self.store.push(ToStore::ReserveIds { character: id, reply: self.sim });
             }
             let (epoch, home, conn) = (m.epoch, m.home.clone(), m.conn);
             let told = self.players.told(slot).iter().map(pack::effect).collect();
@@ -83,7 +95,7 @@ impl Game {
         }
         private.sort_by_key(|p| p.character);
         for s in saves {
-            self.writes.push((vec![s], Then::Nothing));
+            self.store.push(ToStore::WriteLives { writes: vec![s], then: Then::Nothing });
         }
         TickOut { sim: self.sim, lease: self.lease, space: Some(self.at.clone()), tick: self.tick, frame, tables, private, stats }
     }
@@ -108,14 +120,14 @@ impl Game {
                 by_slot.insert(slot, entity.raw());
             }
             let id = wire_id(entity);
-            let carried = (p.pack != 0).then(|| life.and_then(|l| l.state.packs.iter().find(|pk| pk.id == p.pack))).flatten().map(|pk| pk.def.as_str());
+            let carried = (p.pack != 0).then(|| life.and_then(|l| l.land.packs.iter().find(|pk| pk.id == p.pack))).flatten().map(|pk| pk.def.as_str());
             let host = if p.host != 0 { EntityId::character(p.host).raw() } else { 0 };
             frame.push(pack::player(entity.raw(), id, Arc::from(name), bot, p, carried, host));
             let Some(life) = life else { continue };
-            for v in &life.state.vehicles {
-                frame.push(pack::vehicle(pack::owned_key(Kind::Vehicle, id, v.id), entity.raw(), id, v, &life.state.packs));
+            for v in &life.land.vehicles {
+                frame.push(pack::vehicle(pack::owned_key(Kind::Vehicle, id, v.id), entity.raw(), id, v, &life.land.packs));
             }
-            for pk in life.state.packs.iter().filter(|pk| pk.at == "ground") {
+            for pk in life.land.packs.iter().filter(|pk| pk.at == "ground") {
                 frame.push(pack::item(pack::owned_key(Kind::Item, id, pk.id), entity.raw(), id, pk));
             }
         }

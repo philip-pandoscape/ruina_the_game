@@ -1,4 +1,4 @@
-import type { House } from './state';
+import type { House } from './land';
 import { blueprintDef } from '../../content/housing';
 import { toWorld } from '../world/frames';
 import type { IslandRead } from './life';

@@ -4,7 +4,8 @@ import type { Actor } from './actors/actor';
 import type { Placement } from './life/interact';
 import type { Saved } from './life/save';
 import type { Command, OtherPlayer, OthersVehicle } from './life/life';
-import type { House, LifeState, Scarecrow, Vehicle, Weather } from './life/state';
+import type { LifeState, Weather } from './life/state';
+import type { House, Land, Market, Scarecrow, Vehicle } from './life/land';
 import type { Actions, GameEvent, Mover, Obstacle, PlayerState, World } from './shapes';
 import { ColliderIndex, groundAt } from './world/colliders';
 import { arrivalOf, dungeonDef, floorAt } from './world/dungeons';
@@ -151,6 +152,10 @@ export class Engine {
     const life = this.life;
     if (v.life) {
       life.state = v.life.state;
+      life.land = v.life.land;
+      life.market = v.life.market;
+      life.weather = v.life.weather;
+      life.now = v.life.now;
       life.focus = v.life.focus;
       life.placing = v.life.placing;
       life.resting = v.life.resting;
@@ -429,9 +434,10 @@ export class Engine {
   }
 
   /**
-   * Online: your island as a tick has it: its state, and whether you're placing something or resting.
+   * Online: your life as a tick has it: its state, your land, the world's market, and whether you're
+   * placing something or resting.
    */
-  takeIsland(island: { state: LifeState; placing: Placement | null; resting: boolean }): void {
+  takeIsland(island: { state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean }): void {
     this.session.takeIsland(island);
     this.reread();
   }

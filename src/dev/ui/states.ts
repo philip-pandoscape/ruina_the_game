@@ -3,7 +3,7 @@ import { CATEGORIES, type ItemCat, ITEMS, RECIPES, VENDORS } from '../../content
 import { CHALLENGE, MINIGAMES } from '../../content/minigames';
 import { QUESTS } from '../../content/quests';
 import type { Engine } from '../../engine/engine';
-import { DAY, housePose, type IslandView, islandData, type LifeState } from '../../engine/island';
+import { DAY, housePose, type IslandView, islandData, type Land, type LifeState, newLand } from '../../engine/island';
 import { minigameDeal } from '../../engine/minigames';
 import type { LifeUI } from '../../ui/life/lifeUI';
 import type { ChannelsUI, ChannelsView } from '../../ui/channels/channelsUI';
@@ -69,11 +69,12 @@ function faceNpc(g: Gallery, id: string): void {
 }
 
 /** The island as a save would hold it, changed by `change`, loaded again where you stand. */
-function reload(g: Gallery, change: (state: LifeState) => void): void {
+function reload(g: Gallery, change: (state: LifeState, land: Land) => void): void {
   const island = islandData(g.life, g.engine.sim);
   const state = structuredClone(island.state);
-  change(state);
-  g.engine.loadIsland({ state, player: island.player, savedAt: Date.now() });
+  const land = structuredClone(island.land ?? newLand());
+  change(state, land);
+  g.engine.loadIsland({ state, land, player: island.player, savedAt: Date.now() });
   g.step();
 }
 
@@ -137,9 +138,10 @@ function finishedHouse(g: Gallery): number {
   const bp = BLUEPRINTS[0] ?? fail('house blueprint');
   const plot = g.life.zone.recipe.housePlots[0] ?? fail('house plot');
   let id = 0;
-  reload(g, (s) => {
-    id = s.nextId++;
-    s.houses.push({ id, plot: plot.id, blueprint: bp.id, stage: bp.stages.length, delivered: {}, storage: [], taxPaidUntil: s.clock + bp.graceDays * DAY });
+  reload(g, (s, land) => {
+    id =
+      Math.max(0, ...land.houses.map((h) => h.id), ...land.scarecrows.map((x) => x.id), ...land.packs.map((x) => x.id), ...land.vehicles.map((x) => x.id)) + 1;
+    land.houses.push({ id, plot: plot.id, blueprint: bp.id, stage: bp.stages.length, delivered: {}, storage: [], taxPaidUntil: s.clock + bp.graceDays * DAY });
   });
   for (const cat of ['material', 'produce'] as const) {
     const item = firstOf(cat);
@@ -281,7 +283,7 @@ export const MADE_UP: Record<string, MakeUp> = {
   'crafting/short': (g) => atBench(g),
   'storage/chest': (g) => {
     const id = finishedHouse(g);
-    const h = g.life.state.houses.find((x) => x.id === id) ?? fail('house that stays built');
+    const h = g.life.land.houses.find((x) => x.id === id) ?? fail('house that stays built');
     const at = housePose(g.life, h);
     g.engine.place(at.x, at.z, at.rot);
     g.step();

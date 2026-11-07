@@ -1,6 +1,6 @@
 //! A simulation's messages in. A simulation plays one space (a region's channel, or an instance's
 //! copy) on a thread of its own, and owns everything in it: the players there and their lives, the
-//! creatures, the bots, the mini-games' tables, the channel's residents. It takes its messages at
+//! creatures, the bots, the mini-games' tables, the region's land it shows. It takes its messages at
 //! tick boundaries, and everything it says goes out as messages too: to the gates (a tick's records,
 //! what a browser is told), the store (lives to write), the directory (where someone goes next, who
 //! is in a copy).
@@ -10,8 +10,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
+use ruina_engine::life::land::{Ids, Land};
+use ruina_engine::life::market::Market;
 use ruina_engine::life::progress::sync_levels;
-use ruina_engine::life::state::LifeState;
+use ruina_engine::life::state::{LifeState, Weather};
 use ruina_engine::life::{Command, Life, Placement};
 use ruina_engine::open::map::world_map;
 use ruina_engine::player::{Build, Player};
@@ -22,7 +24,7 @@ use ruina_engine::border::messages::{Barrier, Post};
 use crate::directory::{Destination, Grant};
 use crate::ids::{CharacterId, Conn, EntityId, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
 use crate::input::Input;
-use crate::store::Resident;
+use crate::store::{ClaimResult, RegionLand, TakeResult};
 
 /// What a simulation is sent.
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,10 +59,21 @@ pub enum ToSim {
     /// leader's copies, or broke up and left them to whoever was left). One message, so the two
     /// are never seen half done.
     Parties { changed: Vec<(CharacterId, Option<PartyId>)>, owner: Option<Owner> },
-    /// A channel's residents and what they've built, as the store read them when it started.
-    Residents(Vec<Resident>),
-    /// A resident gone for good (their character was deleted): what they built comes down.
-    ResidentGone { character: CharacterId },
+    /// The region's land, as the store read it when the simulation started: everyone's, the plots'
+    /// claims and the world's market.
+    Land(RegionLand),
+    /// A plot's claim, as the registry decided it.
+    Claim { character: CharacterId, plot: String, result: ClaimResult },
+    /// A block of ids for what a character places.
+    Ids { character: CharacterId, next: i64, end: i64 },
+    /// The world's market as it stands.
+    Market(Value),
+    /// What became of `by` taking piece `piece` of `owner`'s land, as the store decided it.
+    Taken { by: CharacterId, owner: CharacterId, piece: i64, result: TakeResult },
+    /// The ledger has a character's entries up to `upto`: their life forgets them.
+    Recorded { character: CharacterId, upto: u64 },
+    /// A character gone for good (deleted): their land comes down, their plots free.
+    CharacterGone { character: CharacterId },
     /// A connection arriving in a copy asks for its home channel's estates and plot claims.
     Estates { conn: Conn },
     /// The server is stopping: call the games off, and write everyone's life; answer `reply` once
@@ -158,8 +171,11 @@ pub struct Arrival {
     pub party: Option<PartyId>,
     /// Their home channel: where they come out of a copy.
     pub home: SpaceId,
-    /// Their life as saved (`{state, player}`), None for a newcomer.
+    /// Their life as saved, with their land beside it (`{state, land, player}`), None for a newcomer.
     pub life: Option<Value>,
+    /// The ids they give what they place, from `next` up to `end` (a block of the world's), if the
+    /// store gave them some.
+    pub ids: Option<(i64, i64)>,
     /// Their build as kept (by id), if they have one.
     pub build: Option<Value>,
     /// When it was saved, and the time now: the time they were away.
@@ -257,6 +273,17 @@ struct CarriedForm {
     player: crate::records::PlayerState,
     region: String,
     state: LifeState,
+    /// Its land, lent to it, and the run of ids it places from.
+    #[serde(default)]
+    land: Land,
+    #[serde(default)]
+    ids: Ids,
+    #[serde(default)]
+    market: Market,
+    #[serde(default = "Weather::initial")]
+    weather: Weather,
+    #[serde(default)]
+    claims_wait: bool,
     placing: Option<Placement>,
     resting: bool,
     revision: u64,
@@ -271,6 +298,11 @@ impl Serialize for Carried {
             player: crate::records::PlayerState::of(&self.player),
             region: l.zone.recipe.id.clone(),
             state: l.state.clone(),
+            land: l.land.clone(),
+            ids: l.land.ids,
+            market: l.market.clone(),
+            weather: l.weather.clone(),
+            claims_wait: l.claims_wait,
             placing: l.placing.clone(),
             resting: l.resting,
             revision: l.revision,
@@ -288,6 +320,11 @@ impl<'de> Deserialize<'de> for Carried {
         let region = map.region(&f.region).ok_or_else(|| serde::de::Error::custom(format!("no region {:?} in this world", f.region)))?;
         let mut life = Box::new(Life::new(map.zone(region), None, None));
         life.state = f.state;
+        life.land = f.land;
+        life.land.ids = f.ids;
+        life.market = f.market;
+        life.weather = f.weather;
+        life.claims_wait = f.claims_wait;
         life.placing = f.placing;
         life.resting = f.resting;
         life.revision = f.revision;

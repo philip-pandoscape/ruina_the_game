@@ -26,6 +26,9 @@ export const BLUEPRINTS = data.blueprints as unknown as BlueprintDef[];
 /** The structure an unclaimed house plot is marked out with. */
 export const PLOT_MARKER: string | undefined = (data as { plotMarker?: string }).plotMarker;
 
+/** What becomes of a house whose tax goes unpaid: it comes down this many days after what was paid runs out. */
+export const NEGLECT: { demolishAfterDays: number } = data.neglect;
+
 export function blueprintDef(id: string): BlueprintDef {
   const b = BLUEPRINTS.find((x) => x.id === id);
   if (!b) throw new Error(`unknown blueprint "${id}"`);

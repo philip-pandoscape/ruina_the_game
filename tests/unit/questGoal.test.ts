@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { type QuestMarker, QUESTS, questDef } from '../../src/content/quests';
 import { LABOR } from '../../src/content/trade';
-import { type IslandRead, type LifeState, newLifeState } from '../../src/engine/island';
+import { initialWeather, type IslandRead, type LifeState, newLand, newLifeState } from '../../src/engine/island';
 import type { SimRead } from '../../src/engine/rules';
 import { makeZoneWorld, type ZoneData } from '../../src/engine/zone';
 import { questGoal } from '../../src/ui/life/hud/goal';
@@ -23,7 +23,15 @@ function goalAt(quest: string, step: number, setup: (s: LifeState) => void = () 
   setup(state);
   const objectives = questDef(quest).steps[step]?.objectives ?? [];
   state.quests.active = [{ id: quest, step, counts: objectives.map(() => 0) }];
-  const life: IslandRead = { zone, state, count: (item) => state.bag.reduce((n, s) => (s.item === item ? n + s.n : n), 0) };
+  const life: IslandRead = {
+    zone,
+    state,
+    land: newLand(),
+    market: {},
+    weather: initialWeather(),
+    now: state.clock,
+    count: (item) => state.bag.reduce((n, s) => (s.item === item ? n + s.n : n), 0),
+  };
   // The goal reads where you stand, and nothing else of you.
   const spawn = zone.recipe.spawn;
   const sim = { player: { pos: { x: spawn.x, y: 0, z: spawn.z } } } as unknown as SimRead;

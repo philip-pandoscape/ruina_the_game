@@ -764,9 +764,18 @@ pub struct BlueprintDef {
     pub perks: Perks,
 }
 
+/// What becomes of a house whose tax goes unpaid (housing.json's `neglect`).
+#[derive(Deserialize, Clone, Debug, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Neglect {
+    /// Days after what's paid runs out that the house comes down and its plot is free.
+    pub demolish_after_days: f64,
+}
+
 #[derive(Deserialize)]
 struct HousingFile {
     blueprints: Vec<BlueprintDef>,
+    neglect: Neglect,
 }
 
 fn housing_file() -> &'static HousingFile {
@@ -776,6 +785,10 @@ fn housing_file() -> &'static HousingFile {
 
 pub fn blueprints() -> &'static [BlueprintDef] {
     &housing_file().blueprints
+}
+
+pub fn neglect() -> &'static Neglect {
+    &housing_file().neglect
 }
 
 pub fn has_blueprint(id: &str) -> bool {

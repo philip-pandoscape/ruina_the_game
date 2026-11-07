@@ -3,11 +3,17 @@
 //! A blueprint claims an empty plot; then the house goes up a stage at a time as you haul each
 //! stage's material packs to the site - on your back or by cart - and put in the labor. Finished,
 //! it is yours: a bed that restores labor faster, a chest, and a tax bill to keep paid.
+//!
+//! Plots are the world's, one claim each, first come: the region's registry (the database, online)
+//! holds who has each, so a plot is claimed once whichever channel you're in. Land is contested: a
+//! house whose tax goes unpaid too long comes down, chest and all, and its plot is free for anyone
+//! (housing.json's `neglect`). Taxes run on the land's clock (crate::life::land::now), the world's,
+//! so they fall due while you're away.
 
 use std::collections::BTreeMap;
 
-use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, item_def, pack_def, structure_def};
-use super::state::House;
+use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, item_def, items, neglect, pack_def, structure_def};
+use super::land::{self, Change, House, Land};
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::js_max;
@@ -32,14 +38,14 @@ pub fn plot_def(plot: &str) -> Option<&'static HousePlot> {
     crate::open::map::world_map().recipes().flat_map(|r| &r.house_plots).find(|p| p.id == plot)
 }
 
-/// Index of the house on this plot in life.state.houses, if any.
+/// Index of the house on this plot in life.land.houses, if any.
 pub fn house_on(life: &Life, plot: &str) -> Option<usize> {
-    life.state.houses.iter().position(|h| h.plot == plot)
+    life.land.houses.iter().position(|h| h.plot == plot)
 }
 
-/// Index of the house with this id in life.state.houses.
+/// Index of the house with this id in life.land.houses.
 fn house_index(life: &Life, id: i64) -> Option<usize> {
-    life.state.houses.iter().position(|h| h.id == id)
+    life.land.houses.iter().position(|h| h.id == id)
 }
 
 /// The stage a house is on (None once it is finished).
@@ -81,7 +87,7 @@ pub fn place_house(life: &mut Life, _sim: &mut Sim, plot: &str, item: &str) -> b
         life.toast(format!("That plot is {owner}'s"), "bad");
         return false;
     }
-    if !life.state.houses.is_empty() {
+    if !life.land.houses.is_empty() {
         life.toast("One house per settler on Emberholm (for now)", "bad");
         return false;
     }
@@ -91,12 +97,15 @@ pub fn place_house(life: &mut Life, _sim: &mut Sim, plot: &str, item: &str) -> b
         return false;
     }
     let bp = blueprint_def(bp_id);
+    let Some(id) = life.land.new_id() else {
+        life.toast("The Land Registry is busy - try again in a moment", "bad");
+        return false;
+    };
     if !life.take(item, 1) {
         return false;
     }
-    let id = life.next_id();
-    let tax_paid_until = life.state.clock + bp.grace_days * DAY;
-    life.state.houses.push(House {
+    let tax_paid_until = land::now(life) + bp.grace_days * DAY;
+    life.land.houses.push(House {
         id,
         plot: plot.to_string(),
         blueprint: bp.id.clone(),
@@ -104,27 +113,83 @@ pub fn place_house(life: &mut Life, _sim: &mut Sim, plot: &str, item: &str) -> b
         delivered: BTreeMap::new(),
         storage: Vec::new(),
         tax_paid_until,
+        pending: life.claims_wait,
     });
-    // Its ground is cleared once the step is over (Life::make_solid), as the island's shape changed.
+    // Its ground is cleared once the step is over (Life::make_solid), as the land's shape changed;
+    // the registry hears of the claim (online it may yet find the plot someone else's: lose_claim).
     life.revision += 1;
+    life.change(Change::Claimed { plot: plot.to_string(), house: id });
     let first = bp.stages.first().map(|s| s.name.to_lowercase()).unwrap_or_default();
     life.toast(format!("📜 Plot claimed! Haul the {first} materials here to begin."), "quest");
     life.notify(QuestEvent::new("placeHouse"));
     true
 }
 
+/// The registry has the claim on `plot`: the house on it is yours to build.
+pub fn confirm_claim(life: &mut Life, plot: &str) {
+    if let Some(i) = house_on(life, plot)
+        && life.land.houses[i].pending
+    {
+        life.land.houses[i].pending = false;
+        life.revision += 1;
+    }
+}
+
+/// Someone else's claim on `plot` reached the registry first (`holder`): the house just put on it
+/// comes down again (nothing was built on it while it waited), and the item that claimed it is back
+/// in the bag. True if there was one to take down.
+pub fn lose_claim(life: &mut Life, plot: &str, holder: &str) -> bool {
+    let Some(i) = house_on(life, plot) else { return false };
+    take_back(life, i);
+    life.plot_owners.insert(plot.to_string(), holder.to_string());
+    life.toast(format!("That plot is {holder}'s: they claimed it first. Your blueprint is back in your bag."), "bad");
+    true
+}
+
+/// The registry couldn't take the claim on `plot` just now (nothing was written): the house waiting
+/// on it comes down again, and the item that claimed it is back in the bag, to try again. True if
+/// there was one waiting.
+pub fn claim_failed(life: &mut Life, plot: &str) -> bool {
+    let Some(i) = house_on(life, plot).filter(|i| life.land.houses[*i].pending) else { return false };
+    take_back(life, i);
+    life.toast("The Land Registry couldn't take your claim just now. Your blueprint is back in your bag - try again in a moment.", "bad");
+    true
+}
+
+/// House `i` taken down, and the item that claimed its plot back in the bag.
+fn take_back(life: &mut Life, i: usize) {
+    let h = life.land.houses.remove(i);
+    let deed = items().iter().find(|it| it.places.as_deref() == Some(h.blueprint.as_str()) && it.place_on.as_deref() == Some("plot"));
+    if let Some(deed) = deed {
+        life.give(&deed.id, 1, true);
+    }
+    life.revision += 1;
+}
+
+/// Waiting for the registry to confirm the plot's claim: nothing is built until it has.
+fn waiting(life: &mut Life, hi: usize) -> bool {
+    if !life.land.houses[hi].pending {
+        return false;
+    }
+    life.toast("The Land Registry hasn't confirmed your claim yet - a moment", "info");
+    true
+}
+
 /// Hands the pack on your back to the house with this id, if its stage wants it.
 pub fn deliver_material(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
     let Some(hi) = house_index(life, house) else { return false };
+    if waiting(life, hi) {
+        return false;
+    }
     let Some(pi) = carried(life, sim) else { return false };
-    let pack = life.state.packs[pi].def.clone();
-    let h = &life.state.houses[hi];
+    let pack = life.land.packs[pi].def.clone();
+    let h = &life.land.houses[hi];
     let Some(want) = still_needs(h).into_iter().find(|n| n.pack == pack && n.have < n.need) else {
         let what = stage_of(&blueprint_def(&h.blueprint).stages, h.stage).map_or_else(|| "house".to_string(), |s| s.name.to_lowercase());
         life.toast(format!("The {what} does not need a {}", pack_def(&pack).name), "bad");
         return false;
     };
-    life.state.houses[hi].delivered.insert(pack.clone(), want.have + 1);
+    life.land.houses[hi].delivered.insert(pack.clone(), want.have + 1);
     consume_carried(life, sim);
     life.revision += 1;
     let def = pack_def(&pack);
@@ -134,7 +199,10 @@ pub fn deliver_material(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
 
 pub fn build_stage(life: &mut Life, _sim: &mut Sim, house: i64) -> bool {
     let Some(hi) = house_index(life, house) else { return false };
-    let h = &life.state.houses[hi];
+    if waiting(life, hi) {
+        return false;
+    }
+    let h = &life.land.houses[hi];
     let bp = blueprint_def(&h.blueprint);
     let Some(stage) = stage_of(&bp.stages, h.stage) else { return false };
     if !stage_ready(h) {
@@ -143,13 +211,13 @@ pub fn build_stage(life: &mut Life, _sim: &mut Sim, house: i64) -> bool {
     if !life.afford(0.0, 0.0, stage.labor, &format!("build the {}", stage.name.to_lowercase())) {
         return false;
     }
-    let h = &mut life.state.houses[hi];
+    let h = &mut life.land.houses[hi];
     h.stage += 1;
     h.delivered = BTreeMap::new();
     life.state.stats.built += 1.0;
     // What the stage made solid is, once the step is over (Life::make_solid).
     life.revision += 1;
-    let h = &life.state.houses[hi];
+    let h = &life.land.houses[hi];
     let (x, z, _) = house_pose(h);
     let (id, now, complete) = (h.id, h.stage, is_complete(h));
     life.emit(LifeEvent::Build { house: id, stage: now, x, z });
@@ -229,30 +297,64 @@ pub fn interior_point(h: &House, what: &str) -> (f64, f64) {
     (x + ox, z + oz)
 }
 
-/// (owed, due_in).
+/// (owed, due_in): a week's tax, and how long until what's paid runs out (negative once it has).
 pub fn tax_due(life: &Life, h: &House) -> (f64, f64) {
     let bp = blueprint_def(&h.blueprint);
-    let due_in = h.tax_paid_until - life.state.clock;
+    let due_in = h.tax_paid_until - land::now(life);
     (bp.tax_per_day * 7.0, due_in)
+}
+
+/// When a house's tax has gone unpaid so long that it comes down (housing.json's `neglect`), on the
+/// land's clock.
+pub fn demolished_at(h: &House) -> f64 {
+    h.tax_paid_until + neglect().demolish_after_days * DAY
+}
+
+/// Whether a house's tax has gone unpaid too long, at `now` on the land's clock. A house whose claim
+/// the registry hasn't confirmed yet is never neglected.
+pub fn neglected(h: &House, now: f64) -> bool {
+    !h.pending && now >= demolished_at(h)
+}
+
+/// Takes down every house of `land` whose tax has gone unpaid too long, at `now` on the land's
+/// clock: the house, its chest and what's in it. Its plot is free for anyone. Returns the houses
+/// taken down. Whoever keeps the land does it: the owner's own life while they play
+/// (`step_housing`), the region's keeper of land while they're away.
+pub fn demolish_neglected(land: &mut Land, now: f64) -> Vec<House> {
+    let (gone, kept): (Vec<House>, Vec<House>) = std::mem::take(&mut land.houses).into_iter().partition(|h| neglected(h, now));
+    land.houses = kept;
+    gone
 }
 
 pub fn pay_tax(life: &mut Life, house: i64) -> bool {
     let Some(hi) = house_index(life, house) else { return false };
-    let bp = blueprint_def(&life.state.houses[hi].blueprint);
+    let bp = blueprint_def(&life.land.houses[hi].blueprint);
     let week = bp.tax_per_day * 7.0;
     if !life.afford(week, 0.0, 0.0, "pay the property tax") {
         return false;
     }
-    let clock = life.state.clock;
-    let h = &mut life.state.houses[hi];
+    let clock = land::now(life);
+    let h = &mut life.land.houses[hi];
     h.tax_paid_until = js_max(h.tax_paid_until, clock) + 7.0 * DAY;
+    let id = h.id;
+    life.record("tax", "registry".into(), -week, 0.0, Vec::new(), Some(format!("house:{id}")));
     life.toast(format!("Paid a week's property tax: {}", format_coins(week)), "coin");
     true
 }
 
-pub fn step_housing(_life: &mut Life) {
-    // Taxes accrue by the clock; nothing needs doing per frame yet. Demolition of neglected houses
-    // is designed (see the design doc) but deliberately not switched on yet.
+/// Once a step: a house of yours whose tax went unpaid too long comes down (while you're away, the
+/// region's keeper of land does the same: `demolish_neglected`).
+pub fn step_housing(life: &mut Life) {
+    let now = land::now(life);
+    if !life.land.houses.iter().any(|h| neglected(h, now)) {
+        return;
+    }
+    for h in demolish_neglected(&mut life.land, now) {
+        life.revision += 1;
+        life.change(Change::Freed { plot: h.plot.clone() });
+        let name = blueprint_def(&h.blueprint).name.to_lowercase();
+        life.toast(format!("Your {name} was taken down: its tax went unpaid too long, and the plot is free for anyone"), "bad");
+    }
 }
 
 #[cfg(test)]
@@ -286,7 +388,7 @@ mod tests {
         assert!(!place_house(&mut life, sim!(p, world, 7), "nowhere", "blueprint.cottage"));
         assert!(!place_house(&mut life, sim!(p, world, 7), "rise-1", "blueprint.villa"));
         assert!(place_house(&mut life, sim!(p, world, 7), "rise-1", "blueprint.cottage"));
-        let h = life.state.houses[0].clone();
+        let h = life.land.houses[0].clone();
         assert_eq!((h.plot.as_str(), h.blueprint.as_str(), h.stage, h.tax_paid_until), ("rise-1", "cottage", 0, 7.0 * DAY));
         assert_eq!(life.count("blueprint.cottage"), 0);
         assert_eq!(toasts(&mut life), ["📜 Plot claimed! Haul the foundation materials here to begin."]);
@@ -316,15 +418,15 @@ mod tests {
         assert!(!build_stage(&mut life, sim!(p, world, 7), h.id), "nothing delivered yet");
         assert!(haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"));
         assert_eq!(toasts(&mut life), ["Delivered 🧱 Stone Block (1/2)"]);
-        assert_eq!(still_needs(&life.state.houses[0]), [Need { pack: "stoneBlock".into(), need: 2, have: 1 }]);
+        assert_eq!(still_needs(&life.land.houses[0]), [Need { pack: "stoneBlock".into(), need: 2, have: 1 }]);
         assert!(haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"));
-        assert!(stage_ready(&life.state.houses[0]));
+        assert!(stage_ready(&life.land.houses[0]));
         assert!(!haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"), "it has all it needs");
         consume_carried(&mut life, sim!(p, world, 7));
         toasts(&mut life);
         // The foundation: labor spent, and once the step is over a floor to stand on.
         assert!(build_stage(&mut life, sim!(p, world, 7), h.id));
-        let built = &life.state.houses[0];
+        let built = &life.land.houses[0];
         assert_eq!((built.stage, built.delivered.len(), life.state.labor, life.state.stats.built), (1, 0, 780.0, 1.0));
         assert_eq!(world.index.decks.len(), decks);
         life.make_solid(&mut world, 7);
@@ -337,7 +439,7 @@ mod tests {
         assert!(events.contains(&LifeEvent::Build { house: h.id, stage: 1, x, z }));
         assert!(events.contains(&LifeEvent::Toast { text: "🔨 Foundation done. Next: Frame.".into(), kind: "good".into() }));
         // Asking again adds nothing.
-        add_house_colliders(&mut world, 7, &life.state.houses[0].clone());
+        add_house_colliders(&mut world, 7, &life.land.houses[0].clone());
         life.make_solid(&mut world, 7);
         assert_eq!(world.index.decks.len(), decks + 1);
         // Frame, walls (and their five pieces), roof.
@@ -361,12 +463,12 @@ mod tests {
         toasts(&mut life);
         assert!(build_stage(&mut life, sim!(p, world, 7), h.id));
         life.make_solid(&mut world, 7);
-        assert!(is_complete(&life.state.houses[0]));
+        assert!(is_complete(&life.land.houses[0]));
         assert_eq!(toasts(&mut life), ["🏡 Your cottage is finished. Welcome home."]);
         assert_eq!((life.state.labor, life.state.stats.built), (700.0, 4.0));
         assert_eq!((world.index.decks.len(), world.index.boxes.len()), (decks + 1, boxes + 5));
         assert!(!build_stage(&mut life, sim!(p, world, 7), h.id), "nothing left to build");
-        assert!(still_needs(&life.state.houses[0]).is_empty());
+        assert!(still_needs(&life.land.houses[0]).is_empty());
         assert!(!haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"));
         assert_eq!(toasts(&mut life), ["The house does not need a Stone Block"]);
         assert!(!build_stage(&mut life, sim!(p, world, 7), 999));
@@ -381,9 +483,9 @@ mod tests {
         theirs.give("blueprint.cottage", 1, true);
         assert!(place_house(&mut mine, sim!(p, world, 1), "rise-1", "blueprint.cottage"));
         assert!(place_house(&mut theirs, sim!(q, world, 2), "rise-5", "blueprint.cottage"));
-        assert_eq!(mine.state.houses[0].id, theirs.state.houses[0].id);
-        mine.state.houses[0].stage = 3;
-        theirs.state.houses[0].stage = 3;
+        assert_eq!(mine.land.houses[0].id, theirs.land.houses[0].id);
+        mine.land.houses[0].stage = 3;
+        theirs.land.houses[0].stage = 3;
         mine.make_solid(&mut world, 1);
         theirs.make_solid(&mut world, 2);
         theirs.make_solid(&mut world, 2);
@@ -396,7 +498,7 @@ mod tests {
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.give("blueprint.cottage", 1, true);
         assert!(place_house(&mut life, &mut sim, "rise-5", "blueprint.cottage"));
-        let h = life.state.houses[0].clone();
+        let h = life.land.houses[0].clone();
         // rise-5 faces +Z (rot 0): local points are world offsets from the house.
         let plot = plot_def("rise-5").unwrap();
         assert_eq!(house_pose(&h), (plot.x, plot.z - 2.5, 0.0));
@@ -407,7 +509,7 @@ mod tests {
         assert_eq!(tax_due(&life, &h), (350.0, 4.0 * DAY));
         toasts(&mut life);
         assert!(pay_tax(&mut life, h.id));
-        assert_eq!((life.state.coins, life.state.houses[0].tax_paid_until), (50.0, 14.0 * DAY));
+        assert_eq!((life.state.coins, life.land.houses[0].tax_paid_until), (50.0, 14.0 * DAY));
         assert_eq!(toasts(&mut life), ["Paid a week's property tax: 3s 50c"]);
         assert!(!pay_tax(&mut life, h.id));
         assert_eq!(toasts(&mut life), ["Not enough coin to pay the property tax"]);
@@ -415,7 +517,98 @@ mod tests {
         life.state.coins = 350.0;
         life.state.clock = 20.0 * DAY;
         assert!(pay_tax(&mut life, h.id));
-        assert_eq!(life.state.houses[0].tax_paid_until, 27.0 * DAY);
+        assert_eq!(life.land.houses[0].tax_paid_until, 27.0 * DAY);
         assert!(!pay_tax(&mut life, 999));
+    }
+
+    #[test]
+    fn online_a_claim_waits_for_the_registry_and_one_that_lost_the_race_comes_down_again() {
+        let (mut life, world, mut p) = island(0.0);
+        life.claims_wait = true;
+        life.give("blueprint.cottage", 1, true);
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
+        let id = life.land.houses[0].id;
+        assert!(life.land.houses[0].pending);
+        assert_eq!(life.take_changes(), [Change::Claimed { plot: "rise-2".into(), house: id }]);
+        // Nothing is built on it until the registry has the claim.
+        toasts(&mut life);
+        assert!(!haul(&mut life, sim!(p, world, 7), id, "stoneBlock"));
+        assert!(!build_stage(&mut life, sim!(p, world, 7), id));
+        assert_eq!(toasts(&mut life).last().map(String::as_str), Some("The Land Registry hasn't confirmed your claim yet - a moment"));
+        consume_carried(&mut life, sim!(p, world, 7));
+        // Someone in another channel claimed it first: the house goes, the blueprint comes back.
+        assert!(lose_claim(&mut life, "rise-2", "Brann"));
+        assert!(life.land.houses.is_empty());
+        assert_eq!(life.count("blueprint.cottage"), 1);
+        assert_eq!(life.plot_owners.get("rise-2").map(String::as_str), Some("Brann"));
+        assert_eq!(toasts(&mut life), ["That plot is Brann's: they claimed it first. Your blueprint is back in your bag."]);
+        // Another plot, and this time the registry has it.
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-3", "blueprint.cottage"));
+        confirm_claim(&mut life, "rise-3");
+        assert!(!life.land.houses[0].pending);
+        let id = life.land.houses[0].id;
+        assert!(haul(&mut life, sim!(p, world, 7), id, "stoneBlock"));
+        assert!(!lose_claim(&mut life, "rise-9", "Nobody"), "nothing on that plot");
+    }
+
+    #[test]
+    fn a_claim_the_registry_couldnt_take_gives_the_blueprint_back_to_try_again() {
+        let (mut life, world, mut p) = island(0.0);
+        life.claims_wait = true;
+        life.give("blueprint.cottage", 1, true);
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
+        toasts(&mut life);
+        assert!(claim_failed(&mut life, "rise-2"));
+        assert!(life.land.houses.is_empty());
+        assert_eq!(life.count("blueprint.cottage"), 1);
+        // Nobody holds it: it's free to try again.
+        assert!(!life.plot_owners.contains_key("rise-2"));
+        assert_eq!(toasts(&mut life), ["The Land Registry couldn't take your claim just now. Your blueprint is back in your bag - try again in a moment."]);
+        // A house the registry has confirmed never comes down this way.
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
+        confirm_claim(&mut life, "rise-2");
+        assert!(!claim_failed(&mut life, "rise-2"));
+        assert_eq!(life.land.houses.len(), 1);
+    }
+
+    #[test]
+    fn tax_runs_on_the_worlds_clock_and_a_neglected_house_comes_down() {
+        let (mut life, world, mut p) = island(1000.0);
+        // Online the land's clock is the world's: a long way from the life's own.
+        let t0 = 1.76e9;
+        life.world_clock = Some(t0);
+        life.give("blueprint.cottage", 1, true);
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-4", "blueprint.cottage"));
+        let grace = blueprint_def("cottage").grace_days * DAY;
+        assert_eq!(life.land.houses[0].tax_paid_until, t0 + grace);
+        let h = life.land.houses[0].clone();
+        assert_eq!(tax_due(&life, &h).1, grace);
+        let gone_at = demolished_at(&h);
+        assert_eq!(gone_at, t0 + grace + neglect().demolish_after_days * DAY);
+        life.take_changes();
+        toasts(&mut life);
+        // Overdue, but not yet long enough: it stands.
+        life.world_clock = Some(gone_at - 1.0);
+        assert!(!neglected(&h, gone_at - 1.0));
+        step_housing(&mut life);
+        assert_eq!(life.land.houses.len(), 1);
+        assert!(tax_due(&life, &life.land.houses[0].clone()).1 < 0.0);
+        // Paying then counts from now: the week starts today.
+        let mut paid = life.land.houses[0].clone();
+        paid.tax_paid_until = gone_at - 1.0 + 7.0 * DAY;
+        assert!(!neglected(&paid, gone_at));
+        // Left that long, it comes down, chest and all, and its plot is free for anyone.
+        life.land.houses[0].storage.push(crate::life::state::Stack { item: "stone".into(), n: 5 });
+        life.world_clock = Some(gone_at);
+        let rev = life.revision;
+        step_housing(&mut life);
+        assert!(life.land.houses.is_empty() && life.revision > rev);
+        assert_eq!(life.take_changes(), [Change::Freed { plot: "rise-4".into() }]);
+        assert_eq!(toasts(&mut life), ["Your cottage was taken down: its tax went unpaid too long, and the plot is free for anyone"]);
+        assert_eq!(life.count("stone"), 0, "what was in its chest went with it");
+        // The keeper of land does the same to an owner who is away; a claim still waiting never is.
+        let mut away = Land { houses: vec![h.clone(), House { id: 9, pending: true, ..h.clone() }], ..Land::default() };
+        assert_eq!(demolish_neglected(&mut away, gone_at).iter().map(|x| x.id).collect::<Vec<_>>(), [h.id]);
+        assert_eq!(away.houses.iter().map(|x| x.id).collect::<Vec<_>>(), [9]);
     }
 }

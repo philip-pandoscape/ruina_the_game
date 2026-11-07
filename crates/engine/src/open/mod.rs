@@ -28,8 +28,8 @@ use zone::{Heightfield, Zone};
 
 /// The world as a channel plays it: its view of the map of regions (`map`: the regions it holds grown,
 /// and the ground they answer), the region the channel is a copy of (`zone`, whose life it plays),
-/// and everything solid: the colliders of the regions it holds, plus what residents have built since
-/// (house floors and walls, scarecrow posts), shared by everyone in it.
+/// and everything solid: the colliders of the regions it holds, plus what's been built on anyone's land
+/// since (house floors and walls, scarecrow posts), shared by everyone in it.
 pub struct OpenWorld {
     pub map: WorldMap,
     pub zone: &'static Zone,
@@ -183,6 +183,17 @@ impl OpenWorld {
     pub fn built(&self) -> (&[zone::Obstacle], &[zone::BoxCollider], &[zone::Deck]) {
         let [o, b, d] = self.solid_counts;
         (&self.index.obstacles[o..], &self.index.boxes[b..], &self.index.decks[d..])
+    }
+
+    /// Forgets everything built since its regions were made solid (house floors and walls,
+    /// scarecrow posts) and the ground cleared for it, so whoever keeps the land can make what still
+    /// stands solid again: a house taken down leaves nothing standing.
+    pub fn unbuild(&mut self) {
+        let [o, b, d] = self.solid_counts;
+        let i = &self.index;
+        self.index = ColliderIndex::new(i.obstacles[..o].to_vec(), i.boxes[..b].to_vec(), i.decks[..d].to_vec());
+        self.added.clear();
+        self.clear = self.zone.clear.clone();
     }
 
     /// The ground, across every region and the sea between them.

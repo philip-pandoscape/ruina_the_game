@@ -1,4 +1,4 @@
-import type { Plant, Scarecrow } from './state';
+import type { Plant, Scarecrow } from './land';
 import { cropDef, FARM } from '../../content/farming';
 import { toWorld } from '../world/frames';
 

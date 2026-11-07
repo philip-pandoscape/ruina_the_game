@@ -1,4 +1,4 @@
-import type { Command, LifeEvent, Placement, LifeState, Vehicle, Weather } from '../engine/island';
+import type { Command, Land, LifeEvent, LifeState, Market, Placement, Vehicle, Weather } from '../engine/island';
 import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
 import contentHash from '../../shared/hash.json' with { type: 'json' };
@@ -158,7 +158,7 @@ export interface WorldTick {
   /** Toasts, panels to open and the like, from your island since the last tick. */
   lifeEvents?: LifeEvent[];
   /** Your whole island, when it changed (and every couple of seconds anyway). */
-  life?: { rev: number; state: LifeState; placing: Placement | null; resting: boolean };
+  life?: { rev: number; state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean };
   /** Mini-game tables near you, as everyone sees them (none: no table near). */
   tables?: TableShown[];
   /** Once a second, for admins: how the game you're in is running and how its fights go. */

@@ -128,15 +128,15 @@ export function wireOnline(g: GameRefs): void {
           lastRev = t.life.rev;
           life.revision++;
           // What you've built is solid here as it is on the server.
-          for (const h of life.state.houses) g.engine.addSolidHouse(h);
-          for (const sc of life.state.scarecrows) {
+          for (const h of life.land.houses) g.engine.addSolidHouse(h);
+          for (const sc of life.land.scarecrows) {
             if (solidScarecrows.has(sc.id)) continue;
             solidScarecrows.add(sc.id);
             g.engine.addSolidScarecrow(sc);
           }
           // The grass is laid again only round something new built: a pack picked up changes the
           // island too, and laying it all again then is a stutter.
-          const ground = life.state.scarecrows.map((sc) => sc.id).join(',') + '|' + life.state.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
+          const ground = life.land.scarecrows.map((sc) => sc.id).join(',') + '|' + life.land.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
           if (ground !== groundKey) {
             groundKey = ground;
             lifeView?.onGroundChanged?.();

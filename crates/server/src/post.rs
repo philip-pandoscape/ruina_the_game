@@ -207,7 +207,7 @@ mod tests {
         assert!(matches!(sim.try_recv(), Ok(ToSim::Stop)));
         // Not held here: on to the rest of the world.
         assert!(post.sim(SimId(6), ToSim::Stop));
-        assert!(post.send(Address::Store, Message::Store(ruina_world_api::store::ToStore::LoadResidents { channel: 1, reply: SimId(5) })).is_ok());
+        assert!(post.send(Address::Store, Message::Store(ruina_world_api::store::ToStore::LoadMarket { reply: SimId(5) })).is_ok());
         assert_eq!(*elsewhere.0.lock().unwrap(), vec![Address::Sim(SimId(6)), Address::Store]);
         // What came from another process is delivered here or not at all: never sent on again.
         assert!(post.here(Address::Sim(SimId(6)), Message::Sim(ToSim::Stop)).is_err());

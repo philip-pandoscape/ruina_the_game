@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use super::content::{ShipStageDef, design_for_item, item_def, pack_def, ship_design};
 use super::housing::Need;
-use super::state::ShipBuild;
+use super::land::ShipBuild;
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
 use crate::open::Sim;
@@ -19,14 +19,14 @@ pub fn slip_def(slip: &str) -> Option<&'static Shipyard> {
     crate::open::map::world_map().recipes().flat_map(|r| &r.shipyards).find(|s| s.id == slip)
 }
 
-/// Index of the ship on this slipway in life.state.ships, if any.
+/// Index of the ship on this slipway in life.land.ships, if any.
 pub fn ship_on(life: &Life, slip: &str) -> Option<usize> {
-    life.state.ships.iter().position(|s| s.slip == slip)
+    life.land.ships.iter().position(|s| s.slip == slip)
 }
 
-/// Index of the ship with this id in life.state.ships.
+/// Index of the ship with this id in life.land.ships.
 fn ship_index(life: &Life, id: i64) -> Option<usize> {
-    life.state.ships.iter().position(|s| s.id == id)
+    life.land.ships.iter().position(|s| s.id == id)
 }
 
 /// The stage a ship is on (None once she is finished).
@@ -52,11 +52,14 @@ pub fn lay_keel(life: &mut Life, slip: &str, item: &str) -> bool {
         return false;
     }
     let Some(design) = design_for_item(item) else { return false };
+    let Some(id) = life.land.new_id() else {
+        life.toast(super::land::NO_IDS, "bad");
+        return false;
+    };
     if !life.take(item, 1) {
         return false;
     }
-    let id = life.next_id();
-    life.state.ships.push(ShipBuild { id, slip: slip.to_string(), design: design.id.clone(), stage: 0, delivered: BTreeMap::new() });
+    life.land.ships.push(ShipBuild { id, slip: slip.to_string(), design: design.id.clone(), stage: 0, delivered: BTreeMap::new() });
     life.revision += 1;
     let first = design.stages.first().map(|s| s.name.to_lowercase()).unwrap_or_default();
     life.toast(format!("📐 The {}'s keel blocks are down. Haul {first} materials to the slip.", design.name), "quest");
@@ -68,12 +71,12 @@ pub fn lay_keel(life: &mut Life, slip: &str, item: &str) -> bool {
 pub fn deliver_ship_material(life: &mut Life, sim: &mut Sim, ship: i64) -> bool {
     let Some(si) = ship_index(life, ship) else { return false };
     let Some(pi) = carried(life, sim) else { return false };
-    let pack = life.state.packs[pi].def.clone();
-    let Some(want) = ship_needs(&life.state.ships[si]).into_iter().find(|n| n.pack == pack && n.have < n.need) else {
+    let pack = life.land.packs[pi].def.clone();
+    let Some(want) = ship_needs(&life.land.ships[si]).into_iter().find(|n| n.pack == pack && n.have < n.need) else {
         life.toast(format!("This stage does not need a {}", pack_def(&pack).name), "bad");
         return false;
     };
-    life.state.ships[si].delivered.insert(pack.clone(), want.have + 1);
+    life.land.ships[si].delivered.insert(pack.clone(), want.have + 1);
     consume_carried(life, sim);
     life.revision += 1;
     let def = pack_def(&pack);
@@ -83,7 +86,7 @@ pub fn deliver_ship_material(life: &mut Life, sim: &mut Sim, ship: i64) -> bool 
 
 pub fn build_ship_stage(life: &mut Life, ship: i64) -> bool {
     let Some(si) = ship_index(life, ship) else { return false };
-    let b = &life.state.ships[si];
+    let b = &life.land.ships[si];
     let design = ship_design(&b.design);
     let Some(stage) = stage_of(&design.stages, b.stage) else { return false };
     if !ship_stage_ready(b) {
@@ -92,11 +95,11 @@ pub fn build_ship_stage(life: &mut Life, ship: i64) -> bool {
     if !life.afford(0.0, 0.0, stage.labor, &format!("build the {}", stage.name.to_lowercase())) {
         return false;
     }
-    let b = &mut life.state.ships[si];
+    let b = &mut life.land.ships[si];
     b.stage += 1;
     b.delivered = BTreeMap::new();
     life.revision += 1;
-    let b = &life.state.ships[si];
+    let b = &life.land.ships[si];
     let (id, now, finished) = (b.id, b.stage, ship_finished(b));
     if let Some(slip) = slip_def(&b.slip) {
         life.emit(LifeEvent::Build { house: id, stage: now, x: slip.x, z: slip.z });
@@ -113,15 +116,15 @@ pub fn build_ship_stage(life: &mut Life, ship: i64) -> bool {
 
 pub fn launch(life: &mut Life, ship: i64) -> bool {
     let Some(si) = ship_index(life, ship) else { return false };
-    if !ship_finished(&life.state.ships[si]) {
+    if !ship_finished(&life.land.ships[si]) {
         return false;
     }
-    let design = ship_design(&life.state.ships[si].design);
+    let design = ship_design(&life.land.ships[si].design);
     if !life.has_room(&design.deed, 1) {
         life.toast("Make room in your bag for the deed first", "bad");
         return false;
     }
-    life.state.ships.retain(|s| s.id != ship);
+    life.land.ships.retain(|s| s.id != ship);
     life.give(&design.deed, 1, true);
     life.revision += 1;
     life.toast(format!("🚢 The {} is launched! Her deed is in your bag - summon her at deep water.", design.name), "quest");
@@ -157,7 +160,7 @@ mod tests {
         assert!(lay_keel(&mut life, SLIP, "design.cog"));
         assert_eq!(toasts(&mut life), ["📐 The Merchant Cog's keel blocks are down. Haul keel materials to the slip."]);
         assert_eq!(life.count("design.cog"), 0);
-        let ship = life.state.ships[ship_on(&life, SLIP).unwrap()].id;
+        let ship = life.land.ships[ship_on(&life, SLIP).unwrap()].id;
         life.give("design.cog", 1, true);
         assert!(!lay_keel(&mut life, SLIP, "design.cog"), "the slip is taken");
         // Something the keel doesn't want stays on your back.
@@ -178,10 +181,10 @@ mod tests {
                     assert_eq!(toasts(&mut life), [format!("Delivered {} {} ({got}/{n})", def.icon, def.name)]);
                 }
             }
-            assert!(ship_stage_ready(&life.state.ships[0]));
+            assert!(ship_stage_ready(&life.land.ships[0]));
             assert!(build_ship_stage(&mut life, ship));
-            assert_eq!(life.state.ships[0].stage, k as i64 + 1);
-            assert!(life.state.ships[0].delivered.is_empty());
+            assert_eq!(life.land.ships[0].stage, k as i64 + 1);
+            assert!(life.land.ships[0].delivered.is_empty());
             let events = life.drain_events();
             assert!(events.contains(&LifeEvent::Build { house: ship, stage: k as i64 + 1, x: 48.0, z: -341.0 }));
             let said: Vec<&LifeEvent> = events.iter().filter(|e| matches!(e, LifeEvent::Toast { .. })).collect();
@@ -191,13 +194,13 @@ mod tests {
             };
             assert_eq!(said, [&LifeEvent::Toast { text: want, kind: if k + 1 < design.stages.len() { "good" } else { "quest" }.into() }]);
         }
-        assert!(ship_finished(&life.state.ships[0]));
-        assert!(ship_needs(&life.state.ships[0]).is_empty());
+        assert!(ship_finished(&life.land.ships[0]));
+        assert!(ship_needs(&life.land.ships[0]).is_empty());
         assert!(!build_ship_stage(&mut life, ship), "nothing left to build");
         assert_eq!(life.state.labor, 800.0 - 40.0 - 50.0 - 40.0 - 50.0);
         // Launched: the slip is clear and the deed is yours.
         assert!(launch(&mut life, ship));
-        assert!(life.state.ships.is_empty() && ship_on(&life, SLIP).is_none());
+        assert!(life.land.ships.is_empty() && ship_on(&life, SLIP).is_none());
         assert_eq!(life.count("deed.cog"), 1);
         assert_eq!(toasts(&mut life), ["🚢 The Merchant Cog is launched! Her deed is in your bag - summon her at deep water."]);
         assert!(!launch(&mut life, ship));
@@ -206,7 +209,7 @@ mod tests {
     #[test]
     fn the_labor_and_the_room_for_the_deed_come_first() {
         let (mut life, _, _) = island(0.0);
-        life.state.ships.push(ShipBuild {
+        life.land.ships.push(ShipBuild {
             id: 40,
             slip: SLIP.into(),
             design: "cog".into(),
@@ -217,14 +220,14 @@ mod tests {
         toasts(&mut life);
         assert!(!build_ship_stage(&mut life, 40));
         assert_eq!(toasts(&mut life), ["Too tired - not enough labor to build the keel"]);
-        assert_eq!(life.state.ships[0].stage, 0);
-        life.state.ships[0].stage = ship_designs()[0].stages.len() as i64;
+        assert_eq!(life.land.ships[0].stage, 0);
+        life.land.ships[0].stage = ship_designs()[0].stages.len() as i64;
         for i in 0..crate::life::content::bag_slots() {
             life.state.bag.push(crate::life::state::Stack { item: format!("filler{i}"), n: 1 });
         }
         assert!(!launch(&mut life, 40));
         assert_eq!(toasts(&mut life), ["Make room in your bag for the deed first"]);
-        assert_eq!(life.state.ships.len(), 1);
+        assert_eq!(life.land.ships.len(), 1);
         life.state.bag.pop();
         assert!(launch(&mut life, 40));
         assert_eq!(life.count("deed.cog"), 1);

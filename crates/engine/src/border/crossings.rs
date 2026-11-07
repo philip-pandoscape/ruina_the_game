@@ -69,7 +69,7 @@ fn drive_off(s: &mut Split, slot: usize, deed: &str) -> i64 {
     life.give(deed, 1, true);
     let world = &sim.world;
     let id = vehicles::summon(life, &mut Stepping { player: p, world, owner: slot as i64 + 1 }, deed).expect("summoned");
-    let v = life.state.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
+    let v = life.land.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
     let (x, _, z) = vehicles::anchor_world(&v, &rideable(&v.def).seats[0]);
     p.pos.x = x + v.heading.js_cos();
     p.pos.z = z - v.heading.js_sin();
@@ -151,7 +151,7 @@ fn cross_with(
         let mut out: Vec<(i64, i64)> = Vec::new();
         for m in &s.sims {
             for (_, owner, _, life) in m.players.each_open() {
-                out.extend(life.into_iter().flat_map(|l| l.state.vehicles.iter().map(move |v| (owner, v.id))));
+                out.extend(life.into_iter().flat_map(|l| l.land.vehicles.iter().map(move |v| (owner, v.id))));
             }
         }
         let n = out.len();
@@ -291,7 +291,7 @@ fn by_cart_with_a_passenger_across_a_land_border() {
     assert!((LAND_BORDER + 28.0..LAND_BORDER + 31.0).contains(&x), "handed over at x = {x}");
     let east = split.split.sim(EAST);
     let (driver, _, life) = east.players.open_view(client(0)).expect("the driver");
-    let v = life.expect("a life").state.vehicles.iter().find(|v| v.id == id).expect("the cart, with its driver's life");
+    let v = life.expect("a life").land.vehicles.iter().find(|v| v.id == id).expect("the cart, with its driver's life");
     assert!(v.x > LAND_BORDER + 28.0 && driver.vehicle == id, "the cart at {}", v.x);
     let p = east.players.open_view(client(1)).expect("the passenger").0;
     assert_eq!((p.mode, p.host, p.vehicle), (Mode::Ride, 1, id));
@@ -358,7 +358,7 @@ fn by_boat_across_the_sea() {
     assert!((SEA_BORDER - 31.0..=SEA_BORDER - 28.0).contains(&x), "handed over at x = {x}");
     let west = split.split.sim(WEST);
     let (rower, _, life) = west.players.open_view(client(0)).expect("the rower");
-    let v = life.expect("a life").state.vehicles.iter().find(|v| v.id == id).expect("the boat, with its owner's life");
+    let v = life.expect("a life").land.vehicles.iter().find(|v| v.id == id).expect("the boat, with its owner's life");
     assert!(v.x < SEA_BORDER - 28.0 && rower.vehicle == id, "the boat at {}", v.x);
     let p = west.players.open_view(client(1)).expect("the passenger").0;
     assert_eq!((p.mode, p.host, p.vehicle), (Mode::Ride, 1, id));

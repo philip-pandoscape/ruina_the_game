@@ -8,7 +8,7 @@ use std::sync::Arc;
 use ruina_engine::actor::Actor;
 use ruina_engine::combat::{Arrow, Effect, Meteor};
 use ruina_engine::life::content::{glider_index, packs, rideable_index};
-use ruina_engine::life::state::{Pack, Vehicle};
+use ruina_engine::life::land::{Pack, Vehicle};
 use ruina_engine::player::{Mode, Player};
 
 use crate::record::{Event, Intro, Record};

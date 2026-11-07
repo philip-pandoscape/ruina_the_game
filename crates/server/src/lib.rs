@@ -5,7 +5,8 @@
 //! - `gate`: players' connections: sign-in, the welcome, inputs and commands in, updates out.
 //! - `sim`: the simulations, one for each region's channel and each instance's copy, each on a
 //!   thread of its own: the rules stepped, mini-games, bots, players handed between them.
-//! - `store`: what lasts, in Postgres (lives, builds, residents), every write fenced by its epoch.
+//! - `store`: what lasts, in Postgres (lives, builds, land, the plots, the ledger, the market), every
+//!   write fenced by its epoch.
 //! - `social`: parties.
 //! - `directory`: who plays where, which simulation plays which space, leases and epochs.
 //! - `post`: how their messages reach each other in one process; `start`: starting them all.

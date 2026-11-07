@@ -342,7 +342,7 @@ export function makeDrawing(g: GameRefs) {
       party?.update();
       channels?.update();
       // Wakes behind boats, dust behind fast wheels.
-      for (const v of life.state.vehicles) {
+      for (const v of life.land.vehicles) {
         const speed = Math.abs(v.speed);
         if (speed < 3 || Math.random() > speed / 25) continue;
         const def = rideable(v.def);

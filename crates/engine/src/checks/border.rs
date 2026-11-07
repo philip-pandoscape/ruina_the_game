@@ -74,7 +74,7 @@ struct Case {
     splits: Vec<Rule>,
 }
 
-/// Runs a case as one simulation and gives back a hash of each tick, and the islands at the end.
+/// Runs a case as one simulation and gives back a hash of each tick, and each life and its land at the end.
 pub fn run(input: &str) -> serde_json::Result<String> {
     let case: Case = serde_json::from_str(input)?;
     Ok(answer(&case.crowd, None, Posts::Passed))
@@ -160,7 +160,7 @@ pub(crate) fn play_keeping(s: &Scenario, rule: Option<Rule>, posts: Posts, crowd
         life.give(&drive.deed, 1, true);
         let world = &sim.world;
         let id = vehicles::summon(life, &mut Stepping { player: p, world, owner: character(k) }, &drive.deed).expect("a vehicle on the road");
-        let v = life.state.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
+        let v = life.land.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
         let (x, _, z) = vehicles::anchor_world(&v, &rideable(&v.def).seats[0]);
         p.pos.x = x + v.heading.js_cos();
         p.pos.z = z - v.heading.js_sin();
@@ -255,7 +255,7 @@ pub fn canon(split: &mut Split, done: &[(SimId, StepOut)]) -> Value {
             let Some((p, life)) = s.players.open_mut(client) else { continue };
             let state = player_state_json(p);
             let (vehicles, said) = match life {
-                Some(l) => (json!(l.state.vehicles), json!(l.drain_events())),
+                Some(l) => (json!(l.land.vehicles), json!(l.drain_events())),
                 None => (Value::Null, Value::Null),
             };
             let owner = s.players.owner_of_slot(slot).unwrap_or(0);
@@ -303,7 +303,7 @@ pub fn islands(split: &mut Split) -> Vec<Value> {
         for (slot, client) in s.own() {
             let Some((_, _, life)) = s.players.open_view(client) else { continue };
             let owner = s.players.owner_of_slot(slot).unwrap_or(0);
-            out.push((slot, json!({ "id": owner, "state": life.map(|l| &l.state) })));
+            out.push((slot, json!({ "id": owner, "state": life.map(|l| &l.state), "land": life.map(|l| &l.land) })));
         }
     }
     out.sort_by_key(|(slot, _)| *slot);
@@ -390,7 +390,7 @@ mod tests {
         assert_eq!((split.split.owner_of(driver), split.split.owner_of(passenger)), (Some(east), Some(east)));
         let sim = split.split.sim_mut(east);
         let (d, _, life) = sim.players.open_view(client(driver)).expect("the driver");
-        let v = &life.expect("an island").state.vehicles[0];
+        let v = &life.expect("an island").land.vehicles[0];
         assert!(v.x > 28.0, "the cart is {} m past the line", v.x);
         assert_eq!(d.vehicle, v.id);
         let p = sim.players.open_view(client(passenger)).expect("the passenger").0;

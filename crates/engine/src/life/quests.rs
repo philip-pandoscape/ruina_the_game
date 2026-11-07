@@ -10,7 +10,8 @@
 //! it still is when its turn comes (active_ids).
 
 use super::content::{ItemCount, Objective, QuestDef, QuestStep, format_coins, has_quest, item_def, labor, objective_target, quest_def, quests, ship_designs};
-use super::state::{Plant, QuestProgress};
+use super::land::Plant;
+use super::state::QuestProgress;
 use super::{Life, LifeEvent, QuestEvent, step_seconds};
 use crate::jsmath::{js_hypot, js_max, js_min};
 use crate::open::Sim;
@@ -90,7 +91,7 @@ fn room_for(life: &Life, items: Option<&Vec<ItemCount>>) -> bool {
 /// already raised, a ship already launched. Those count the moment the step starts, so doing
 /// things in your own order never locks a quest.
 fn already_done(life: &Life, o: &Objective) -> f64 {
-    let s = &life.state;
+    let s = &life.land;
     let launched = ship_designs().iter().any(|d| life.count(&d.deed) > 0);
     let plants = || s.scarecrows.iter().flat_map(|sc| sc.cells.iter().flatten());
     let crop = |c: &Plant| given(&o.crop).is_none_or(|crop| c.crop == crop);
@@ -188,6 +189,11 @@ pub fn complete(life: &mut Life, id: &str) -> bool {
     }
     for it in r.items.iter().flatten() {
         life.give(&it.item, it.n, false);
+    }
+    let items: Vec<super::state::Stack> = r.items.iter().flatten().map(|it| super::state::Stack { item: it.item.clone(), n: it.n }).collect();
+    let (coins, seals) = (truthy(r.coins).unwrap_or(0.0), truthy(r.seals).unwrap_or(0.0));
+    if coins != 0.0 || seals != 0.0 || !items.is_empty() {
+        life.record("reward", format!("quest:{id}"), coins, seals, items, None);
     }
     if let Some(g) = given(&r.equip_glider) {
         life.state.glider = g.to_string();
@@ -334,7 +340,7 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::life::state::{Scarecrow, ShipBuild};
+    use crate::life::land::{Scarecrow, ShipBuild};
     use crate::life::trade::testing::{island, toasts};
 
     fn talk(life: &mut Life, npc: &str) {
@@ -439,7 +445,7 @@ mod tests {
         for c in cells.iter_mut().take(8) {
             *c = Some(Plant { crop: "sunroot".into(), growth: 0.2, ..Default::default() });
         }
-        life.state.scarecrows.push(Scarecrow { id: 90, x: 0.0, z: 0.0, rot: 0.0, cells });
+        life.land.scarecrows.push(Scarecrow { id: 90, x: 0.0, z: 0.0, rot: 0.0, cells });
         toasts(&mut life);
         assert!(accept(&mut life, "patch"));
         assert!(is_ready(&life, "patch"));
@@ -458,7 +464,7 @@ mod tests {
         assert!(is_ready(&life, "shipwright"));
         // A house part built counts its stages.
         life.state.quests.done.extend(["firstFlight", "stonecutting", "woodcutting"].map(String::from));
-        life.state.houses.push(crate::life::state::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
+        life.land.houses.push(crate::life::land::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
         assert!(accept(&mut life, "home"));
         let p = &life.state.quests.active[quest_active(&life, "home").unwrap()];
         assert_eq!((p.step, p.counts.as_slice()), (1, [2.0].as_slice()));
@@ -469,7 +475,7 @@ mod tests {
         let (mut life, _, _) = island(0.0);
         life.state.quests.done.extend(["landfall".to_string(), "westward".to_string(), "saltSail".to_string()]);
         life.state.quests.active.clear();
-        life.state.ships.push(ShipBuild { id: 3, slip: "lanternwick-slip".into(), design: "cog".into(), stage: 3, ..Default::default() });
+        life.land.ships.push(ShipBuild { id: 3, slip: "lanternwick-slip".into(), design: "cog".into(), stage: 3, ..Default::default() });
         assert!(accept(&mut life, "shipwright"));
         let p = &life.state.quests.active[quest_active(&life, "shipwright").unwrap()];
         assert_eq!((p.step, p.counts.as_slice()), (1, [3.0].as_slice()));
@@ -698,8 +704,8 @@ mod tests {
         life.state.quests.active =
             vec![QuestProgress { id: "rancher".into(), step: 0, counts: vec![0.0] }, QuestProgress { id: "home".into(), step: 0, counts: vec![0.0] }];
         let chick = || Some(Plant { crop: "chick".into(), animal: Some(true), ..Default::default() });
-        life.state.scarecrows.push(Scarecrow { id: 9, x: 0.0, z: 0.0, rot: 0.0, cells: vec![chick(), chick(), chick(), None] });
-        life.state.houses.push(crate::life::state::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
+        life.land.scarecrows.push(Scarecrow { id: 9, x: 0.0, z: 0.0, rot: 0.0, cells: vec![chick(), chick(), chick(), None] });
+        life.land.houses.push(crate::life::land::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
         toasts(&mut life);
         start_quests(&mut life);
         assert!(quest_done(&life, "rancher"));

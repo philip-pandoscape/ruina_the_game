@@ -109,7 +109,7 @@ impl Border {
             let mut now = BTreeSet::new();
             for (client, owner, p, life) in players.each_open() {
                 let Some(slot) = players.slot_index(client) else { continue };
-                let vehicles = life.map(|l| l.state.vehicles.clone()).unwrap_or_default();
+                let vehicles = life.map(|l| l.land.vehicles.clone()).unwrap_or_default();
                 let near = owners.within(to, p.pos.x, p.pos.z, BAND) || vehicles.iter().any(|v| owners.within(to, v.x, v.z, BAND));
                 if !near {
                     continue;
@@ -404,7 +404,7 @@ impl Border {
                 self.epochs.insert(*slot, epoch);
                 let bot = bots.remove(slot);
                 // A ghost of them here, as they left, until their new owner says otherwise.
-                let vehicles = d.life.as_ref().map(|l| l.state.vehicles.clone()).unwrap_or_default();
+                let vehicles = d.life.as_ref().map(|l| l.land.vehicles.clone()).unwrap_or_default();
                 players.ghost(*slot, d.client, d.owner, d.player.clone(), vehicles);
                 players.set_history(*slot, &d.history);
                 self.ghost_of.insert(*slot, to);

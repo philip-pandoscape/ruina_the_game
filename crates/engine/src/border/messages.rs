@@ -13,7 +13,9 @@ use crate::actors::{FoeHit, Slam};
 use crate::bots::Bot;
 use crate::combat::{Across, Departing, History};
 use crate::ids::EntityId;
-use crate::life::state::{LifeState, Vehicle};
+use crate::life::land::{Ids, Land, Vehicle};
+use crate::life::market::Market;
+use crate::life::state::{LifeState, Weather};
 use crate::life::{Command, Life, LifeEvent, Placement};
 use crate::open::map::WorldMap;
 use crate::player::{Actions, Player};
@@ -294,6 +296,12 @@ pub struct LifeForm {
     /// The region it was made for (its zone).
     pub region: String,
     pub state: LifeState,
+    /// Its land, lent to it (crate::life::land), and the run of ids it places from.
+    pub land: Land,
+    pub ids: Ids,
+    pub market: Market,
+    pub weather: Weather,
+    pub claims_wait: bool,
     pub placing: Option<Placement>,
     pub resting: bool,
     pub revision: u64,
@@ -310,6 +318,11 @@ impl LifeForm {
         LifeForm {
             region: life.zone.recipe.id.clone(),
             state: life.state.clone(),
+            land: life.land.clone(),
+            ids: life.land.ids,
+            market: life.market.clone(),
+            weather: life.weather.clone(),
+            claims_wait: life.claims_wait,
             placing: life.placing.clone(),
             resting: life.resting,
             revision: life.revision,
@@ -327,6 +340,11 @@ impl LifeForm {
         // Made new, it greets you with its first quest: not this one, which has its own.
         life.drain_events();
         life.state = self.state;
+        life.land = self.land;
+        life.land.ids = self.ids;
+        life.market = self.market;
+        life.weather = self.weather;
+        life.claims_wait = self.claims_wait;
         life.placing = self.placing;
         life.resting = self.resting;
         life.revision = self.revision;

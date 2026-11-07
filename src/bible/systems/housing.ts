@@ -1,8 +1,8 @@
 // Housing: written from its rules (`rules` below); every number from the content and the rules.
 
-import { BLUEPRINTS, PLOT_MARKER, type BlueprintDef } from '../../content/housing';
+import { BLUEPRINTS, NEGLECT, PLOT_MARKER, type BlueprintDef } from '../../content/housing';
 import { claimsPlot, ITEMS, RECIPES, VENDORS } from '../../content/items';
-import { CLOCK, LABOR, packDef } from '../../content/trade';
+import { LABOR, packDef } from '../../content/trade';
 import { DAY, HOUSE_SETBACK } from '../../engine/island';
 import { EMBERHOLM } from '../../engine/zone';
 import { coins, count, duration, metres, speed } from '../format';
@@ -82,18 +82,18 @@ function allIn(bp: BlueprintDef): Html {
 export const housing = system({
   id: 'housing',
   title: 'Housing',
-  summary: 'Claiming a plot with a blueprint, building a house stage by stage, storage, rest and tax.',
+  summary: 'Claiming a plot with a blueprint, building a house stage by stage, storage, rest, tax, and losing a neglected house.',
   icon: '🏡',
-  keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build'],
-  rules: ['crates/engine/src/life/housing.rs'],
-  content: ['shared/housing.json#blueprints', 'shared/housing.json#plotMarker', 'shared/regions/*.json#housePlots'],
+  keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build', 'land', 'claim', 'neglect', 'demolish'],
+  rules: ['crates/engine/src/life/housing.rs', 'crates/engine/src/life/land.rs', 'crates/server/src/sim/lands.rs'],
+  content: ['shared/housing.json#blueprints', 'shared/housing.json#plotMarker', 'shared/housing.json#neglect', 'shared/regions/*.json#housePlots'],
   body: () => {
     const bp = BLUEPRINTS[0];
     const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).filter(({ s }) => claimsPlot(s.item));
     const week = RULE.week();
     return join(
       md`
-A house is earned with your hands, never bought outright. A blueprint claims an empty plot; then the house goes up a stage at a time, each stage finished by hauling its material packs to the site and putting in the labor. Finished, it is yours: a chest to keep things in, a bed that brings your labor back faster, and a tax bill to keep paid. There ${BLUEPRINTS.length === 1 ? 'is' : 'are'} ${count(
+A house is earned with your hands, never bought outright. A blueprint claims an empty plot; then the house goes up a stage at a time, each stage finished by hauling its material packs to the site and putting in the labor. Finished, it is yours: a chest to keep things in, a bed that brings your labor back faster, and a tax bill to keep paid. Plots are scarce and the world's, not yours to keep whatever happens: a house whose tax goes unpaid long enough comes down, and its plot goes to whoever claims it next. There ${BLUEPRINTS.length === 1 ? 'is' : 'are'} ${count(
         BLUEPRINTS.length,
         'blueprint',
       )} so far: ${raw(BLUEPRINTS.map((b) => link(`blueprints/${b.id}`).html).join(', '))}.
@@ -120,11 +120,13 @@ ${EMBERHOLM.name} has ${count(EMBERHOLM.housePlots.length, 'house plot')} at [[p
       )} of its middle along either side, F offers to place it. Pressing it checks, in this order:
 
 1. If a house already stands on the plot, nothing happens.
-2. Online, if someone else holds the plot, it says whose it is. Everyone in your channel shares the plots, so a plot another settler has claimed is theirs.
+2. Online, if someone else holds the plot, it says whose it is. A plot is claimed once in the whole world, by whoever claims it first, so one another settler holds is theirs whichever channel you're in.
 3. If you already have a house, you can't have another: one house per settler, for now.
 4. Otherwise the blueprint leaves your bag and the plot is yours. The house will stand ${metres(
         -HOUSE_SETBACK,
       )} back from the plot's middle, leaving a front yard, and its tax is paid for the first ${count(bp.graceDays, 'day')}.
+
+Online, the Land Registry (the server's record of who holds each plot) confirms the claim a moment later, and until it has, nothing can be delivered or built there. If someone in another channel claimed the same plot a moment before you, theirs is the claim it keeps: your house comes down again, the blueprint is back in your bag, and the plot is shown as theirs.
 
 ## Building It, Stage by Stage
 
@@ -174,11 +176,14 @@ The tax is ${coins(bp.taxPerDay)} a day, paid a week at a time: ${coins(bp.taxPe
         'day',
       )} after you claim the plot are paid for you.
 
-A day is ${duration(DAY)} on your island's clock, which runs while you play and, when you come back, catches up the time you were away, up to ${duration(
-        CLOCK.maxOfflineSeconds,
-      )} of it ([[systems/weather]]).
+A day is ${duration(DAY)} of the world's clock, the same for everyone, which runs whether or not you play: a week paid lasts a real week.
 
-> Tax that isn't paid only shows as overdue. Taking a neglected house down is designed, but the rules deliberately don't do it yet.
+## A Neglected House
+
+Land is contested. Once what you've paid runs out, the tax prompt at the plot says the tax is overdue and how long the house has left. ${count(
+        NEGLECT.demolishAfterDays,
+        'day',
+      )} after what was paid runs out, the house comes down, whether you're playing or away: its walls and floor, its chest and everything in it, and the blueprint that built it. The plot is free from that moment, for anyone to claim, first come. Paying before then saves it: the week you pay starts from today.
 `,
     );
   },

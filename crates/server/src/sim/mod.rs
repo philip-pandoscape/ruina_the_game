@@ -21,7 +21,7 @@ use serde_json::{Value, json};
 use ruina_world_api::gate::{Estates, SpaceView, ToConn};
 use ruina_world_api::input::open_actions_from;
 use ruina_world_api::sim::{Arrival, Carried, Member as MemberInfo, Spot};
-use ruina_world_api::store::{LifeWrite, Then, Writer};
+use ruina_world_api::store::{ClaimResult, LifeWrite, RegionLand, TakeResult, ToStore, Writer};
 use ruina_world_api::{CharacterId, Conn, EntityId, Epoch, Owner, PartyId, SimId, SpaceId};
 
 pub use ruina_world_api::TICK_HZ;
@@ -32,9 +32,10 @@ use crate::combat::Players;
 use crate::directory::EXPEL_AFTER;
 use crate::gate::socket::parse_build;
 use crate::life::content::clock;
+use crate::life::land::{self, Change, Ids, Kind, Land};
+use crate::life::market::Market;
 use crate::life::progress::skill_budget;
-use crate::life::state::LifeState;
-use crate::life::{Command, Life, farming, housing, trade, vehicles};
+use crate::life::{Command, Life, farming, housing, vehicles};
 use crate::minigames::Minigames;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{DungeonDef, door_into};
@@ -43,7 +44,8 @@ use crate::open::spawns::{instance_spawns, region_spawns};
 use crate::open::zone::{DungeonDoor, Zone};
 use crate::open::{OpenWorld, SIM_BAND, Sim};
 use crate::player::{Actions, Build, Mode, Player};
-use crate::sim::channels::{Channel, estate_of};
+use crate::sim::channels::estate_of;
+use crate::sim::lands::Lands;
 use crate::skills::{allowed, build_from_saved};
 use crate::world::Spawn;
 
@@ -52,12 +54,15 @@ pub mod border;
 /// Bots: players without a socket, their inputs decided by their brains.
 mod bots;
 pub use bots::set_bot_limit;
-/// The channels' residents: everyone's estates and who holds which plot.
+/// What of someone's land everyone else sees.
 pub mod channels;
 /// The world's clock: ticks numbered from the world's epoch.
 pub mod clock;
 /// The simulation's thread: its mail, its ticks, players handed between simulations.
 pub mod host;
+/// The region's land as a simulation shows it: everyone's, lent to its owner or kept for them, and
+/// who holds which plot.
+pub mod lands;
 /// Part of a region's link to the simulations playing the rest of it: a parcel each, each point of a tick.
 pub mod link;
 /// What a tick produced, as records for the gates.
@@ -70,8 +75,16 @@ pub(crate) mod tables;
 pub use bots::FIRST_BOT;
 pub use host::{Sim as SimHost, Threads};
 
-/// Lives are written this often while their owner plays (and when they leave).
-const SAVE_EVERY: Duration = Duration::from_secs(5);
+/// A life is written this soon after it changes (a command run, its land reshaped, value moved: a
+/// few changes go in one write), and when its owner leaves.
+const SAVE_AFTER: Duration = Duration::from_secs(1);
+/// And at least this often while its owner plays, changed or not (where they stand, crops growing,
+/// labor refilling).
+const SAVE_ANYWAY: Duration = Duration::from_secs(60);
+/// The world's market is read again this often: every channel's sales are in it.
+const MARKET_EVERY: Duration = Duration::from_secs(10);
+/// A run of ids with fewer than this left is topped up (a new block from the store).
+const LOW_IDS: i64 = 64;
 /// The whole life goes to its owner at least this often, even when nothing obvious changed (crops
 /// grow, labor refills, quests tick along).
 const LIFE_EVERY: Duration = Duration::from_secs(2);
@@ -97,6 +110,13 @@ pub struct Member {
     last_life: Instant,
     last_rev: u64,
     last_save: Instant,
+    /// Since when their life has changed without being written (None: it hasn't).
+    changed: Option<Instant>,
+    /// Their life's revision and ledger count when it was last written (or taken up): what changing
+    /// means.
+    saved_marks: (u64, u64),
+    /// A new block of ids is on its way.
+    asked_ids: bool,
     /// Their life's revision when their estate was last worked out.
     estate_rev: u64,
     /// Their saved life couldn't be read: it's left as it is in the database, and nothing from
@@ -118,6 +138,9 @@ impl Member {
             last_life: now - LIFE_EVERY,
             last_rev: u64::MAX,
             last_save: now,
+            changed: None,
+            saved_marks: (0, 0),
+            asked_ids: false,
             estate_rev: u64::MAX,
             keep_saved: m.keep_saved,
         }
@@ -180,8 +203,9 @@ pub struct Game {
     /// Who left in the last minute, with their life as they left it: newer than any save that
     /// might still be on its way to the database, so a quick reload picks up exactly there.
     lingering: HashMap<CharacterId, Lingering>,
-    /// Everyone's estates and who holds which plot, online or not.
-    pub estates: Channel,
+    /// The region's land: everyone's, lent to whoever plays here and kept for everyone else, and who
+    /// holds which plot (lands.rs).
+    pub lands: Lands,
     pub members: HashMap<CharacterId, Member>,
     pub open: OpenWorld,
     pub(crate) players: Players,
@@ -196,8 +220,9 @@ pub struct Game {
     pub(crate) skew: f64,
     /// What it said to browsers since the host last took it.
     pub said: Vec<(Conn, ToConn)>,
-    /// Lives to write (each list in one transaction), and what then.
-    pub writes: Vec<(Vec<LifeWrite>, Then)>,
+    /// What the store is sent (lives to write, claims, sales...), in the order it was said: one
+    /// character's writes must reach it in the order they were made.
+    pub store: Vec<ToStore>,
     /// Bots playing here (bots.rs), and how many have ever joined (their ids and names count on).
     pub(crate) bots: Vec<bots::BotSlot>,
     bot_count: u32,
@@ -208,6 +233,11 @@ pub struct Game {
     timed: Vec<[f32; 2]>,
     /// How its players are stepped each tick (the server's `--parallel`).
     pub stepping: stepping::Stepping,
+    /// The trading posts' demand: the world's (the store's), read again every MARKET_EVERY, lowered
+    /// here at once by every sale here (and in the store too); every life here reads it.
+    pub market: Market,
+    /// When the world's market was last asked for.
+    market_asked: Instant,
     /// Playing part of a region beside others: its side of the borders between them (border.rs).
     border: Option<border::Side>,
     /// When each player last struck a blow or took one (ms since 1970): in a fight, the channels'
@@ -257,7 +287,7 @@ impl Game {
         // Heights in a fight are measured from its floor; off it there's no ground but a fall.
         g.players.floor = Some(def);
         g.players.ground = None;
-        g.estates.loaded = true;
+        g.lands.loaded = true;
         g.space = Space::Copy(CopyOf { def, door, owner, empty_since: Some(Instant::now()), expel: HashMap::new(), expel_after: EXPEL_AFTER });
         g
     }
@@ -272,7 +302,7 @@ impl Game {
             space: Space::Channel,
             zone,
             lingering: HashMap::new(),
-            estates: Channel::default(),
+            lands: Lands::default(),
             members: HashMap::new(),
             open,
             players,
@@ -283,12 +313,14 @@ impl Game {
             started: Instant::now(),
             skew: 0.0,
             said: Vec::new(),
-            writes: Vec::new(),
+            store: Vec::new(),
             bots: Vec::new(),
             bot_count: 0,
             step_ms: 0.0,
             timed: Vec::new(),
             stepping: stepping::Stepping::chosen(),
+            market: Market::default(),
+            market_asked: Instant::now(),
             border: None,
             fought: HashMap::new(),
         }
@@ -408,6 +440,10 @@ impl Game {
         let member = self.members.remove(&character)?;
         let (player, life) = self.players.leave(client(character))?;
         let life = life?;
+        // Their land stands here while they're away, as they left it.
+        if self.copy_of().is_none() {
+            self.lands.keep(character, &member.name, life.land.clone());
+        }
         self.say_all(&ToConn::Left { id: client(character) }, None);
         self.emptied(character);
         Some((member, Carried { player, life }))
@@ -430,7 +466,7 @@ impl Game {
     /// Someone arrives from another game, standing at `at` (on whatever is there to stand on).
     pub fn put(&mut self, member: MemberInfo, carried: Carried, at: Spot) {
         let character = member.conn.character;
-        let Carried { mut player, life } = carried;
+        let Carried { mut player, mut life } = carried;
         player.vel = Default::default();
         if self.copy_of().is_none() {
             // Sides are a developer zone's (take_side): in the world everyone is on one.
@@ -450,12 +486,22 @@ impl Game {
         let hf = self.open.terrain();
         player.pos.y = ground_at(hf, &self.open.index, at.x, at.z, at.y + 1.2, 1.2);
         player.grounded = true;
+        go_online(&mut life, self.world_market().as_ref());
+        // Their land is theirs to change again: it comes with them, and isn't kept here for them.
+        let kept = if self.copy_of().is_none() { self.lands.lend(character) } else { None };
         if self.copy_of().is_none() {
-            make_solid(&mut self.open, character, &life.state);
+            life.land.make_solid(&mut self.open, character);
         }
+        let stale = kept.is_some_and(|k| !same_solid(&k, &life.land));
+        let marks = marks(&life);
         self.lingering.remove(&character);
         self.players.join_open(client(character), character, player, life);
-        self.members.insert(character, Member::from_info(member));
+        let mut m = Member::from_info(member);
+        m.saved_marks = marks;
+        self.members.insert(character, m);
+        if stale {
+            self.rebuild_world();
+        }
         if let Some(c) = self.copy_mut() {
             // The first one into an empty copy brings its bots; after that, whatever an admin did
             // with them (sent them away, added more) stands while anyone is in it.
@@ -464,7 +510,7 @@ impl Game {
                 self.zone_bots_in();
             }
         } else {
-            let held = self.estates.held_by_others(character);
+            let held = self.lands.held_by_others(character);
             if let Some((_, Some(life))) = self.players.open_mut(client(character)) {
                 life.plot_owners = held;
             }
@@ -472,20 +518,27 @@ impl Game {
         }
     }
 
-    /// A resident who isn't online: their houses and farms stand (and are solid) all the same.
-    pub fn add_resident(&mut self, character: CharacterId, name: &str, state: &Value) {
-        if self.members.contains_key(&character) {
-            return;
+    /// The region's land as the store read it: everyone's kept here for them, standing and solid, who
+    /// holds which plot, and the world's market. Whoever is already here (nobody, as arrivals wait
+    /// for it) keeps their own.
+    pub fn land_read(&mut self, r: RegionLand) {
+        let (mut lands, market) = Lands::read(r);
+        for id in self.members.keys() {
+            lands.lend(*id);
         }
-        self.estates.set_estate(character, name, estate_of(state));
-        if let Ok(s) = serde_json::from_value::<LifeState>(state.clone()) {
-            make_solid(&mut self.open, character, &s);
-        }
+        self.lands = lands;
+        self.set_market(market);
+        self.rebuild_world();
     }
 
     /// This channel's estates (everyone's but `character`'s) and who holds which plot.
     pub fn estates_for(&self, character: CharacterId) -> Estates {
-        Estates { estates: self.estates.estates_json(character), claims: self.estates.claims_json() }
+        Estates { estates: self.lands.estates_json(character), claims: self.lands.claims_json() }
+    }
+
+    /// The world's market, for a life playing in the world (a copy of an instance has none).
+    fn world_market(&self) -> Option<Market> {
+        self.copy_of().is_none().then(|| self.market.clone())
     }
 
     /// Someone arrives from their connection. If their character is already here (another window,
@@ -513,6 +566,10 @@ impl Game {
                 life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
                 keep_saved = true;
             }
+            // What they place is named from the world's ids (a block the store gave them).
+            if let Some((next, end)) = a.ids {
+                life.land.ids = Ids { next, end };
+            }
             // The build they kept, if the skill points their life has earned still cover it.
             if let Some(b) = a.build.as_ref().and_then(build_from_saved).filter(|b| allowed(b, skill_budget(&life.state))) {
                 player.apply_build(b);
@@ -527,20 +584,35 @@ impl Game {
                 player.vel = Default::default();
                 player.grounded = true;
             } else {
-                make_solid(&mut self.open, character, &life.state);
+                make_solid(&mut self.open, character, &life.land);
             }
             self.players.join_open(c, character, player, Box::new(life));
         }
         if let Some(cp) = self.copy_mut() {
             cp.empty_since = None;
         }
+        // Their land is theirs to change while they play here: lent to their life, kept here no longer.
+        let kept = if self.copy_of().is_none() { self.lands.lend(character) } else { None };
+        let mut marks_now = (0, 0);
+        let mut stale = false;
+        let market = self.world_market();
+        if let Some((_, Some(life))) = self.players.open_mut(c) {
+            go_online(life, market.as_ref());
+            marks_now = marks(life);
+            stale = kept.is_some_and(|k| !same_solid(&k, &life.land));
+        }
         let info = MemberInfo { conn: a.conn, name: a.name, dev: a.dev, epoch: a.epoch, party: a.party, home: a.home, keep_saved };
-        self.members.insert(character, Member::from_info(info));
+        let mut m = Member::from_info(info);
+        m.saved_marks = marks_now;
+        self.members.insert(character, m);
+        if stale {
+            self.rebuild_world();
+        }
         self.refresh_estate(character);
         // A game or a challenge they were in the middle of comes back to their browser.
         self.joined_tables(character);
         // Whatever happened to the claims, this life knows whose plots are whose.
-        let held = self.estates.held_by_others(character);
+        let held = self.lands.held_by_others(character);
         let mut build = Value::Null;
         if let Some((p, life)) = self.players.open_mut(c) {
             build = build_json(&Build { skills: p.skills, weapon: p.weapon, abilities: p.abilities, movement: p.movement });
@@ -568,6 +640,10 @@ impl Game {
         let mut life = life?;
         let outside = self.outside();
         let island = outside_of(island_of(&player, &mut life, &mut self.open, character), outside);
+        // Their land stands here while they're away, as they left it.
+        if self.copy_of().is_none() {
+            self.lands.keep(character, &m.name, life.land.clone());
+        }
         self.say_all(&ToConn::Left { id: client(character) }, None);
         self.emptied(character);
         if m.keep_saved {
@@ -578,24 +654,22 @@ impl Game {
         Some(write)
     }
 
-    /// A character who lived here was deleted (they can't be playing): their houses, farms and
-    /// ships come down for everyone, and their plots are free for the next one.
-    pub fn remove_resident(&mut self, character: CharacterId) {
+    /// A character was deleted (they can't be playing): their land comes down for everyone, and
+    /// their plots are free for the next one.
+    pub fn character_gone(&mut self, character: CharacterId) {
         if self.members.contains_key(&character) {
             return;
         }
         self.lingering.remove(&character);
-        let Some(name) = self.estates.estates.get(&character).map(|e| e.name.clone()) else { return };
-        // Everyone else's browser takes the buildings down (an empty estate), then forgets them.
-        self.say_all(&ToConn::Estate { id: character, name, estate: estate_of(&json!({})) }, None);
-        self.estates.remove(character);
-        self.say_all(&ToConn::Claims { claims: self.estates.claims_json() }, None);
-        let held: HashMap<i64, BTreeMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
-        for (owner, life) in self.players.each_life_mut() {
-            if let Some(h) = held.get(&owner) {
-                life.plot_owners = h.clone();
-            }
+        let name = self.lands.estates.get(&character).map(|(n, _)| n.clone());
+        if !self.lands.forget(character) {
+            return;
         }
+        // Everyone else's browser takes the buildings down (an empty estate), then forgets them.
+        if let Some(name) = name {
+            self.say_all(&ToConn::Estate { id: character, name, estate: estate_of(&Land::default()) }, None);
+        }
+        self.tell_claims();
         // Their walls and posts stop being solid.
         self.rebuild_world();
     }
@@ -689,6 +763,8 @@ impl Game {
             return false;
         }
         m.life_due = 3;
+        // Whatever it does is written a moment after it runs.
+        m.changed.get_or_insert_with(Instant::now);
         // At a table the game is all you do (the developer panel's grants and time aside).
         if self.tables.seated(character) && !matches!(c, Command::Grant { .. } | Command::Warp { .. }) {
             return true;
@@ -754,9 +830,16 @@ impl Game {
         // A game they're playing is called off first: the other player's stake goes back to them.
         self.abort_table_of(character);
         let zone = self.zone;
+        let market = self.world_market();
         let (p, life) = self.players.open_mut(client(character))?;
         let life = life?;
+        // The plots their houses stood on are free (the save without them lets them go in the store).
+        let plots: Vec<String> = life.land.plots().map(String::from).collect();
+        // The run of ids stays theirs: ids are the world's.
+        let ids = life.land.ids;
         *life = Life::new(zone, None, None);
+        life.land.ids = ids;
+        go_online(life, market.as_ref());
         // The quests that earned skill points went with the life: the build stays only if the
         // points a fresh life starts with still cover it.
         let mut build = Build { skills: p.skills, weapon: p.weapon, abilities: p.abilities, movement: p.movement };
@@ -767,6 +850,13 @@ impl Game {
         stand_on_ground(p, &self.open);
         life.after_reset(p);
         let island = island_of_ref(p, life);
+        let mut freed = false;
+        for plot in plots {
+            freed |= self.lands.freed(&plot, character);
+        }
+        if freed {
+            self.tell_claims();
+        }
         // Their walls and farm posts go with it: the game's colliders are built again.
         self.rebuild_world();
         let m = self.members.get_mut(&character)?;
@@ -778,27 +868,26 @@ impl Game {
         Some(self.life_write(character, epoch, &home, island, None))
     }
 
-    /// Everything solid that residents have built, made again from scratch (after a reset).
+    /// Everything solid that anyone's land holds, made again from scratch (after a reset, or a
+    /// house taken down).
     fn rebuild_world(&mut self) {
         self.open = match self.copy_of() {
             Some(c) => OpenWorld::instance(c.def, self.zone),
             None => played(self.zone),
         };
-        let mut lists: Vec<(i64, LifeState)> = Vec::new();
+        let mut lists: Vec<(i64, Land)> = Vec::new();
         for (_, owner, _, life) in self.players.each_open() {
             if let Some(l) = life {
-                lists.push((owner, l.state.clone()));
+                lists.push((owner, l.land.clone()));
             }
         }
-        for (id, e) in &self.estates.estates {
-            if !self.members.contains_key(id)
-                && let Ok(s) = serde_json::from_value::<LifeState>(e.estate.clone())
-            {
-                lists.push((*id, s));
+        for (id, h) in &self.lands.away {
+            if !self.members.contains_key(id) {
+                lists.push((*id, h.land.clone()));
             }
         }
-        // By owner: the estates are kept in a HashMap, whose order differs from one run to the next,
-        // and colliders added in another order are found in another order.
+        // By owner: the players are kept in slots, whose order depends on who came first, and
+        // colliders added in another order are found in another order.
         lists.sort_by_key(|(owner, _)| *owner);
         if self.copy_of().is_none() {
             for (owner, s) in lists {
@@ -820,23 +909,139 @@ impl Game {
             return;
         }
         let name = m.name.clone();
-        let estate = estate_of(&serde_json::to_value(&life.state).unwrap_or(Value::Null));
+        let estate = estate_of(&life.land);
         if let Some(m) = self.members.get_mut(&character) {
             m.estate_rev = rev;
         }
-        if self.estates.set_estate(character, &name, estate) {
-            if let Some(e) = self.estates.estates.get(&character) {
-                let msg = ToConn::Estate { id: character, name: e.name.clone(), estate: e.estate.clone() };
-                self.say_all(&msg, Some(character));
+        if self.lands.set_estate(character, &name, estate)
+            && let Some((name, estate)) = self.lands.estates.get(&character).cloned()
+        {
+            self.say_all(&ToConn::Estate { id: character, name, estate }, Some(character));
+        }
+    }
+
+    /// Everyone here hears who holds which plot, and each life knows whose plots it can't claim.
+    fn tell_claims(&mut self) {
+        if self.copy_of().is_some() {
+            return;
+        }
+        self.say_all(&ToConn::Claims { claims: self.lands.claims_json() }, None);
+        let held: HashMap<i64, BTreeMap<String, String>> = self.members.keys().map(|id| (*id, self.lands.held_by_others(*id))).collect();
+        for (owner, life) in self.players.each_life_mut() {
+            if let Some(h) = held.get(&owner) {
+                life.plot_owners = h.clone();
             }
-            self.say_all(&ToConn::Claims { claims: self.estates.claims_json() }, None);
-            // Who may claim which plot changed for everyone.
-            let held: HashMap<i64, BTreeMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
-            for (owner, life) in self.players.each_life_mut() {
-                if let Some(h) = held.get(&owner) {
-                    life.plot_owners = h.clone();
-                }
-            }
+        }
+    }
+
+    /// The world's market as the store has it: every life here reads it from now on.
+    pub fn set_market(&mut self, market: Market) {
+        self.market = market;
+        if self.copy_of().is_some() {
+            return;
+        }
+        let market = &self.market;
+        for (_, life) in self.players.each_life_mut() {
+            life.market = market.clone();
+        }
+    }
+
+    /// The registry's word on a plot `character` claimed: theirs to build on; someone else's first
+    /// (their house comes down, the blueprint back in their bag); or not taken just now (the same, to
+    /// try again).
+    pub fn claim_result(&mut self, character: CharacterId, plot: &str, result: ClaimResult) {
+        let Some(life) = self.life_here(character) else { return };
+        let mut freed = false;
+        match &result {
+            ClaimResult::Yours => housing::confirm_claim(life, plot),
+            ClaimResult::Theirs { name, .. } => freed = housing::lose_claim(life, plot, name),
+            ClaimResult::Stale => freed = housing::claim_failed(life, plot),
+        }
+        let changed = match result {
+            ClaimResult::Yours => false,
+            ClaimResult::Theirs { holder, name } => self.lands.claimed(plot, holder, &name),
+            ClaimResult::Stale => self.lands.freed(plot, character),
+        };
+        self.save_soon(character);
+        if changed {
+            self.tell_claims();
+        }
+        if freed {
+            self.rebuild_world();
+        }
+    }
+
+    /// A new run of ids for what `character` places.
+    pub fn ids_given(&mut self, character: CharacterId, next: i64, end: i64) {
+        if let Some(m) = self.members.get_mut(&character) {
+            m.asked_ids = false;
+        }
+        if let Some(life) = self.life_here(character) {
+            life.land.ids = Ids { next, end };
+        }
+    }
+
+    /// The ledger has `character`'s entries up to `upto`: their life holds them no longer.
+    pub fn recorded(&mut self, character: CharacterId, upto: u64) {
+        if let Some(life) = self.life_here(character) {
+            life.recorded(upto);
+        }
+    }
+
+    /// `by` acts on piece `piece` of `owner`'s land (a pack left on the ground, a vehicle left out).
+    /// One authority at a time: while `owner` plays here their life alone changes it, so this does
+    /// nothing; otherwise the store gives it to the first who asks, from any channel, and only while
+    /// `owner` isn't playing anywhere (`piece_taken` hears which). (No action does this yet: it's how
+    /// one would, a thief's or a borrowed cart's.)
+    pub fn take_piece(&mut self, by: CharacterId, owner: CharacterId, piece: i64) -> bool {
+        if by == owner || self.members.contains_key(&owner) {
+            return false;
+        }
+        let Some(epoch) = self.members.get(&by).map(|m| m.epoch) else { return false };
+        self.store.push(ToStore::TakePiece { piece, owner, by, epoch, reply: self.sim });
+        true
+    }
+
+    /// What became of `by` taking a piece of `owner`'s land: theirs now (into their life, standing
+    /// where it was, and out of what's kept here for `owner`), or not.
+    pub fn piece_taken(&mut self, by: CharacterId, owner: CharacterId, result: TakeResult) {
+        let rows = match result {
+            TakeResult::Yours(rows) => rows,
+            TakeResult::Lent => return self.toast(by, "Its owner has it in hand.", "bad"),
+            TakeResult::Gone => return self.toast(by, "Someone else got there first.", "bad"),
+            TakeResult::Stale => return,
+        };
+        let (got, _) = Land::from_rows(rows.into_iter().filter_map(|(k, d)| Kind::named(&k).map(|k| (k, d))));
+        let ids: Vec<i64> = got.packs.iter().map(|p| p.id).chain(got.vehicles.iter().map(|v| v.id)).collect();
+        if let Some(h) = self.lands.away.get_mut(&owner) {
+            h.land.packs.retain(|p| !ids.contains(&p.id));
+            h.land.vehicles.retain(|v| !ids.contains(&v.id));
+        }
+        let Some(life) = self.life_here(by) else { return };
+        life.land.packs.extend(got.packs);
+        life.land.vehicles.extend(got.vehicles);
+        life.revision += 1;
+        self.save_soon(by);
+    }
+
+    /// Whether `character`'s life is here (playing, or just gone).
+    pub fn has_life(&self, character: CharacterId) -> bool {
+        self.members.contains_key(&character) || self.lingering.contains_key(&character)
+    }
+
+    /// The life of someone playing here, or who left a moment ago.
+    fn life_here(&mut self, character: CharacterId) -> Option<&mut Life> {
+        if self.members.contains_key(&character) {
+            return self.players.open_mut(client(character)).and_then(|(_, l)| l);
+        }
+        self.lingering.get_mut(&character).map(|l| &mut *l.life)
+    }
+
+    /// `character`'s life is written on the next tick (their land changed in a way others may build
+    /// on at once: a plot let go).
+    fn save_soon(&mut self, character: CharacterId) {
+        if let Some(m) = self.members.get_mut(&character) {
+            m.changed = Some(Instant::now() - SAVE_AFTER);
         }
     }
 
@@ -861,6 +1066,11 @@ impl Game {
         }
         self.play_tick_trading(elapsed, world, trade);
         self.note_fights(crate::store::now_ms());
+        // The world's market, with every channel's sales, read again now and then.
+        if self.copy_of().is_none() && now - self.market_asked >= MARKET_EVERY {
+            self.market_asked = now;
+            self.store.push(ToStore::LoadMarket { reply: self.sim });
+        }
         let ruled = Instant::now();
         let out = self.publish(now);
         let took = now.elapsed().as_secs_f64() * 1000.0;
@@ -899,6 +1109,13 @@ impl Game {
         self.drive_bots();
         self.inputs_phase(trade);
         self.players.seat_passengers(&self.open);
+        // What the steps did to the land and the market here: sales lower everyone's demand.
+        self.keep_land();
+        // Once a second, the land kept for those away on the world's clock: a house whose tax went
+        // unpaid too long comes down, in every channel at the same moment.
+        if self.tick.is_multiple_of(TICK_HZ as u64) {
+            self.neglect(world);
+        }
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
         self.ghosts_phase(border::Barrier::Seated, true, true, trade);
@@ -914,6 +1131,83 @@ impl Game {
         // their swinger saw.
         self.players.record_history(self.tick, &self.actors);
         self.catch_fallers();
+    }
+
+    /// What everyone's steps this tick did that the region's land and the world's market must hear:
+    /// each pack sold lowers the demand for it here at once (every life here then reads it) and in the
+    /// store; a plot claimed goes to the registry (it counts here at once, until the registry says);
+    /// a plot let go (its house taken down for its unpaid tax) is free, and its owner's life is
+    /// written at once, so the store lets it go before anyone here can claim it.
+    fn keep_land(&mut self) {
+        let mut changes: Vec<(i64, Change)> = Vec::new();
+        for (owner, life) in self.players.each_life_mut() {
+            changes.extend(life.take_changes().into_iter().map(|c| (owner, c)));
+        }
+        if changes.is_empty() {
+            return;
+        }
+        changes.sort_by_key(|(owner, _)| *owner);
+        let (mut sold, mut freed, mut claims) = (false, false, false);
+        for (owner, c) in changes {
+            match c {
+                Change::Sold { outpost, pack, at } => {
+                    self.market.sell(&outpost, &pack, at);
+                    self.store.push(ToStore::Sold { outpost, pack, at });
+                    sold = true;
+                }
+                Change::Freed { plot } => {
+                    claims |= self.lands.freed(&plot, owner);
+                    freed = true;
+                    self.save_soon(owner);
+                }
+                Change::Claimed { plot, house } => {
+                    let Some(m) = self.members.get(&owner) else { continue };
+                    let (epoch, name) = (m.epoch, m.name.clone());
+                    let Some((_, _, Some(life))) = self.players.open_view(client(owner)) else { continue };
+                    let Some(h) = life.land.houses.iter().find(|h| h.id == house) else { continue };
+                    let house = serde_json::to_value(h).unwrap_or(Value::Null);
+                    claims |= self.lands.claimed(&plot, owner, &name);
+                    self.store.push(ToStore::ClaimPlot { character: owner, epoch, plot, house, reply: self.sim });
+                }
+            }
+        }
+        if sold {
+            let market = self.market.clone();
+            self.set_market(market);
+        }
+        if claims {
+            self.tell_claims();
+        }
+        if freed {
+            self.rebuild_world();
+        }
+    }
+
+    /// The land kept here for those away, at `world` on the world's clock: a house whose tax went
+    /// unpaid too long comes down, its plot free (crate::life::housing::neglected). The region's
+    /// keeper (its first channel) has the store take it down too.
+    fn neglect(&mut self, world: f64) {
+        if self.copy_of().is_some() {
+            return;
+        }
+        let gone = self.lands.neglected(world);
+        if gone.is_empty() {
+            return;
+        }
+        let mut owners: Vec<CharacterId> = gone.iter().map(|(o, _)| *o).collect();
+        owners.dedup();
+        for owner in owners {
+            if let Some((name, estate)) = self.lands.estates.get(&owner).cloned() {
+                self.say_all(&ToConn::Estate { id: owner, name, estate }, None);
+            }
+        }
+        self.tell_claims();
+        self.rebuild_world();
+        if matches!(self.at, SpaceId::Channel { n: 1, .. })
+            && let Some(writer) = self.writer()
+        {
+            self.store.push(ToStore::TakeDown { houses: gone.iter().map(|(_, h)| h.id).collect(), at: world, writer });
+        }
     }
 
     /// Whoever struck a blow or took one this tick, at `now` (ms since 1970).
@@ -1058,11 +1352,29 @@ fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::open::spawns::SpawnP
     }
 }
 
-/// Makes a life's houses and farm posts solid in the game (each piece once).
-pub fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
-    let mut life = Life::new(world.zone, None, None);
-    life.state = state.clone();
-    life.make_solid(world, owner);
+/// Makes someone's houses and farm posts solid in the game (each piece once).
+pub fn make_solid(world: &mut OpenWorld, owner: i64, land: &Land) {
+    land.make_solid(world, owner);
+}
+
+/// Whether two holdings make the same things solid (else the colliders are built again).
+fn same_solid(a: &Land, b: &Land) -> bool {
+    a.houses == b.houses && a.scarecrows == b.scarecrows
+}
+
+/// A life as it plays online: its claims wait for the registry, and in the world its market is the
+/// world's.
+fn go_online(life: &mut Life, market: Option<&Market>) {
+    life.claims_wait = true;
+    if let Some(m) = market {
+        life.market = m.clone();
+    }
+}
+
+/// What a life's being changed is told by: its revision (its land's shape) and its ledger's count
+/// (value moved).
+fn marks(life: &Life) -> (u64, u64) {
+    (life.revision, life.state.entries)
 }
 
 /// Seconds as "1m 20s" (src/engine/life/interact.ts shortTime).
@@ -1085,10 +1397,14 @@ fn short_time(s: f64) -> String {
 /// time that passed while its owner was away, and where they stood. (The store reads it:
 /// crate::store::Db::load_life.)
 pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner: i64, island: &Value, saved_at: i64, now: i64) -> Result<(), String> {
-    let state = island.get("state").ok_or("no state")?;
-    let state = serde_json::from_value::<LifeState>(state.clone()).map_err(|e| e.to_string())?;
-    life.load(state);
-    for v in &mut life.state.vehicles {
+    let (state, mut land) = land::read_saved(island)?;
+    if land::kept_inside(island) {
+        land.rebase(saved_at as f64 / 1000.0 - state.clock);
+    }
+    life.load(state, land);
+    // The land's clock is the world's from here on (the channel sets it every tick).
+    life.world_clock = Some(now as f64 / 1000.0);
+    for v in &mut life.land.vehicles {
         v.ridden = false;
     }
     // A stake still on a table when this was saved (the server stopped or fell over mid-game): no
@@ -1104,7 +1420,6 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     if away > 1.0 {
         life.state.clock += away;
         farming::grow_for(life, away);
-        trade::recover_demand(life, away);
         life.regen_labor(away, false, true);
         if away > 60.0 {
             life.toast(format!("Welcome back - {} passed on Emberholm while you were away", short_time(away)), "info");
@@ -1135,16 +1450,16 @@ pub fn island_of(p: &Player, life: &mut Life, world: &mut OpenWorld, owner: i64)
         let mut q = p.clone();
         let sim = Sim { player: &mut q, world, owner };
         if let Some(i) = vehicles::ridden(life, &sim) {
-            let v = life.state.vehicles[i].clone();
+            let v = life.land.vehicles[i].clone();
             let (x, y, z, _) = vehicles::exit_spot(&sim, &v);
             at = (x, y, z);
         }
     }
-    json!({ "state": life.state, "player": { "x": at.0, "y": at.1, "z": at.2, "facing": p.facing } })
+    json!({ "state": life.state, "land": life.land, "player": { "x": at.0, "y": at.1, "z": at.2, "facing": p.facing } })
 }
 
 fn island_of_ref(p: &Player, life: &Life) -> Value {
-    json!({ "state": life.state, "player": { "x": p.pos.x, "y": p.pos.y, "z": p.pos.z, "facing": p.facing } })
+    json!({ "state": life.state, "land": life.land, "player": { "x": p.pos.x, "y": p.pos.y, "z": p.pos.z, "facing": p.facing } })
 }
 
 /// A build in the shape the browser keeps one (src/content/build.ts Build), which parse_build reads back.
@@ -1174,6 +1489,7 @@ pub(crate) mod tests {
             party: None,
             home: SpaceId::channel("emberholm", 1),
             life: None,
+            ids: None,
             build,
             saved_at: None,
             now: 0,
@@ -1185,6 +1501,223 @@ pub(crate) mod tests {
         let (theirs, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut g.said).into_iter().partition(|(c, _)| c.character == id);
         g.said = rest;
         theirs.into_iter().filter_map(|(_, m)| crate::gate::encode::message(&m)).map(|t| serde_json::from_str(&t).unwrap()).collect()
+    }
+
+    // ---- The region's land (R10.21) ----
+
+    use crate::life::housing::demolished_at;
+    use crate::life::land::{House, Pack};
+    use crate::life::state::LIFE_VERSION;
+
+    fn cottage(id: i64, plot: &str, tax_paid_until: f64) -> House {
+        House { id, plot: plot.into(), blueprint: "cottage".into(), tax_paid_until, ..House::default() }
+    }
+
+    /// A channel whose region holds `land` for each (owner, name), the plots their houses stand on
+    /// held by them, as the store read it.
+    fn with_land(sim: u32, n: u32, owners: Vec<(CharacterId, &str, Land)>) -> Game {
+        let mut ch = Game::channel(SimId(u64::from(sim)), "emberholm", n);
+        let claims = owners.iter().flat_map(|(o, name, l)| l.houses.iter().map(move |h| (h.plot.clone(), *o, name.to_string()))).collect();
+        let holdings = owners.into_iter().map(|(o, name, l)| (o, name.to_string(), serde_json::to_value(l).unwrap())).collect();
+        ch.land_read(RegionLand { holdings, claims, market: json!({}) });
+        ch
+    }
+
+    fn life_of(ch: &mut Game, id: CharacterId) -> &mut Life {
+        ch.players.open_mut(client(id)).unwrap().1.unwrap()
+    }
+
+    /// What the store has been sent, taken.
+    fn told_store(ch: &mut Game) -> Vec<ToStore> {
+        std::mem::take(&mut ch.store)
+    }
+
+    #[test]
+    fn the_regions_land_stands_for_those_away_and_is_lent_to_whoever_comes_to_play() {
+        let ada = Land { houses: vec![cottage(1024, "rise-1", 1e12)], ..Land::default() };
+        let mut ch = with_land(1, 1, vec![(7, "Ada", ada.clone())]);
+        // Her house stands while she's away: solid, and in Bo's welcome, with her plot.
+        assert!(ch.open.added.iter().any(|k| k.starts_with("7:")));
+        let (estates, _) = ch.join(arrival(8, 1, "Bo", false, None));
+        let estates = estates.unwrap();
+        assert_eq!((estates.estates[0]["id"].clone(), estates.estates[0]["name"].clone()), (json!(7), json!("Ada")));
+        assert_eq!(estates.claims, json!({ "rise-1": "Ada" }));
+        assert_eq!(life_of(&mut ch, 8).plot_owners.get("rise-1").map(String::as_str), Some("Ada"));
+        // She comes to play: her land is lent to her life (as the store hands it over, with a block of
+        // ids), and kept here for her no longer.
+        let mut a = arrival(7, 2, "Ada", false, None);
+        a.life = Some(json!({ "state": { "version": LIFE_VERSION }, "land": ada, "player": {} }));
+        a.ids = Some((2048, 3072));
+        ch.join(a);
+        assert!(!ch.lands.away.contains_key(&7));
+        let life = life_of(&mut ch, 7);
+        assert_eq!(life.land.houses.len(), 1);
+        assert_eq!((life.land.ids.next, life.land.ids.end), (2048, 3072));
+        assert!(life.claims_wait, "her claims wait for the registry");
+        // She goes: written with her land beside her life, and kept here for her again.
+        let w = ch.leave(conn(7, 2)).unwrap();
+        assert_eq!(w.life["land"]["houses"][0]["plot"], "rise-1");
+        assert_eq!(ch.lands.away[&7].land.houses.len(), 1);
+        assert!(ch.lands.estates.contains_key(&7), "still standing for Bo");
+    }
+
+    #[test]
+    fn a_house_put_on_a_plot_is_claimed_through_the_registry() {
+        let mut ch = with_land(1, 1, Vec::new());
+        ch.join(arrival(7, 1, "Ada", false, None));
+        ch.join(arrival(8, 1, "Bo", false, None));
+        let place = |ch: &mut Game, plot: &str| {
+            let (p, life) = ch.players.open_mut(client(7)).unwrap();
+            let life = life.unwrap();
+            life.give("blueprint.cottage", 1, true);
+            let mut sim = Sim { player: p, world: &ch.open, owner: 7 };
+            assert!(housing::place_house(life, &mut sim, plot, "blueprint.cottage"));
+            ch.keep_land();
+        };
+        // Ada puts a house on rise-2: the registry hears of it, and here it's hers at once.
+        place(&mut ch, "rise-2");
+        let asked = told_store(&mut ch);
+        assert!(matches!(&asked[..], [ToStore::ClaimPlot { character: 7, epoch: Epoch(1), plot, reply: SimId(1), .. }] if plot == "rise-2"));
+        assert_eq!(life_of(&mut ch, 8).plot_owners.get("rise-2").map(String::as_str), Some("Ada"));
+        assert!(heard(&mut ch, 8).iter().any(|m| m["t"] == "claims" && m["claims"]["rise-2"] == "Ada"));
+        // Someone in another channel had claimed it first: her house comes down, her blueprint back.
+        ch.claim_result(7, "rise-2", ClaimResult::Theirs { holder: 9, name: "Cy".into() });
+        assert!(life_of(&mut ch, 7).land.houses.is_empty());
+        assert_eq!(life_of(&mut ch, 7).count("blueprint.cottage"), 1);
+        assert_eq!(ch.lands.claims_json(), json!({ "rise-2": "Cy" }));
+        assert_eq!(life_of(&mut ch, 8).plot_owners.get("rise-2").map(String::as_str), Some("Cy"));
+        // Another the registry couldn't take just now: down again, the plot free, to try again.
+        place(&mut ch, "rise-4");
+        ch.claim_result(7, "rise-4", ClaimResult::Stale);
+        assert!(life_of(&mut ch, 7).land.houses.is_empty());
+        assert!(!ch.lands.claims.contains_key("rise-4"));
+        // And one the registry has: the house is hers to build.
+        place(&mut ch, "rise-3");
+        told_store(&mut ch);
+        ch.claim_result(7, "rise-3", ClaimResult::Yours);
+        assert!(!life_of(&mut ch, 7).land.houses[0].pending);
+        assert_eq!(ch.lands.claims_json(), json!({ "rise-2": "Cy", "rise-3": "Ada" }));
+    }
+
+    #[test]
+    fn a_sale_lowers_the_demand_here_at_once_and_in_the_worlds_market() {
+        let mut ch = with_land(1, 1, Vec::new());
+        ch.join(arrival(7, 1, "Ada", false, None));
+        ch.join(arrival(8, 1, "Bo", false, None));
+        let start = life_of(&mut ch, 8).market.demand("westwatch", "harvestCrate", 100.0);
+        life_of(&mut ch, 7).change(Change::Sold { outpost: "westwatch".into(), pack: "harvestCrate".into(), at: 100.0 });
+        ch.keep_land();
+        assert!(matches!(&told_store(&mut ch)[..], [ToStore::Sold { outpost, at, .. }] if outpost == "westwatch" && *at == 100.0));
+        assert!(life_of(&mut ch, 8).market.demand("westwatch", "harvestCrate", 100.0) < start, "everyone here reads it");
+        // The world's market as the store has it (every channel's sales) replaces it.
+        ch.set_market(Market::default());
+        assert_eq!(life_of(&mut ch, 8).market.demand("westwatch", "harvestCrate", 100.0), start);
+    }
+
+    #[test]
+    fn a_life_is_written_a_moment_after_it_changes_and_at_least_every_minute() {
+        let mut ch = with_land(1, 1, Vec::new());
+        ch.join(arrival(7, 1, "Ada", false, None));
+        let t0 = Instant::now();
+        let saves = |ch: &mut Game, at: Instant| {
+            ch.publish(at);
+            told_store(ch).into_iter().filter(|m| matches!(m, ToStore::WriteLives { writes, .. } if writes.len() == 1)).count()
+        };
+        // Nothing changed since it was taken up: nothing to write.
+        assert_eq!(saves(&mut ch, t0), 0);
+        // It changes (its land's shape, here): written a second later, alone.
+        life_of(&mut ch, 7).revision += 1;
+        assert_eq!(saves(&mut ch, t0 + Duration::from_millis(500)), 0);
+        assert_eq!(saves(&mut ch, t0 + Duration::from_millis(1600)), 1);
+        assert_eq!(saves(&mut ch, t0 + Duration::from_secs(30)), 0);
+        // Value moved (a ledger entry): the same.
+        life_of(&mut ch, 7).record("purchase", "vendor:mara".into(), -3.0, 0.0, Vec::new(), None);
+        assert_eq!(saves(&mut ch, t0 + Duration::from_secs(31)), 0);
+        assert_eq!(saves(&mut ch, t0 + Duration::from_millis(32_100)), 1);
+        // Unchanged, it's still written once a minute (where they stand, crops growing).
+        assert_eq!(saves(&mut ch, t0 + Duration::from_secs(80)), 0);
+        assert_eq!(saves(&mut ch, t0 + Duration::from_secs(93)), 1);
+        // The ledger has the entry now: the life forgets it.
+        ch.recorded(7, 1);
+        assert!(life_of(&mut ch, 7).state.ledger.is_empty());
+    }
+
+    #[test]
+    fn a_run_of_ids_running_low_is_topped_up_from_the_store() {
+        let mut ch = with_land(1, 1, Vec::new());
+        ch.join(arrival(7, 1, "Ada", false, None));
+        life_of(&mut ch, 7).land.ids = Ids { next: 1000, end: 1030 };
+        ch.publish(Instant::now());
+        ch.publish(Instant::now());
+        let asked: Vec<ToStore> = told_store(&mut ch).into_iter().filter(|m| matches!(m, ToStore::ReserveIds { .. })).collect();
+        assert!(matches!(&asked[..], [ToStore::ReserveIds { character: 7, reply: SimId(1) }]), "asked once");
+        ch.ids_given(7, 4096, 5120);
+        assert_eq!(life_of(&mut ch, 7).land.ids, Ids { next: 4096, end: 5120 });
+        // A run of its own (offline's, the tests') never runs out.
+        life_of(&mut ch, 7).land.ids = Ids::default();
+        ch.publish(Instant::now());
+        assert!(!told_store(&mut ch).iter().any(|m| matches!(m, ToStore::ReserveIds { .. })));
+    }
+
+    #[test]
+    fn a_house_left_untaxed_comes_down_in_every_channel_and_the_keeper_writes_it() {
+        let h = cottage(1024, "rise-1", 0.0);
+        for n in [1, 2] {
+            let mut ch = with_land(n, n, vec![(7, "Ada", Land { houses: vec![h.clone()], ..Land::default() })]);
+            ch.join(arrival(8, 1, "Bo", false, None));
+            heard(&mut ch, 8);
+            told_store(&mut ch);
+            // Not yet; then on the world's clock, in each channel at the same moment.
+            ch.neglect(demolished_at(&h) - 1.0);
+            assert_eq!(ch.lands.away[&7].land.houses.len(), 1);
+            ch.neglect(demolished_at(&h));
+            assert!(ch.lands.away[&7].land.houses.is_empty());
+            assert!(!ch.open.added.iter().any(|k| k.starts_with("7:")), "nothing of it solid");
+            let told = heard(&mut ch, 8);
+            assert!(told.iter().any(|m| m["t"] == "estate" && m["id"] == 7 && m["estate"]["houses"] == json!([])));
+            assert!(told.iter().any(|m| m["t"] == "claims" && m["claims"] == json!({})));
+            assert_eq!(life_of(&mut ch, 8).plot_owners.get("rise-1"), None);
+            // Only the keeper (the first channel) has the store take it down.
+            let asked = told_store(&mut ch);
+            let took: Vec<&ToStore> = asked.iter().filter(|m| matches!(m, ToStore::TakeDown { houses, .. } if houses == &[1024])).collect();
+            assert_eq!(took.len(), usize::from(n == 1), "channel {n}");
+        }
+    }
+
+    #[test]
+    fn a_deleted_characters_land_comes_down_and_their_plots_are_free() {
+        let mut ch = with_land(1, 1, vec![(7, "Ada", Land { houses: vec![cottage(1024, "rise-1", 1e12)], ..Land::default() })]);
+        ch.join(arrival(8, 1, "Bo", false, None));
+        heard(&mut ch, 8);
+        ch.character_gone(7);
+        assert!(!ch.lands.away.contains_key(&7) && ch.lands.claims.is_empty());
+        let told = heard(&mut ch, 8);
+        assert!(told.iter().any(|m| m["t"] == "estate" && m["id"] == 7 && m["estate"]["houses"] == json!([])));
+        assert!(!ch.open.added.iter().any(|k| k.starts_with("7:")));
+    }
+
+    #[test]
+    fn a_piece_kept_for_someone_away_is_taken_through_the_store_one_authority_at_a_time() {
+        let bale = Pack { id: 2002, def: "flaxBale".into(), at: "ground".into(), x: 5.0, z: 5.0, ..Pack::default() };
+        let mut ch = with_land(1, 1, vec![(7, "Ada", Land { packs: vec![bale.clone()], ..Land::default() })]);
+        ch.join(arrival(8, 1, "Bo", false, None));
+        ch.join(arrival(9, 1, "Cy", false, None));
+        // Ada is away: Bo asks the store for her bale (the first to ask, from any channel, has it).
+        assert!(ch.take_piece(8, 7, 2002));
+        assert!(matches!(&told_store(&mut ch)[..], [ToStore::TakePiece { piece: 2002, owner: 7, by: 8, epoch: Epoch(1), reply: SimId(1) }]));
+        // Cy plays here: her life alone changes her land, so nobody takes from it through the store.
+        assert!(!ch.take_piece(8, 9, 1));
+        assert!(told_store(&mut ch).is_empty());
+        // The store gave it to Bo: in his life where it lay, kept here for Ada no longer.
+        ch.piece_taken(8, 7, TakeResult::Yours(vec![("pack".into(), serde_json::to_value(&bale).unwrap())]));
+        assert_eq!(life_of(&mut ch, 8).land.packs, [bale]);
+        assert!(ch.lands.away[&7].land.packs.is_empty());
+        // Refused: he hears why, and nothing changes.
+        life_of(&mut ch, 8).drain_events();
+        ch.piece_taken(8, 7, TakeResult::Gone);
+        let said = life_of(&mut ch, 8).drain_events();
+        assert!(said.iter().any(|e| matches!(e, crate::life::LifeEvent::Toast { text, .. } if text == "Someone else got there first.")));
+        assert_eq!(life_of(&mut ch, 8).land.packs.len(), 1);
     }
 
     #[test]
@@ -1210,12 +1743,12 @@ pub(crate) mod tests {
 
     #[test]
     fn a_rebuild_makes_everyone_solid_in_the_same_order_whatever_order_they_came_in() {
-        // Residents away, each with a scarecrow of their own, written in in two different orders.
+        // Owners away, each with a scarecrow of their own, kept in two different orders.
         let solids = |order: &[i64]| {
             let mut ch = Game::test();
             for &id in order {
-                let estate = json!({ "houses": [], "scarecrows": [{ "id": 1, "x": id as f64 * 3.0, "z": -20.0, "rot": 0.0 }], "ships": [] });
-                ch.estates.set_estate(id, &format!("R{id}"), estate);
+                let land = json!({ "houses": [], "scarecrows": [{ "id": 1, "x": id as f64 * 3.0, "z": -20.0, "rot": 0.0 }], "ships": [] });
+                ch.lands.keep(id, &format!("R{id}"), serde_json::from_value(land).unwrap());
             }
             ch.rebuild_world();
             ch.open.index.obstacles.iter().map(|o| (o.x, o.z, o.r)).collect::<Vec<_>>()
@@ -1483,14 +2016,14 @@ pub(crate) mod tests {
         }
     }
 
-    fn cart(ch: &Game, id: i64) -> crate::life::state::Vehicle {
+    fn cart(ch: &Game, id: i64) -> crate::life::land::Vehicle {
         ch.players.vehicle_of(7, id).expect("Ada's cart is out")
     }
 
     #[test]
     fn a_friend_rides_along_in_your_cart_and_steps_out_beside_it() {
         let (mut ch, id) = ada_and_bo();
-        let seat = |v: &crate::life::state::Vehicle, k: usize| vehicles::anchor_world(v, &crate::life::content::rideable("farmCart").seats[k]);
+        let seat = |v: &crate::life::land::Vehicle, k: usize| vehicles::anchor_world(v, &crate::life::content::rideable("farmCart").seats[k]);
         // Bo walks up to the passenger's side and climbs in.
         let v = cart(&ch, id);
         let (sx, _, sz) = seat(&v, 1);
@@ -1542,7 +2075,7 @@ pub(crate) mod tests {
         let (x, z) = {
             let (p, life) = ch.players.open_mut(client(7)).unwrap();
             let life = life.unwrap();
-            life.state.packs.push(crate::life::state::Pack {
+            life.land.packs.push(crate::life::land::Pack {
                 id: 99,
                 def: "ciderCask".into(),
                 at: "ground".into(),
