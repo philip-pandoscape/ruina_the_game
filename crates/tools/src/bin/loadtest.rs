@@ -9,14 +9,15 @@
 //! For each point of a plan it starts the server afresh (a copy of target/release/ruina-server, with
 //! developer sign-in, on the database DATABASE_URL or RUINA_DATABASE_URL names), signs in its
 //! virtual clients by name (load0000, load0001...) and has them play:
-//! - **battlefield**: every client in the battlefield developer zone (content/instances/battlefield.json,
-//!   20 players at most), on alternate sides; the first, the conductor, fills it with bots a group at
-//!   a time, spread over each side's half (a teleport, then `bots`): skirmishers fighting across the
-//!   middle, or wanderers walking about;
+//! - **arena**: every client in the developer zone everyone shares where two sides of bots fight
+//!   (the battlefield, content/instances/battlefield.json; found in the content as the one shared
+//!   developer zone with bots on both sides, its player limit and size read from it), on alternate
+//!   sides; the first, the conductor, fills it with bots a group at a time, spread over each side's
+//!   half (a teleport, then `bots`): skirmishers fighting across the middle, or wanderers walking about;
 //! - **channels**: every client in its home channel of the world (24 live in a channel), no bots.
 //!
 //! Every client sends an input 60 times a second as a browser does (walking in circles, now and then
-//! standing, in the battlefield swinging), and reads every update. After a warm-up it measures:
+//! standing, in the arena swinging), and reads every update. After a warm-up it measures:
 //! - every tick, the rules and the updates apart (the admins' stats carry each tick's times:
 //!   crates/server/src/play/mod.rs), and how long the world thread spends on all its games a tick;
 //! - the bytes each client receives a second, each update's size and how many peers it carries;
@@ -41,6 +42,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures_util::stream::{self, SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
+use ruina_engine::open::dungeon::{DungeonDef, dungeons};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use serde_json::{Value, json};
@@ -69,8 +71,6 @@ const SEND_INPUTS: u8 = 7;
 const OPEN_INPUT: usize = 10;
 /// Inputs' send times kept per client, by sequence number.
 const RING: usize = 1024;
-/// The most players the battlefield takes (content/instances/battlefield.json, maxPlayers).
-const BATTLEFIELD_PLAYERS: u32 = 20;
 /// Bots spawned at a time round the conductor (a ring 3 to 5 m across: play/bots.rs).
 const GROUP: u32 = 16;
 /// The bot limit the server is started with: a game's every player slot
@@ -79,6 +79,21 @@ const MAX_BOTS: u32 = 4096;
 /// Ports a run moves through, one point to the next, so a server that was just stopped never
 /// holds up the next.
 const PORTS: u16 = 40;
+
+/// The arena bots fight in: the developer zone everyone shares with bots on both sides (the
+/// battlefield), found in the content as the server finds it, so its player limit, its size and its
+/// name follow its file.
+fn arena() -> &'static DungeonDef {
+    dungeons()
+        .iter()
+        .find(|d| d.developer && d.shared && (0..2).all(|side| d.bots.iter().any(|b| b.team == side)))
+        .expect("a developer zone everyone shares, with bots on both sides (content/instances/)")
+}
+
+/// How far the arena's floor reaches from its middle, each way (its widest box).
+fn arena_reach() -> f64 {
+    arena().boxes.iter().map(|b| b.hw.min(b.hd)).fold(0.0, f64::max)
+}
 
 /// When the harness started: every time it keeps is nanoseconds from here.
 static START: OnceLock<Instant> = OnceLock::new();
@@ -96,8 +111,8 @@ fn ms(ns: u64) -> f64 {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Space {
-    /// Everyone in the battlefield developer zone, bots too.
-    Battlefield,
+    /// Everyone in the arena (the battlefield), bots too.
+    Arena,
     /// Every client in its home channel of the world.
     Channels,
 }
@@ -115,7 +130,7 @@ impl Point {
     /// What matches it in another run (`--compare`).
     fn key(&self) -> String {
         match self.space {
-            Space::Battlefield => format!("battlefield/{}/{}/{}/{}", self.bots, self.brain, self.clients, self.stepping()),
+            Space::Arena => format!("{}/{}/{}/{}/{}", arena().id, self.bots, self.brain, self.clients, self.stepping()),
             Space::Channels => format!("channels/{}/{}", self.clients, self.stepping()),
         }
     }
@@ -126,7 +141,7 @@ impl Point {
 
     fn label(&self) -> String {
         match self.space {
-            Space::Battlefield => {
+            Space::Arena => {
                 let who = if self.clients == 1 { "1 client".to_string() } else { format!("{} clients", self.clients) };
                 format!("{} {}s, {who}, {}", self.bots, self.brain, self.stepping())
             }
@@ -136,7 +151,7 @@ impl Point {
 
     fn json(&self) -> Value {
         json!({
-            "space": match self.space { Space::Battlefield => "battlefield", Space::Channels => "channels" },
+            "space": match self.space { Space::Arena => arena().id.as_str(), Space::Channels => "channels" },
             "bots": self.bots,
             "brain": self.brain,
             "clients": self.clients,
@@ -154,8 +169,8 @@ struct Sweep {
     ramp: bool,
 }
 
-fn battlefield(bots: u32, brain: &str, clients: u32, parallel: bool) -> Point {
-    Point { space: Space::Battlefield, bots, brain: brain.into(), clients, parallel }
+fn in_arena(bots: u32, brain: &str, clients: u32, parallel: bool) -> Point {
+    Point { space: Space::Arena, bots, brain: brain.into(), clients, parallel }
 }
 
 fn stepped(parallel: bool) -> &'static str {
@@ -168,21 +183,21 @@ fn plan(name: &str) -> Option<Vec<Sweep>> {
         [false, true]
             .into_iter()
             .map(|parallel| Sweep {
-                title: format!("{brain}s in the battlefield, one client watching, {}", stepped(parallel)),
-                points: sizes.iter().map(|&n| battlefield(n, brain, 1, parallel)).collect(),
+                title: format!("{brain}s in {}, one client watching, {}", arena().name.to_lowercase(), stepped(parallel)),
+                points: sizes.iter().map(|&n| in_arena(n, brain, 1, parallel)).collect(),
                 ramp: true,
             })
             .collect()
     };
     let sweeps = match name {
-        "quick" => vec![Sweep { title: "a quick look".into(), points: vec![battlefield(64, "skirmisher", 1, false)], ramp: false }],
+        "quick" => vec![Sweep { title: "a quick look".into(), points: vec![in_arena(64, "skirmisher", 1, false)], ramp: false }],
         "bots" => bots("skirmisher", &[0, 32, 64, 128, 256, 512, 1024, 2048, 4000]),
         "wanderers" => bots("wanderer", &[256, 1024, 4000]),
         "clients" => [64, 256]
             .into_iter()
             .map(|n| Sweep {
-                title: format!("clients sharing the battlefield with {n} skirmishers, one after another"),
-                points: [5, 10, 20].map(|m| battlefield(n, "skirmisher", m, false)).into(),
+                title: format!("clients sharing {} with {n} skirmishers, one after another", arena().name.to_lowercase()),
+                points: [5, 10, 20].map(|m| in_arena(n, "skirmisher", m, false)).into(),
                 ramp: true,
             })
             .collect(),
@@ -226,9 +241,10 @@ struct Config {
 const HELP: &str = "loadtest: the world server under bots and virtual clients (crates/tools/src/bin/loadtest.rs)
 
   --plan NAME        quick | bots | wanderers | clients | channels | baseline (all four)
-  --bots N,N..       or a sweep of your own: bots in the battlefield...
-  --clients M,M..    ...with this many clients (battlefield: 20 at most)
-  --space S          battlefield (default) | channels (clients in their home channels, no bots)
+  --bots N,N..       or a sweep of your own: bots in the arena...
+  --clients M,M..    ...with this many clients (as many as the arena takes)
+  --space S          arena (default: the battlefield, the developer zone where two sides of bots
+                     fight) | channels (clients in their home channels, no bots)
   --brain B          skirmisher (default) | wanderer
   --parallel P,P..   off (default) | on | off,on
   --ramp             stop the sweep after the first point past the 50 ms budget
@@ -276,9 +292,10 @@ fn parse_args() -> Config {
     let custom = get("bots").is_some() || get("clients").is_some() || get("space").is_some();
     let (sweeps, plan_name) = if custom {
         let space = match get("space").as_deref() {
-            None | Some("battlefield") => Space::Battlefield,
+            None | Some("arena") => Space::Arena,
+            Some(s) if s == arena().id => Space::Arena,
             Some("channels") => Space::Channels,
-            Some(s) => panic!("--space takes battlefield or channels, not {s}"),
+            Some(s) => panic!("--space takes arena or channels, not {s}"),
         };
         let bots: Vec<u32> = if space == Space::Channels { vec![0] } else { list(&get("bots").unwrap_or_else(|| "64".into()), "--bots") };
         let clients: Vec<u32> = list(&get("clients").unwrap_or_else(|| "1".into()), "--clients");
@@ -309,10 +326,10 @@ fn parse_args() -> Config {
         (sweeps, name)
     };
     for p in sweeps.iter().flat_map(|s| &s.points) {
-        if p.space == Space::Battlefield && p.clients > BATTLEFIELD_PLAYERS {
-            panic!("the battlefield takes {BATTLEFIELD_PLAYERS} players at most, not {}", p.clients);
+        if p.space == Space::Arena && p.clients as usize > arena().max_players {
+            panic!("{} takes {} players at most, not {}", arena().name, arena().max_players, p.clients);
         }
-        if p.space == Space::Battlefield && p.bots + p.clients > MAX_BOTS {
+        if p.space == Space::Arena && p.bots + p.clients > MAX_BOTS {
             panic!("a game holds {MAX_BOTS} players and bots at most, not {}", p.bots + p.clients);
         }
     }
@@ -559,14 +576,14 @@ async fn play(cfg: &Config, p: &Point, port: u16, process: Option<&Proc>) -> Res
     let run = Arc::new(Run { recording: AtomicBool::new(false) });
     let (frames_tx, frames) = watch::channel(0u64);
     let metronome = Metronome::start(frames_tx);
-    let fight = p.space == Space::Battlefield;
+    let fight = p.space == Space::Arena;
 
-    // Everyone signed in and connected: into the battlefield a few at a time; into channels one at
+    // Everyone signed in and connected: into the arena a few at a time; into channels one at
     // a time, as a character's home channel is the first with room when it first comes in, which
     // characters arriving together race for. Channels' clients have names of their own, so they
     // fill channels of their own.
     let (names, at_once): (Vec<(usize, String)>, usize) = match p.space {
-        Space::Battlefield => ((0..p.clients as usize).map(|k| (k, format!("{}{k:04}", cfg.prefix))).collect(), 24),
+        Space::Arena => ((0..p.clients as usize).map(|k| (k, format!("{}{k:04}", cfg.prefix))).collect(), 24),
         Space::Channels => ((0..p.clients as usize).map(|k| (k, format!("{}c{k:04}", cfg.prefix))).collect(), 1),
     };
     let connected: Vec<Result<Client, String>> =
@@ -589,29 +606,30 @@ async fn play(cfg: &Config, p: &Point, port: u16, process: Option<&Proc>) -> Res
     wait_for(Duration::from_secs(30), || clients.iter().all(|c| c.state.game().is_some())).await;
 
     let mut bots_asked = 0;
-    if p.space == Space::Battlefield {
+    if p.space == Space::Arena {
+        let (zone, reach) = (arena().id.as_str(), arena_reach());
         for c in &clients {
             let team = (c.state.k % 2) as u8;
-            c.say(json!({ "t": "zone", "id": "battlefield", "team": team }));
+            c.say(json!({ "t": "zone", "id": zone, "team": team }));
         }
-        let all_in = wait_for(Duration::from_secs(30), || clients.iter().all(|c| c.state.game().is_some_and(|g| g.starts_with("battlefield")))).await;
+        let all_in = wait_for(Duration::from_secs(30), || clients.iter().all(|c| c.state.game().is_some_and(|g| g.starts_with(zone)))).await;
         if !all_in {
-            let out: Vec<String> =
-                clients.iter().filter(|c| !c.state.game().is_some_and(|g| g.starts_with("battlefield"))).map(|c| c.state.name.clone()).collect();
-            return Err(format!("not everyone got into the battlefield: {}", out.join(", ")));
+            let out: Vec<String> = clients.iter().filter(|c| !c.state.game().is_some_and(|g| g.starts_with(zone))).map(|c| c.state.name.clone()).collect();
+            return Err(format!("not everyone got into {}: {}", arena().name, out.join(", ")));
         }
         // Each client at its post, on its side's half, facing the middle.
         for c in &clients {
             let k = c.state.k as f64;
-            let (x, z) = (-20.0 + (k / 2.0).floor() * 4.0, if c.state.k % 2 == 0 { -40.0 } else { 40.0 });
+            let post = reach * 2.0 / 3.0;
+            let (x, z) = (-20.0 + (k / 2.0).floor() * 4.0, if c.state.k % 2 == 0 { -post } else { post });
             c.post.lock().unwrap().replace((x, z));
             c.command(json!({ "t": "teleport", "x": x, "z": z }));
         }
-        // The conductor sends the battlefield's own bots away, and brings the point's.
+        // The conductor sends the arena's own bots away, and brings the point's.
         let conductor = &clients[0];
         conductor.command(json!({ "t": "bots", "n": 0 }));
         wait_for(Duration::from_secs(10), || conductor.state.last_stats().is_some_and(|s| s["bots"].as_u64() == Some(0))).await;
-        for (team, x, z, n) in layout(p.bots) {
+        for (team, x, z, n) in layout(p.bots, reach) {
             conductor.command(json!({ "t": "teleport", "x": x, "z": z }));
             conductor.command(json!({ "t": "bots", "n": n, "brain": p.brain, "team": team }));
             bots_asked += n;
@@ -709,9 +727,11 @@ async fn wait_for(limit: Duration, done: impl Fn() -> bool) -> bool {
     }
 }
 
-/// Where the bots go: groups of GROUP, half on each side, in a grid over each side's half of the
-/// arena (x from -50 to 50, 8 to 52 m from the middle): (side, x, z, how many).
-fn layout(n: u32) -> Vec<(u8, f64, f64, u32)> {
+/// Where the bots go: groups of GROUP, half on each side, in a grid over each side's half of an arena
+/// whose floor reaches `reach` each way from its middle (the battlefield's 60 m: x from -50 to 50, 8
+/// to 52 m from the middle): (side, x, z, how many).
+fn layout(n: u32, reach: f64) -> Vec<(u8, f64, f64, u32)> {
+    let (wide, deep) = (2.0 * (reach - 10.0), reach - 16.0);
     let mut out = Vec::new();
     for team in 0..2u8 {
         let mine = n / 2 + if team == 0 { n % 2 } else { 0 };
@@ -719,13 +739,13 @@ fn layout(n: u32) -> Vec<(u8, f64, f64, u32)> {
         if groups == 0 {
             continue;
         }
-        // Columns and rows in about the half's shape (100 m by 44).
-        let cols = ((f64::from(groups) * 100.0 / 44.0).sqrt().ceil() as u32).clamp(1, groups);
+        // Columns and rows in about the half's shape (100 m by 44 in the battlefield).
+        let cols = ((f64::from(groups) * wide / deep).sqrt().ceil() as u32).clamp(1, groups);
         let rows = groups.div_ceil(cols);
         for g in 0..groups {
             let (c, r) = (g % cols, g / cols);
-            let x = -50.0 + 100.0 * (f64::from(c) + 0.5) / f64::from(cols);
-            let d = 8.0 + 44.0 * (f64::from(r) + 0.5) / f64::from(rows);
+            let x = -wide / 2.0 + wide * (f64::from(c) + 0.5) / f64::from(cols);
+            let d = 8.0 + deep * (f64::from(r) + 0.5) / f64::from(rows);
             out.push((team, x, if team == 0 { -d } else { d }, GROUP.min(mine - g * GROUP)));
         }
     }
@@ -921,7 +941,7 @@ struct Client {
     state: Arc<ClientState>,
     /// Text for the server, sent between inputs.
     out: mpsc::UnboundedSender<String>,
-    /// Where it stands in the battlefield.
+    /// Where it stands in the arena.
     post: Mutex<Option<(f64, f64)>>,
     tasks: Vec<tokio::task::JoinHandle<()>>,
 }
@@ -1588,12 +1608,15 @@ mod tests {
 
     #[test]
     fn bots_are_laid_out_on_both_halves_in_groups() {
-        let l = layout(4000);
+        let l = layout(4000, 60.0);
         assert_eq!(l.iter().map(|g| g.3).sum::<u32>(), 4000);
         assert!(l.iter().all(|&(team, x, z, n)| n <= GROUP && x.abs() < 52.0 && (8.0..=52.0).contains(&z.abs()) && (team == 0) == (z < 0.0)));
-        assert_eq!(layout(32).len(), 2);
-        assert!(layout(0).is_empty());
-        assert_eq!(layout(5).iter().map(|g| g.3).sum::<u32>(), 5);
+        assert_eq!(layout(32, 60.0).len(), 2);
+        assert!(layout(0, 60.0).is_empty());
+        assert_eq!(layout(5, 60.0).iter().map(|g| g.3).sum::<u32>(), 5);
+        // The arena in the content: the battlefield's 60 m each way.
+        assert_eq!(arena_reach(), 60.0);
+        assert!(arena().max_players >= 20);
     }
 
     #[test]
