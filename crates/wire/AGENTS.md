@@ -167,9 +167,10 @@ browser's side must then hear to the same states. Raise `WORLD_PROTOCOL` on both
 
 ## Tests
 
-- `cargo test -p ruina-wire`: the codec, tiers and caps, the cells' packing; `tests/protocol.rs`, a
-  Viewer and a Heard over a road that loses, holds back and shuffles updates and acknowledgements,
-  every state heard checked against the world that tick and everything near settling to it exactly
-  (a crowd of 4000, the budget held with 2000 in reach, handles given again as everything leaves
-  sight and comes back); `tests/golden.rs`, the fixtures.
+- `cargo test -p ruina-wire`: the codec, tiers and caps, the cells' packing;
+  `crates/wire/tests/protocol.rs`, a Viewer and a Heard over a road that loses, holds back and
+  shuffles updates and acknowledgements, every state heard checked against the world that tick and
+  everything near settling to it exactly (a crowd of 4000, the budget held with 2000 in reach,
+  handles given again as everything leaves sight and comes back); `crates/wire/tests/golden.rs`,
+  the fixtures.
 - `tests/unit/wire.test.ts`, `tests/unit/wireFeed.test.ts`: the browser's side against the fixtures.
