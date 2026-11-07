@@ -14,7 +14,7 @@ is, how they talk, and which guide says more. The root `AGENTS.md` lists the fol
 | The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket, and the games it plays | [world.md](world.md), [admin.md](admin.md) |
 | Content | `content/` built into `shared/` | Every kind of thing as files, checked and built into the bundles both sides read | [content.md](content.md) |
 | Assets | `src/render/assets/`, `src/ui/theme/` | Models, textures, sounds and icons, listed in a manifest and loaded by need | [assets.md](assets.md) |
-| What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build and home channel | `crates/server/src/db.rs` |
+| What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life, build and home channel; land (a row a piece, by chunk), the house plots' claims, the ledger and the world's market | `crates/server/src/db.rs`, `crates/server/src/land/` |
 | Tools | `crates/tools`, `tools/` | The conformance programs and the balance harness; contentc, the asset and icon tools, bug reports | `tools/` |
 | Tests | `tests/` | The unit, integration and stress tiers | [testing.md](testing.md) |
 | The bible | `bible/`, `src/bible/` | How the game works, exactly, from its own rules and content | `src/bible/` |
@@ -57,14 +57,20 @@ How each side reaches it: [engine.md](engine.md).
    - everyone else in their channel, and the creatures;
    - arrows, meteors, and what happened.
 
-   Their life (bag, coins, quests, estate) is sent when it changes.
+   Their life (bag, coins, quests) and their land (houses, farms, ships, packs, vehicles) are sent
+   when they change, with the world's market their prompts price packs from.
 6. **Prediction.** The page runs your moves through the same rules at once, without waiting
    (`src/net/netPlayer.ts`). When the server's word on you arrives, it starts from there and runs
    again the inputs the server hadn't seen yet. Everyone else and the creatures are drawn a little in
    the past, between two ticks (`worldPeers.ts`, `actorTimeline.ts`).
-7. **Saves.** Lives are saved to Postgres in batches by a task beside the world thread. A save is
-   fenced: only the session that holds the character may write (`characters.live_session`). A deploy
-   tells every page, saves everyone, and closes; pages reload into the new build ([deploys.md](deploys.md)).
+7. **Saves.** Lives are saved to Postgres in batches by a task beside the world thread, each with
+   the land lent to it (`{state, land, player}` today). A save is fenced: only the session that holds
+   the character may write (`characters.live_session`). A deploy tells every page, saves everyone,
+   and closes; pages reload into the new build ([deploys.md](deploys.md)). The store's tables for
+   land, plots, the ledger and the market (`crates/server/src/land/`, migrations 0010-0013) are
+   ready for the server's tiers: then a life is saved alone when it changes, its land in rows beside
+   it, each house's plot claimed once in the world and every transfer written once
+   ([world.md](world.md), Land).
 8. **Spaces.** Going through a portal, or into a developer zone from the Admin menu, moves you to
    another game mid-connection, your life and all ([world.md](world.md)).
 
@@ -111,12 +117,15 @@ foundations are laid in one process:
 - the world map of regions on chunks, its ground answered across them;
 - spaces, so an instance is played round its own origin;
 - a tick that splits, so players can be stepped all at once;
-- the world's clock.
+- the world's clock;
+- land, kept by where it stands and lent to its owner's life while they play; house plots claimed
+  once in the world and contested; the ledger and the world's market (the engine's and the
+  store's; the server moves onto them with its tiers).
 
 After the refactor, the world splits between several servers:
 - the server in tiers;
 - regions owned by simulations, their borders crossed seamlessly;
-- land shared by every channel and contested;
+- land shared by every channel;
 - channels opening and merging with the crowd.
 
 The research and the decisions are in `.plans/world/research.md`, and the steps are in

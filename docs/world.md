@@ -30,8 +30,8 @@ add a region or an instance. The plans for the rest are in `.plans/world/` and t
 | Space | Where a position is: the world, or one copy of an instance. |
 | Chunk | 256 m on a side: where regions stand, and the unit a simulation will own. |
 | Cell | 32 m: the unit of what a player is sent (R10.8, to come). |
-| Land | What's built and planted in the world, shared by a region's channels (R10.21, to come; today each channel keeps its residents' estates). |
-| Life | A character's own state: bag, coins, quests, skills, labour. |
+| Land | What's built and planted in the world, and what's left standing in it: houses, farms, ships on the slipways, packs, vehicles. The world's, the same in every channel of a region (Land, below). |
+| Life | A character's own state: bag, coins, seals, quests, skills, labour, contracts. |
 
 "Island" is the old word for a character's life and for Emberholm. It leaves the code, the wire and
 the saves' column (`characters.island`) as each area is touched (R10.14).
@@ -105,9 +105,14 @@ The world is played in channels (`crates/server/src/play/spaces.rs`, `channels.r
 game of its own, with its players, creatures and bots, stepped 20 times a second by the world thread.
 
 - **Residents.** Each channel is home to at most 24 characters (`CHANNEL_CAP`).
-- **Estates.** A resident's houses, farms and ships on the slipway stand in their channel while
-  they're away.
+- **Estates.** A resident's land (their houses, farms and ships on the slipway) stands in their
+  channel while they're away, read from their save (the land beside the life).
 - **Plots.** A house plot goes to whoever built on it first in that channel.
+- **The market.** Each game keeps the trading posts' demand its lives read and its sales lower.
+
+Residents, estates and each channel's plots go when the server moves onto the store (R10.21's second
+half, on the server's tiers): land then stands in every channel of its region, each plot claimed
+once in the world (Land, below).
 
 Every game numbers its ticks by the world's clock (`crates/server/src/play/clock.rs`): frames at 60
 a second from the world's epoch (2026-01-01 UTC), and a server tick every third frame, 20 a second.
@@ -120,12 +125,97 @@ a second from the world's epoch (2026-01-01 UTC), and a server tick every third 
 
 Where this is going:
 
-- **R10.21:** land shared by every channel of a region, each plot claimed once in the world and
-  contested.
+- **R10.21** (half done, Land below): land kept by where it stands and shown in every channel of a
+  region, each plot claimed once in the world, the ledger and the world's market. The engine, the
+  browser and the store's tables and queries are in; the server keeps each channel's residents and
+  plots until it moves onto them, with its tiers.
 - **R10.22:** channels that open past a region's soft cap and merge when quiet, placing players by
   party, friends and guild.
 - **R10.19, R10.20:** regions split between simulations, their borders crossed as if they weren't
   there.
+
+## Land
+
+What's built and planted in the world, and what's left standing in it, is **land**
+(`crates/engine/src/life/land.rs`, `Land`): houses on their plots, farms (a scarecrow and its
+cells), ships on the slipways, packs (on the ground, in a vehicle's bed, or on their owner's back)
+and vehicles. It is the world's, not a life's:
+
+- **Kept by where it stands.** Each piece is a row of its own (`Land::rows`; the `land` table,
+  migration 0010): its id, its kind, the 256 m chunk it stands in (a pack on its owner's back has
+  none: it goes where they go), its owner, the epoch it was written under, and the piece. A
+  region's keeper reads its chunks (`crates/server/src/land/` `load_land`); a character's whole
+  holding comes with them (`load_holding`).
+- **Lent to its owner's life.** Only its owner changes a piece, so while they play their land is
+  lent to their life (`Life::land`) and changed by its rules, and saved with it in one transaction
+  (`land::save`, fenced by their grant). Everyone else reads it as it stood when the phase began,
+  so players still step in any order or all at once (`crates/engine/AGENTS.md`).
+- **Ids** come from the world's `land_blocks` sequence a block of 1024 at a time (hi/lo): a holding
+  is given a run (`Land::ids`) and names what it places from it with no trip to the database, and no
+  two pieces in the world share an id (the engine's `EntityKind::Placed` numbers). Offline a
+  holding counts its own. A run used up says "Not just now".
+- **The land's clock.** Land's times (a house's tax, an animal's feed, a pack's age) are on the
+  land's clock (`land::now`): the world's online, so they run while you're away; offline, where the
+  browser's session is the whole world, the life's own.
+- **What its keeper hears.** A step's `Change`s (`Life::take_changes`): a plot claimed, a plot let
+  go, a pack sold. The keeper (the server's game; offline the session) applies them once the
+  phase is over.
+
+### Plots
+
+A house plot is claimed once in the whole world, first come: the `plots` table's primary key is the
+registry (migration 0011, `land::plots`). A claim writes the house's row and the plot's claim in one
+transaction or neither, so of two claims on a plot from two channels or servers at once, one is kept
+and the other finds whose it is. Online a claimed house waits (`pending`) until the registry has
+confirmed it (`housing::confirm_claim`), and one that lost the race comes down with its blueprint
+back in the bag (`housing::lose_claim`). A claim is the house on the plot: when it comes down, the
+plot is free.
+
+Land is contested: a house whose tax goes unpaid `neglect.demolishAfterDays` days past what was paid
+(`content/housing.json`, 14) comes down, chest and all, and its plot is free for anyone
+(`housing::demolish_neglected`: run by the owner's life while they play, and by the region's keeper
+of land, `land::plots::houses` and `take_down`, while they're away). The bible's housing page has
+the rule as players meet it.
+
+### The Ledger
+
+Value moving between a character and the world (a purchase, a sale, a payout at a trading post, a
+contract's bonus, a workbench's fee, a tax, a quest's reward) or between two characters (a
+mini-game's pot) is a transfer in the `ledger` (migration 0012, `land::ledger`), each written once:
+a row is one character's side of it, keyed by which transfer and whose side, so one sent twice (a
+retry, a message delivered again) is applied once.
+
+- A life keeps what it moved with the world (`state.ledger`, numbered by its own count: `Life::record`)
+  until the store writes it with the life's next save, in the same transaction (`land::save`), and
+  then forgets it (`Life::recorded`). A save written twice records it once.
+- A pot is `ledger::transfer`: its two sides and both lives as they are once it's paid, in one
+  transaction under its own key, or nothing.
+
+### What the World Shares
+
+Kept in one place, not per channel or per life:
+
+- **The time of day** is worked out from the world's clock (`hourAt`, the region's `sky`).
+- **The weather** is worked out from the world's clock each step (`Life::weather`), the same for
+  everyone at the same moment; a life no longer keeps it.
+- **Each trading post's demand** is the world's market (`crates/engine/src/life/market.rs`,
+  `Market`; the `market` table, migration 0013): each demand as it stood at a moment on the world's
+  clock, worked out from there as it recovers, so nothing steps it. A life reads it as the step
+  began; a sale lowers it there at once and goes to the keeper (`Change::Sold`), and in the store it
+  is one statement (`land::market::sold`), so every server's sales count.
+
+### Saves
+
+A character's save is their life alone (`{state, player}`, `LIFE_VERSION` 4), their land in rows
+beside it. Saves from before (the land inside the life, version 3 and before; or beside it, `{state,
+land, player}`, as the server keeps them until it moves onto the store) are read apart by the engine
+(`land::read_saved`) and moved into rows by `land::migrate::run` as the server starts: the land's
+times onto the world's clock from the moment it was saved, ids from the world's blocks, each house's
+plot claimed. Where two channels both built on one plot, the first-made character keeps it and
+anyone else's house is moved, whole, to the first plot nobody holds (or, with none free, taken down
+into its owner's bag). A save is moved only if it still holds what was read, so one written
+meanwhile is moved the next time. Tested on saves written by 763d6af's server
+(`crates/server/tests/fixtures/`, `crates/server/tests/land.rs`).
 
 ## Instances
 
@@ -277,3 +367,10 @@ what's near the player (R10.16, R10.23).
   dressing held to its instance.
 - `tests/integration/dungeon-way-in.spec.ts`, `tests/integration/party.spec.ts`: Goblin's Dread's way
   in, and parties into one copy.
+- Land: `crates/engine/src/life/land.rs` (a save of either shape read apart, pieces kept by chunk,
+  ids from a run), `housing.rs` (claims waiting for the registry and lost, tax on the world's clock,
+  a neglected house taken down), `market.rs` (the world's demand); `crates/server/tests/land.rs`
+  against a database of each test's own (`RUINA_TEST_DATABASE_URL`, `docs/testing.md`): a plot
+  claimed once with two claims racing, a transfer sent twice applied once, land by chunk, the keeper
+  taking a neglected house down, every server's sales counting, and today's saves moved into rows
+  with every character back with everything.

@@ -121,7 +121,15 @@ pub fn grow_for(life: &mut Life, seconds: f64) {
     let rain = raining(life);
     let climate = life.zone.recipe.climate.as_str();
     let clock = land::now(life);
-    for sc in life.land.scarecrows.iter_mut() {
+    grow_land(&mut life.land, seconds, rain, climate, clock);
+    life.revision += 1;
+}
+
+/// Advances every plant of `land` by `seconds` at once, at the pace each had (`rain`ing or not, in
+/// `climate`), each animal for as much of it as it was fed by `clock` (the land's): `grow_for` for
+/// a life, and for the region's keeper of land, the farms of someone away.
+pub fn grow_land(land: &mut crate::life::land::Land, seconds: f64, rain: bool, climate: &str, clock: f64) {
+    for sc in land.scarecrows.iter_mut() {
         for p in sc.cells.iter_mut().flatten() {
             if p.is_animal() {
                 step_animal(clock, p, seconds);
@@ -134,7 +142,6 @@ pub fn grow_for(life: &mut Life, seconds: f64) {
             p.watered = false;
         }
     }
-    life.revision += 1;
 }
 
 // ---------- Geometry ----------

@@ -149,7 +149,9 @@ A new type of objective is a new mechanic: code.
   stages and the packs each needs, the vehicle it launches as, its design item (`cat: placeable`,
   `placeOn: slipway`) and the deed you get once it's launched.
 - **A house**: `content/blueprints/<id>.json` (template `blueprint.json`): its stages, tax and
-  perks, and its blueprint item (`cat: placeable`, `places: <id>`, `placeOn: plot`).
+  perks, and its blueprint item (`cat: placeable`, `places: <id>`, `placeOn: plot`). What becomes
+  of a house whose tax goes unpaid is `content/housing.json`'s `neglect` (`demolishAfterDays`: it
+  comes down, chest and all, that many days after what was paid runs out), the same for every house.
 
 ## Buildings, Structures and Props
 

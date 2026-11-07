@@ -1,20 +1,20 @@
-//! The store's land against a real Postgres: given `RUINA_TEST_DATABASE_URL` (one it may make
-//! databases in, such as a test rig's: docs/testing.md), each test makes a database of its own,
-//! named after it, and runs the server's migrations on it. Without one, they say so and pass.
+//! The store's land against a real Postgres (crates/server/src/land/): given `RUINA_TEST_DATABASE_URL`
+//! (one it may make databases in, such as a test rig's: docs/testing.md), each test makes a database
+//! of its own, named after it, and runs the server's migrations on it. Without one, they say so and
+//! pass.
 
 use std::collections::BTreeMap;
 
+use ruina_server::land::ledger::{self, Applied, pot, transfer};
+use ruina_server::land::migrate::{self, read, rekey};
+use ruina_server::land::plots::{Claim, claim, claims, holder, houses, take_down};
+use ruina_server::land::{BLOCK, Fence, LifeSave, load_holding, load_land, market, reserve_ids, save};
+use ruina_server::life::housing::{DAY, demolish_neglected, demolished_at};
+use ruina_server::life::land::{House, Land, Pack, Scarecrow, Vehicle};
+use ruina_server::life::state::LifeState;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::types::Json;
-
-use super::ledger::{Applied, pot, transfer};
-use super::migrate::{read, rekey};
-use super::plots::{Claim, claim, claims, holder, houses, take_down};
-use super::*;
-use crate::life::housing::{DAY, demolish_neglected, demolished_at};
-use crate::life::land::{House, Pack, Scarecrow, Vehicle};
-use crate::life::state::LifeState;
 
 /// A database of the test's own, the server's migrations run on it. None (and a note) without one.
 async fn fresh(name: &str) -> Option<PgPool> {
@@ -29,7 +29,7 @@ async fn fresh(name: &str) -> Option<PgPool> {
     sqlx::query(sqlx::AssertSqlSafe(format!("CREATE DATABASE {db}"))).execute(&admin).await.expect("create");
     admin.close().await;
     let (base, _) = url.rsplit_once('/').expect("a database url");
-    Some(crate::db::connect(&format!("{base}/{db}")).await.expect("migrated"))
+    Some(ruina_server::db::connect(&format!("{base}/{db}")).await.expect("migrated"))
 }
 
 /// A character of its own account, playing as session `id` (their life an empty one).
@@ -192,7 +192,7 @@ async fn a_neglected_house_comes_down_and_its_plot_is_free_for_the_next_claim() 
 #[tokio::test]
 async fn every_server_s_sales_lower_the_worlds_demand() {
     let Some(db) = fresh("market").await else { return };
-    let d = crate::life::content::demand();
+    let d = ruina_server::life::content::demand();
     // Two sales at once, from two servers, at the same moment: both count.
     let (a, b) = tokio::join!(market::sold(&db, "westwatch", "harvestCrate", 1000.0), market::sold(&db, "westwatch", "harvestCrate", 1000.0));
     let (a, b) = (a.unwrap(), b.unwrap());

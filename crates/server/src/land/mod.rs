@@ -15,13 +15,13 @@
 //! - `ledger`: transfers, each applied once, with the lives they change.
 //! - `market`: each trading post's demand, the world's.
 //! - `migrate`: saves from before land had rows of its own, moved into them.
+//!
+//! Tested against a real Postgres: crates/server/tests/land.rs.
 
 pub mod ledger;
 pub mod market;
 pub mod migrate;
 pub mod plots;
-#[cfg(test)]
-mod tests;
 
 use std::collections::BTreeMap;
 
