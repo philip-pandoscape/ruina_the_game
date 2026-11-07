@@ -109,7 +109,7 @@ play it in Node, with no page (`tests/support/headless.ts`).
 | `src/render/` | Drawing: it reads the rules' state and never changes it | The network, the interface, the app, the developer pages, the bible |
 | `src/ui/` | The interface: it shows what it's handed and asks the app for what it does | The network, the app, the bible |
 | `src/net/` | The world connection, prediction, and everyone else as the server sends them | Drawing, the interface, the developer pages, the bible |
-| `src/input/` | Keys, mouse and controller, and auto-run; the browser's shortcuts kept from play (`browserKeys.ts`) and Full Keyboard, F11 (`fullKeyboard.ts`) | Drawing, the interface, the network, the app, the developer pages, the bible |
+| `src/input/` | Keys, mouse and controller, and auto-run; the browser's shortcuts kept from play (`browserKeys.ts`) and Full Keyboard, full screen with every key the game's, on by itself (`fullKeyboard.ts`) | Drawing, the interface, the network, the app, the developer pages, the bible |
 | `src/content/` | Typed readers of the bundles, and looks | Anything of the game's but the assets |
 | `src/assets/` | The asset catalogue and the loader | Anything of the game's |
 | `src/dev/`, `src/bible/` | The developer pages and the content library; the Ruina Bible | (no limits) |

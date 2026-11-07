@@ -19,12 +19,15 @@ export type Panel =
 
 export type ShopTab = 'buy' | 'sell' | 'buyback';
 
-/** Full Keyboard (src/input/fullKeyboard.ts): full screen, where every key is the game's. */
+/** Full Keyboard (src/input/fullKeyboard.ts): full screen, where every key is the game's, on by itself. */
 export interface FullKeyboardHook {
   /** Whether this browser lets the page go full screen. */
   readonly supported: boolean;
+  /** Whether it comes on by itself (going into the world, a click into the game): the setting. */
+  readonly auto: boolean;
   readonly on: boolean;
-  toggle(): boolean;
+  /** The setting: on goes in now, off steps out now. */
+  setAuto(on: boolean): void;
 }
 
 /** What the app sets on LifeUI (its public hooks, lifeUI.ts says what each is), read when wanted. */

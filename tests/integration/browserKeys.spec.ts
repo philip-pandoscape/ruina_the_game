@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openGame } from '../support/game';
+import { onlineReady, openGame } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -8,6 +8,7 @@ test.describe.configure({ mode: 'parallel' });
 // (src/input/fullKeyboard.ts), in a real browser. A test's keys reach the page and never the
 // browser's own shortcut handling, so what is checked is what the page does with each: kept from the
 // browser (then it does nothing with it) or left to it. Ctrl+W in Full Keyboard is pressed by hand.
+// Choosing a character plays online (it makes an account), so it wants the world server, as online.spec does.
 
 interface Seen {
   type: string;
@@ -60,8 +61,8 @@ test('in the world the browser hears none of its shortcuts, and Ctrl changes no 
   for (const [chord] of chords) await page.keyboard.press(chord);
   const downs = (await seen(page)).filter((e) => e.type === 'keydown');
   for (const [chord, code] of chords) expect([chord, downs.find((e) => e.code === code)?.kept]).toEqual([chord, true]);
-  // The first Ctrl in a tab says, once, what F11 is for: Ctrl+W is the one key a tab never hands over.
-  await expect(page.locator('#lui-toasts')).toContainText('F11 plays in Full Keyboard');
+  // The first Ctrl in a tab says, once, where Ctrl+W is kept too: a tab never hands it over.
+  await expect(page.locator('#lui-toasts')).toContainText('Ctrl+W closes the game before it hears the key');
   // The game's own keys are the game's: W is no shortcut.
   await page.keyboard.press('KeyW');
   expect((await seen(page)).find((e) => e.type === 'keydown' && e.code === 'KeyW')?.kept).toBe(false);
@@ -105,19 +106,63 @@ test('a text field keeps its own keys, and the browser still gets none of its sh
   expect(await page.inputValue('#field')).toBe('x');
 });
 
-test('F11 is Full Keyboard: full screen, remembered while you play in it', async ({ page }) => {
+/** Whether the page is in full screen. */
+const fullScreen = (page: Page) => page.evaluate(() => !!document.fullscreenElement);
+/** Full Keyboard's setting as this browser keeps it. */
+const setting = (page: Page) => page.evaluate(() => localStorage.getItem('ruina.fullKeyboard'));
+/** A test's browser starts with Full Keyboard off (src/input/fullKeyboard.ts): a player's is on. */
+const asAPlayer = (page: Page) => page.addInitScript(() => localStorage.setItem('ruina.fullKeyboard', 'on'));
+
+test('F11 goes into Full Keyboard and out again there and then, leaving the setting alone', async ({ page }) => {
   await openGame(page);
   await watch(page);
-  const full = () => page.evaluate(() => !!document.fullscreenElement);
-  const kept = () => page.evaluate(() => localStorage.getItem('ruina.fullKeyboard'));
   await page.keyboard.press('F11');
-  await expect.poll(full).toBe(true);
-  await expect.poll(kept).toBe('1');
+  await expect.poll(() => fullScreen(page)).toBe(true);
   expect((await seen(page)).find((e) => e.type === 'keydown' && e.code === 'F11')?.kept).toBe(true);
-  // Out again (F11, or holding Escape): not wanted any more.
   await page.keyboard.press('F11');
-  await expect.poll(full).toBe(false);
-  await expect.poll(kept).toBeNull();
+  await expect.poll(() => fullScreen(page)).toBe(false);
+  expect(await setting(page)).toBeNull();
+});
+
+test('Full Keyboard comes on by itself: a click into the game goes in, again after stepping out, until Settings turns it off', async ({ page }) => {
+  await asAPlayer(page);
+  await openGame(page);
+  const game = { x: 640, y: 360 };
+  await page.mouse.click(game.x, game.y);
+  await expect.poll(() => fullScreen(page)).toBe(true);
+  // Escape held (the browser's way out): out, the game says how to go back, and a click goes back in.
+  await page.evaluate(() => document.exitFullscreen());
+  await expect.poll(() => fullScreen(page)).toBe(false);
+  await expect(page.locator('#lui-toasts')).toContainText('Out of full screen: a click on the game goes back in');
+  await page.mouse.click(game.x, game.y);
+  await expect.poll(() => fullScreen(page)).toBe(true);
+  // Settings turns it off: out at once, and a click into the game stays out, in this browser from now on.
+  await page.evaluate(() => {
+    window.__game.pressLife('settings');
+    window.__game.advance(2);
+  });
+  await page.getByRole('button', { name: 'Turn Full Keyboard Off' }).click();
+  await expect.poll(() => fullScreen(page)).toBe(false);
+  expect(await setting(page)).toBe('off');
+  await page.evaluate(() => window.__game.advance(2));
+  await page.getByRole('button', { name: 'Turn Full Keyboard On' }).click();
+  await expect.poll(() => fullScreen(page)).toBe(true);
+  expect(await setting(page)).toBe('on');
+});
+
+test('choosing a character goes into the world in Full Keyboard', async ({ page }) => {
+  await asAPlayer(page);
+  const name = `keys${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
+  await page.goto('/?bugs=0');
+  await page.getByRole('button', { name: 'Create Account' }).click();
+  await page.getByLabel('Name').fill(name);
+  await page.getByLabel('Password', { exact: true }).fill('lantern-light-42');
+  await page.getByLabel('Confirm Password').fill('lantern-light-42');
+  await page.getByRole('button', { name: 'Create Account' }).click();
+  await expect(page.locator('.cs-row.sel')).toContainText(name);
+  await page.getByRole('button', { name: 'Enter World' }).click();
+  await onlineReady(page);
+  expect(await fullScreen(page)).toBe(true);
 });
 
 test('in a tab, leaving asks first while Ctrl is held (Ctrl+W), and never otherwise', async ({ page }) => {

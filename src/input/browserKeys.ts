@@ -7,13 +7,14 @@
 // (input.ts).
 //
 // Left to the browser: a text field's own keys (copy, paste, undo, select all, moving by words),
-// copying text you've selected, and the developer tools (F12, Ctrl+Shift+I, J and C). F11 is Full
-// Keyboard (fullKeyboard.ts), where the browser can do it.
+// copying text you've selected, and the developer tools (F12, Ctrl+Shift+I, J and C). F11 goes in and
+// out of Full Keyboard (fullKeyboard.ts), where the browser can do it.
 //
 // What no page can keep: in a browser tab, Ctrl+W, Ctrl+T, Ctrl+N and Ctrl+Tab go to the browser
-// before the page hears of them. In Full Keyboard, or with the game installed as an app, Chrome and
-// Edge hand them to the page first, and they're kept like the rest. In a tab the game asks before
-// leaving while Ctrl is held, so Ctrl+W never closes it unasked, and says once what F11 is for.
+// before the page hears of them. In Full Keyboard (on by itself: going into the world, a click into
+// the game), or with the game installed as an app, Chrome and Edge hand them to the page first, and
+// they're kept like the rest. In a tab the game asks before leaving while Ctrl is held, so Ctrl+W never
+// closes it unasked, and says once how to get Full Keyboard back.
 
 /** A key as the browser reports it: all a verdict needs. */
 export interface KeyPress {
@@ -122,7 +123,7 @@ export interface GuardHooks {
   fullKeyboard(): boolean;
   /** Whether every key reaches the page first: Full Keyboard, or the game installed as an app. */
   keepsAll(): boolean;
-  /** Ctrl (or Cmd) went down while playing in a browser tab, the first time this page: say what F11 is for. */
+  /** Ctrl (or Cmd) went down while playing in a browser tab, the first time this page: say how to get Full Keyboard back. */
   ctrlInTab?(): void;
   /** Where a key or click landed: in a text field? Default: a form control or editable element. */
   typing?(target: EventTarget | null): boolean;
