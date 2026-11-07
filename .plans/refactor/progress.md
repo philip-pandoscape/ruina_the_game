@@ -717,10 +717,10 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 
 | Workstream | Tracker | State | Latest |
 |---|---|---|---|
-| tiers | R10.20, R10.2, R10.17's ids | running | global ids in the engine (`ids.rs`) committed |
+| tiers | R10.20, R10.2, R10.17's ids | running | Global ids in the engine (fb87743); the server's files moved into gate, sim, store, social and directory (b5df031); crates/world-api's first cut (86d6055: ids, the messages between the tiers, a tick's records by 32 m cell and each player's private part, the Transport trait). Next: the in-process post, then store, directory, social, the sims' threads and the gate on it |
 | bigworld | R10.23, R10.16's rest | running | Regions grow by need and drop in the engine (527020b): views share what's grown, sims play their chunks, the ground the same to the bit alone, with neighbours and after dropping; goldens unchanged. Next: the three-region fixture, the WebAssembly's region calls, the worker |
-| offline | R10.11, R10.4, R10.10's rest | running | |
-| wire | R10.8 | running (first half) | |
+| offline | R10.11, R10.4, R10.10's rest | running | Every test off ?yard and ?world&test (820cbfe): ?test alone is the world; the hotbar and skills specs on the yard instance with a life and the whole tree; unit tier 264 green, 11 specs green. Next: the flat yard's code, world.rs's battlefield layout, the yard's rules as instance flags |
+| wire | R10.8 | running (first half) | crates/wire (7a243c9): records by cell, u16 handles, deltas against what the browser acknowledged, tiers, a 64 KB/s budget; 22 Rust tests, a lossy and reordered link converging exactly. Before, on Windows: 32 bots 1.06-1.69 ms a tick and 22.3-23.5 KB an update, 64 bots 1.9-3.6 ms and 43.5-44.4 KB. Next: benches, the TypeScript decoder, the feed's adapter, far peers as crowd bodies. Its records become what world-api's tick carries (agreed with tiers) |
 | land | R10.21 | running (first half) | |
 | borders | R10.19 | running (first half) | |
 | channels | R10.22 | running (first half) | Started (5540056): the policy as a pure crate, crates/channels, in the tiers' words (a region's channel n, character ids), its tuning in content/channels.json, the browser's side tested through the UI gallery; building the policy and its tests |
