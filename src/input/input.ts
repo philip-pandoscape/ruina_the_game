@@ -36,8 +36,8 @@ const KEYS = {
   jump: ['Space'],
   attack: ['KeyJ', 'Mouse0'],
   // K always slides. C is the crouch, held (and the glider's flare), and a press of it on the run
-  // slides too: see crouchKeySlides. Nothing is on Ctrl, which is held down with the browser's
-  // shortcuts (Ctrl+W closes the tab, and no page can stop it).
+  // slides too: see crouchKeySlides. Nothing is on Ctrl: a key pressed with it is that key, and the
+  // browser's shortcuts are kept from it (browserKeys.ts).
   slide: ['KeyK'],
   sprint: ['ShiftLeft', 'ShiftRight'],
   crouch: ['KeyC'],
@@ -190,10 +190,10 @@ export class Input {
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
-      // A key pressed with Ctrl (or Cmd) is one of the browser's shortcuts, not the game's: Ctrl+W,
-      // Ctrl+R and Ctrl+F do what they always do, and nothing here. (Ctrl with Alt is AltGr, which
-      // types a character on some keyboards.)
-      if ((e.ctrlKey && !e.altKey) || e.metaKey) return;
+      // Ctrl means nothing in the game: Ctrl+D strafes as D does, and the browser never hears it
+      // (browserKeys.ts). Cmd on a Mac stays out of it: a key let go while Cmd is down never reports
+      // coming up, and would walk on by itself.
+      if (e.metaKey) return;
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       if (!e.repeat && MENU_KEYS[e.code] && this.menuPresses.length < 16) this.menuPresses.push(MENU_KEYS[e.code]);

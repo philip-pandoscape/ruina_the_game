@@ -1415,6 +1415,20 @@
         "tests/stress/battlefield.spec.ts",
         ".plans/refactor/reports/scale-baseline.json"
       ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "The browser's shortcuts kept out of play, and Full Keyboard (F11)",
+      "notes": "While you play, a key the browser would act on does only what the game makes of it: Ctrl+D, Ctrl+S, Ctrl+R and F5, Ctrl+1-8, Ctrl+wheel and pinch zoom, F1, F3, F6, F7, F10, Alt and Alt+Left, Shift+Escape (Chrome's task manager, sprinting as you close a window), the mouse's back button, right and middle clicks. Ctrl means nothing in the game, so Ctrl+D strafes as D does; text fields keep their own keys and the developer tools still open. What no page can keep in a browser tab (Ctrl+W, Ctrl+T, Ctrl+N, Ctrl+Tab) is kept in Full Keyboard: F11 or Settings puts the game in full screen with the keyboard locked to it, where Chrome and Edge hand the page every key and Escape is the game's (hold it to leave), remembered across a reload. Installed as an app (a web manifest and the tower icon) it keeps them in a window too. In a tab the game asks before leaving while Ctrl is held, and says once what F11 is for.",
+      "files": [
+        "src/input/browserKeys.ts",
+        "src/input/fullKeyboard.ts",
+        "src/ui/life/windows/settings.ts",
+        "public/manifest.webmanifest",
+        "tests/unit/browserKeys.test.ts",
+        "tests/integration/browserKeys.spec.ts"
+      ]
     }
   ],
   "next": [
@@ -1806,6 +1820,19 @@
         "Land is rows of its own, the same in every channel; plots are claimed once in the world; trades and pots are ledger transfers. Beta's saves were tried on a copy of its database: every character came in whole.",
         "A region split between simulations plays as one to the bit; channels open past 1,000 players and merge when quiet.",
         "Found and fixed in the end pass: a stopped or cut-off sim process had its lost space placed straight back on it; inputs piled up behind a stall held a player back for minutes; channels could merge on half the picture after the directory started again."
+      ]
+    },
+    {
+      "date": "2026-11-07",
+      "title": "No browser shortcuts in play",
+      "summary": "From the beta playtest: Ctrl+W wanted to leave the site in the middle of a fight and on the glider. A page can't stop Ctrl+W in a browser tab, so the game now keeps every shortcut a page can keep, F11 is Full Keyboard (full screen with the keyboard locked, where Chrome and Edge give the game Ctrl+W, Ctrl+T, Ctrl+N and Escape too), the game installs as an app with every key its own, and in a tab it asks before leaving while Ctrl is held.",
+      "points": [
+        "Kept from the browser while you play: Ctrl and Cmd with any key, F1-F10, Alt, Alt+Left and Right, Shift+Escape, Space, Tab, Backspace, / and ' (Firefox's quick find), Ctrl+wheel and pinch zoom, the mouse's back, forward and middle buttons, right clicks anywhere in the game. Text fields keep their editing keys; F12 and Ctrl+Shift+I, J and C still open the developer tools. src/input/browserKeys.ts.",
+        "Ctrl means nothing in the game: a key pressed with it is that key, so Ctrl+W still walks in Full Keyboard and Ctrl+D strafes. Cmd on a Mac stays out (a key let go while Cmd is down never reports coming up).",
+        "Full Keyboard (F11, or Settings): requestFullscreen and navigator.keyboard.lock (Escape and the Windows key). Hold Escape or press F11 to leave; a reload in it (an update) goes back in at the next click. src/input/fullKeyboard.ts.",
+        "Installable: public/manifest.webmanifest and the painted tower as its icon (and the tab's). In an app window Chromium reserves no keys, so the guard keeps Ctrl+W there too.",
+        "In a tab: leaving asks first while Ctrl or Cmd is held (Ctrl+W, Ctrl+Shift+W, Ctrl+F4), never otherwise; the first Ctrl in a session says, in a toast, that F11 plays with every key the game's.",
+        "Tests: tests/unit/browserKeys.test.ts (the verdict for each key, the guard, Full Keyboard against a stand-in document), tests/integration/browserKeys.spec.ts (in a browser: the shortcuts kept, Ctrl+D strafing, a text field's keys, F11 in and out, the leave prompt while Ctrl is held, the mouse). Ctrl+W in Full Keyboard and the installed app is pressed by hand: a test's keys never reach the browser's own shortcuts."
       ]
     }
   ]

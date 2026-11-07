@@ -31,7 +31,7 @@ The words (world, region, instance, channel, copy, space, chunk, cell, land, lif
 | `src/net` | The world connection, prediction, the wire's decoder and everyone else as the server sends them | `src/net/AGENTS.md` |
 | `src/render` | Drawing (the look, the world's regions, bodies and animation, buildings, creatures): reads the rules, never changes them | `src/render/AGENTS.md` |
 | `src/ui` | The Parchment & Timber interface: windows on shared components, the HUD, the writing rule | `src/ui/AGENTS.md` |
-| `src/input`, `src/content`, `src/assets` | Keys, mouse, controller and auto-run; typed readers of the content bundles and looks; the asset catalogue and loader | (in [docs/architecture.md](docs/architecture.md)) |
+| `src/input`, `src/content`, `src/assets` | Keys, mouse, controller and auto-run, the browser's shortcuts kept from play and Full Keyboard (F11); typed readers of the content bundles and looks; the asset catalogue and loader | (in [docs/architecture.md](docs/architecture.md)) |
 | `src/dev`, `dev/` | The developer pages: the Content Library, the UI gallery; the Admin menu's list (`src/dev/pages.ts`) | `src/dev/AGENTS.md`, [docs/admin.md](docs/admin.md) |
 | `src/bible`, `bible/` | The Ruina Bible, `/bible/`: how the game works, exactly, from its own rules and content | (the bible's own test, `tests/unit/bible.test.ts`) |
 | `content/` | Every piece of game data, a folder per kind and a file per thing, built by `npm run content` into the bundles both sides read (`shared/`): edit `content/`, never `shared/` | `content/AGENTS.md`, [docs/content.md](docs/content.md) |

@@ -20,6 +20,8 @@ RUN npm ci
 COPY --from=engine /app/target/wasm32-unknown-unknown/release/ruina_engine_wasm.wasm target/wasm32-unknown-unknown/release/
 COPY tsconfig.json vite.config.ts playwright.config.ts index.html ./
 COPY src src
+# Served as they are: the app manifest and its icons (installing the game as an app).
+COPY public public
 # The developer pages and the design, built beside the game (served to admins only).
 COPY dev dev
 COPY shared shared

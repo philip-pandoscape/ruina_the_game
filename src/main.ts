@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { defaultBuild, parseBuild, swapSlots, validBuild } from './content/build';
 import { loadBuild, saveBuild } from './app/savedBuild';
 import { crouchKeySlides, Input } from './input/input';
+import { guardBrowser } from './input/browserKeys';
+import { FullKeyboard } from './input/fullKeyboard';
 import { WorldFeed, type NetActor } from './net/worldFeed';
 import { NetMonsters } from './net/netMonsters';
 import { Prediction } from './net/netPlayer';
@@ -205,6 +207,20 @@ follow.reset(world.spawn.facing);
 const input = new Input(canvas);
 // C slides you on the run; standing still it only crouches, and in the air it only flares the glider.
 input.crouchSlides = () => crouchKeySlides(sim.player);
+// The browser's shortcuts are kept from it while you play (Ctrl+D, Ctrl+R, F5, Alt+Left, Ctrl+wheel),
+// and F11 is Full Keyboard: full screen, where Ctrl+W, Ctrl+T and Escape are the game's too. A reload
+// in it (an update) goes back in at the next click.
+const fullKeyboard = new FullKeyboard();
+fullKeyboard.resumeOn(canvas);
+guardBrowser(window, {
+  fullKeyboard: () => fullKeyboard.toggle(),
+  keepsAll: () => fullKeyboard.keepsAll,
+  ctrlInTab: () => {
+    if (fullKeyboard.supported)
+      lifeUI?.toast("In a browser tab, Ctrl+W closes the game before it hears the key. F11 plays in Full Keyboard, where every key is the game's.");
+  },
+  selection: () => !(getSelection()?.isCollapsed ?? true),
+});
 const hud = new Hud();
 hud.setDevice(input.lastDevice);
 
@@ -460,6 +476,7 @@ function teleport(x: number, z: number, facing = engine.player.facing): void {
   follow.reset(follow.yaw);
 }
 if (lifeUI) {
+  lifeUI.fullKeyboard = fullKeyboard;
   lifeUI.onTeleport = (x, z, facing) => teleport(x, z, facing);
   // Admins go into the developer zones from the Admin window (the server checks it's an admin).
   if (online?.welcome.dev) lifeUI.onEnterZone = (id) => online.link.zone(id);
