@@ -1,4 +1,5 @@
 import { dungeonDef } from '../../../engine/zone';
+import type { ZonePlace } from '../../../engine/zone';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { withIcons } from '../../theme/icons';
@@ -12,7 +13,12 @@ export class Banner {
   private place = '';
   private time = 0;
 
-  constructor(private ui: IslandUI) {
+  constructor(
+    private ui: IslandUI,
+    /** Every region's places, as the maps know them (the region you start in's alone without them). */
+    private places: () => Array<{ place: ZonePlace; region: string }> = () =>
+      ui.life.zone.recipe.places.map((place) => ({ place, region: ui.life.zone.recipe.name })),
+  ) {
     this.el.id = 'lui-banner';
   }
 
@@ -21,7 +27,8 @@ export class Banner {
     const p = this.ui.sim.player;
     let here = '';
     let best = Infinity;
-    for (const pl of life.zone.recipe.places) {
+    const places = this.places();
+    for (const { place: pl } of places) {
       const r = pl.kind === 'village' ? 75 : pl.kind === 'forest' ? 140 : 55;
       const d = Math.hypot(pl.x - p.pos.x, pl.z - p.pos.z);
       if (d < r && d < best) {
@@ -33,8 +40,8 @@ export class Banner {
     const dungeon = life.dungeon ? dungeonDef(life.dungeon) : undefined;
     if (dungeon) here = `dungeon:${dungeon.id}`;
     if (here && here !== this.place) {
-      const pl = life.zone.recipe.places.find((x) => x.id === here);
-      const [name, sub] = dungeon ? [dungeon.name, 'Dungeon'] : [pl?.name ?? '', life.zone.recipe.name];
+      const at = places.find((x) => x.place.id === here);
+      const [name, sub] = dungeon ? [dungeon.name, 'Dungeon'] : [at?.place.name ?? '', at?.region ?? life.zone.recipe.name];
       this.el.innerHTML = `<div class="name">${esc(name)}</div><div class="sub">${esc(sub)}</div>`;
       this.el.classList.add('show');
       this.time = 0;

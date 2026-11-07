@@ -70,6 +70,7 @@ method in `engine.ts`.
 | `command`, `lifeEvents` | A command to the island's systems (`life::Command`), and what they said. |
 | `enterDungeon`, `leaveDungeon`, `inside`, `floorAt`, `floorHere`, `solidity`, `spaceGround` | Into a copy of an instance, a space of its own played in place of the world, and out; its floors; what's solid; the ground of the space you're in. |
 | `groundY`, `standingAt`, `world` | The ground and what you'd stand on at a point; the world's colliders and grid. |
+| `regionsHeld`, `releaseRegion`, `regionSolids` | The regions the world holds and how many the rules grew on the spot; letting one go (`Engine.releaseRegion`); what's solid on one held (for one the rules grew themselves). |
 | `loadIsland` | An island loaded from a save. |
 | `takePlayer`, `replay`, `runAhead`, `replayIsland` | Online: the server's word on you taken, your unanswered inputs run again on top; a command run here at once, ahead of the server; your island as the server has it, with what's still ahead run again. |
 | `addSolidHouse`, `addSolidScarecrow`, `movers`, `others` | Online: what the server makes solid, others' vehicles, the players around you and their plots. |
@@ -80,6 +81,9 @@ method in `engine.ts`.
 | Export | What |
 |---|---|
 | `zone_grow(recipe)` | A region grown from its recipe, its borders blended where the world places it (`WorldMap::generate`): the heights, surfaces and cleared cells as arrays (`zone_heights_ptr` and its kin), the rest as JSON (`zone_json`). In TypeScript `growZone`. |
+| `world_layout()` | Where the world's regions stand: the chunk, the blend, the sea, the edge of the world, each region's id, name, climate, chunks and grid. In TypeScript `worldLayout` (`src/engine/world/layout.ts`). |
+| `region_grow(place)`, `zone_edges_*`, `region_recipe(place)` | A region grown whole as the page's worker grows it to hand over (`WorldMap::grow_whole`): read through the `zone_*` calls, with its edges as its recipe grew them and its recipe's text. In TypeScript `growWhole`. |
+| `session_adopt_region(h, place, ...)` | The page's game takes a region its worker grew: its heights, surfaces, cleared cells, edges and what's solid on it (checked to be that region as the world places it). `Engine.adoptRegion`. |
 | `building_colliders(plan, ...)` | Everything solid about a building plan placed somewhere (`buildingSolids`). |
 | `minigame_layout`, `minigame_options`, `minigame_deal` | A mini-game's board, what a player may do now, a deal for development (`src/engine/minigames.ts`). |
 | `content_use(bundles)` | Bundles read in place of the ones built in, before anything has asked. |

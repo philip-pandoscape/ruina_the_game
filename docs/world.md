@@ -3,7 +3,7 @@
 Ruina's main world is one seamless open world of regions, set on a grid of chunks with the sea
 between them. The instances stand beside it: dungeons and developer zones, each a space of its own
 that a party plays in a copy of its own. Emberholm, the starter isle, is the first region and today
-the only one. Each region and instance is files; nothing in code lists them. This page covers how the
+the only one shipped (the tests play a fixture world of three, Testing below). Each region and instance is files; nothing in code lists them. This page covers how the
 world is laid out, how the rules read its ground, how it and its instances are played, and how to
 add a region or an instance. The plans for the rest are in `.plans/world/` and the refactor's Phase
 10 (`.plans/refactor/tracker.md`, R10.17 to R10.24):
@@ -68,12 +68,10 @@ rules' questions about the ground anywhere:
 
 The rules ask through the map, so they work the same in any region and across borders.
 
-- **Growing.** A region grows from its recipe the first time anything asks: its terrain, surfaces,
-  trees, rocks and buildings' colliders (`open/generate.rs`, `open/buildings.rs`).
-  - The server grows it natively.
-  - The browser grows it through the WebAssembly (`zone_grow`; `growZone` in
-    `src/engine/world/region.ts`), and gets the same ground to the bit
-    (`tests/conformance/terrain.test.ts`).
+- **Growing.** A region grows from its recipe: its terrain, surfaces, trees, rocks and buildings'
+  colliders (`open/generate.rs`, `open/buildings.rs`), natively on the server and through the
+  WebAssembly in the browser, the same ground to the bit (`tests/conformance/terrain.test.ts`).
+  Regions grow by need and are dropped when nothing needs them (Growing and Dropping, below).
 - **Borders without a seam.** Near a chunk's edge, the ground is shared with what's across it.
   - The weights step smoothly over `blend` metres either side of the edge, and always sum to one.
   - Every region's cell is the same size, a whole number to a chunk, so both sides of a border read
@@ -82,10 +80,67 @@ The rules ask through the map, so they work the same in any region and across bo
   - The open sea slopes up to meet a region the same way.
 - **What's solid** in the world is every region's colliders together.
 
-Today the whole world grows the first time it's asked, and the browser draws Emberholm alone
-(`makeZoneWorld`). Two parts are next: growing what's near and dropping what's behind (R10.16), and
-the browser doing that in a worker as you travel (R10.23). In R10.16, the server grows its own chunks
-and a band round them.
+### Growing and Dropping
+
+A `WorldMap` is a view of its world: it holds the regions grown for whoever plays through it, and
+every view of one world shares what's grown, so a region is grown once however many views hold it,
+and freed when none does (`map.rs`).
+
+| Call | What |
+|---|---|
+| `view()` | Another view of the same world, holding nothing yet. |
+| `hold(places)` | Holds exactly these regions (places in the map): those it lacks grown or shared, the rest let go. |
+| `adopt(place, Grown)` | Holds a region grown elsewhere (the browser's worker), refused if it isn't that region as the world places it. |
+| `release(place)` | Lets one go. |
+| `near(x, z, reach)` | The regions with a chunk within `reach` of a point, nearest first: what the browser holds round the player. |
+| `around(chunks, band)` | The regions on a simulation's chunks and those nearer than `band` to them. |
+| `held()`, `unheld()`, `grows(place)` | What it holds; how many regions it grew on the spot because ground was asked of it that it didn't hold (the browser's rules expect none); how many times a region has been grown in the world. |
+
+- **The same to the bit.** What's across a border reads only a region's edges as its recipe grew them,
+  two vertices deep (`Edges`, a few kilobytes), and those are kept for the world once grown. So a
+  region grown alone, beside its neighbours, or again after being dropped is the same to the bit
+  (`map.rs`'s tests compare heights, surfaces, cleared cells and colliders). A region whose land
+  neighbour has never been grown has that neighbour's edges grown for it first (once for the world).
+- **On the server.** `OpenWorld::playing(map, zone, chunks, SIM_BAND)` holds what a simulation plays
+  and the regions nearer than a chunk (256 m) to it, and what's solid follows what it holds, keeping
+  what's been built since; `play(chunks, band)` moves it. A channel plays every chunk of the world
+  today (`played` in `crates/server/src/sim/mod.rs`); borders (R10.19) give each simulation its own.
+- **In the browser** (The Client in a Big World, below), the page's rules hold the region you start
+  in (`OpenWorld::alone`) and adopt the rest as the page's worker grows them.
+- **Asked about ground it doesn't hold**, a view grows the region there and then and holds it from
+  then on, as every view did before regions were dropped, and counts it (`unheld`). The global
+  `world_map()` is such a view: what anything asks of it stays grown.
+
+### The Client in a Big World
+
+The browser plays a world of many regions with nothing loading as you cross from one into the next
+(R10.23). The page's start grows the region you start in on its own thread, as before; everything
+else grows in a Web Worker.
+
+- **Grown ahead of you** (`src/app/regions.ts`): the regions with a chunk within 600 m of you are asked
+  of the page's worker, nearest first, one at a time. The worker (`src/app/grower.ts`,
+  `grower.worker.ts`) has an engine of its own, the same WebAssembly given the same content: it grows
+  the region whole (`region_grow`, `WorldMap::grow_whole`: 90 to 200 ms for a region), bakes its sea's
+  depths and paints its map, and hands it all over with its arrays moved.
+- **Adopted** by the page's rules (`Engine.adoptRegion`, the WebAssembly's `session_adopt_region`): its
+  ground theirs and what stands on it solid, about 5 ms.
+- **Drawn** where the world places it (`src/render/open/regionView.ts`: its ground, trees, dressing,
+  buildings and falls), built a little each frame within 3 ms, and its files fetched as you approach
+  it (`docs/assets.md`, By Region).
+- **Dropped** 900 m behind you, from the rules and the drawing alike. The region where lives belong
+  (Emberholm) is kept.
+- **The page's ground** across regions is `WorldGround` (`src/engine/world/worldGround.ts`): each
+  region's grid where it stands, and the open sea sloping to meet a region from its edges, the same
+  sums as the engine's (`tests/conformance/world.test.ts`). A region it doesn't hold reads as open sea.
+- **The scene's origin moves with you** (`src/render/origin.ts`): the rules keep the world's own f64
+  coordinates; the scene stands shifted by the origin, the camera in it, once the camera is 3 km from
+  it, on a 2 km lattice. Near the world's origin (Emberholm) it never moves. The patterns laid in the
+  world (the ground's textures, the sea's ripples and foam, the grain of built things) are drawn from
+  positions relative to it plus what it's worth to each pattern, worked out in 64 bits, so they stay
+  put as it moves and keep their precision 100 km out. Raycasts and projecting to the screen go
+  through `toScene` and `fromScene`; a camera turns to a point in the world with `lookAtWorld`.
+- **The maps** show the world's regions: the minimap draws each region's picture where it stands, and
+  the map window shows the region you're in or, with World Map, the whole world.
 
 ## Spaces
 
@@ -230,13 +285,14 @@ them away). A new kind of bot is a brain in `bots.rs` and its name in `Brain::na
    (`crates/engine/src/open/spawns.rs`).
 2. **Its chunks** go in `content/world.json`, a square of them that no other region has. Its recipe's
    grid covers exactly them (`cells` × `cell`), with the same cell as every other region, and its
-   terrain's origin at their middle.
+   terrain's origin at their middle. For a land border, its land and its neighbour's must both reach
+   the shared edge (Emberholm's coast stays well inside its chunks, so it has sea borders only).
 3. **Its words** go in `src/bible/notes/regions.md`, under `## <id>`.
 4. **The checks.** `npm run content` checks its grid, its sea level and that every id in it is one
    thing in the whole world. `npm run check` checks the borders (`map.rs`'s tests) and the bible.
 
-The server's rules see the new region from then on. The browser draws only Emberholm until it grows
-what's near the player (R10.16, R10.23).
+The server's rules and the browser see the new region from then on: the browser grows it in its
+worker as you come near it.
 
 ## Adding an Instance
 
@@ -259,7 +315,16 @@ what's near the player (R10.16, R10.23).
 
 ## Testing
 
-- `crates/engine/src/open/map.rs` checks Emberholm and two fixture worlds (an archipelago, and a
+- **The fixture world** (`tests/fixtures/world/`, in the shapes of `shared/world.json` and a region's
+  recipe): `world.json` is Emberholm; Saltmere across a chunk of open sea to its west (x 1024 to
+  2048 m); and Thornmarch beside Saltmere across a land border at x = 2048 m, one island grown half by
+  each (Thornmarch frost to Saltmere's temperate). `far.json` is Emberholm and Farholt, a flat isle
+  102 km out. Rust tests load them from `ruina_engine::open::fixture` (`world()`, `far()`, `recipe()`,
+  and `bundles()` to give a whole engine in place of `shared/`), built in for the engine's tests and,
+  with the engine's `fixture-world` feature, for other crates'. The page plays them offline with
+  `?fixture=world` or `?fixture=far` (a development server serves the files); a unit test gives them to
+  its engine with `useContent`.
+- `crates/engine/src/open/map.rs` checks Emberholm and two small fixture worlds (an archipelago, and a
   mainland split between regions):
   - Emberholm stands round the origin, with open sea past it to the edge of the world.
   - Borders meet with no seam, across land and with the open sea.
@@ -267,7 +332,23 @@ what's near the player (R10.16, R10.23).
   - A region's ground is its own, except within the blend of its edge.
   - No two regions share a chunk.
   - A world is solid with all its regions' colliders.
+  - A region is the same to the bit grown alone, with its neighbours, or again after being dropped;
+    views share what's grown and free it when none holds it; a region grown elsewhere is adopted as
+    grown.
+- `crates/engine/src/open/fixture.rs`: the fixture world crossed holding only what's within 600 m of
+  the player, as the browser does, nothing grown on the spot: walked across the land border (the same
+  steps as in the world grown whole), swum from Emberholm to Saltmere, glided across the land border,
+  a cart driven across it with a friend riding along; a region let go behind and grown again ahead.
 - `tests/conformance/terrain.test.ts`: the WebAssembly's region against the native one, all of it.
+  `tests/conformance/world.test.ts`: the page's ground across the fixture world against the engine's
+  world map, to the bit.
+- `tests/unit/grower.test.ts`: the worker's protocol, and the regions held round you (grown ahead
+  nearest first, adopted, let go behind); `tests/unit/origin.test.ts`: the floating origin's
+  arithmetic.
+- `tests/integration/bigworld.spec.ts`: the fixture world crossed in a page in real time with every
+  frame timed (on foot, swimming, by cart and by glider: nothing loading at the border, no frame at it
+  longer than 50 ms), what's behind let go and grown again, the World Map, and Farholt drawn as
+  precisely 102 km out as anywhere.
 - `tests/integration/world.spec.ts`: the open world in a page, and played on that ground (swimming,
   gliding, farming, vehicles, boats).
 - `crates/engine/src/open/dungeon.rs`: every instance loads, has a floor where you come in and its

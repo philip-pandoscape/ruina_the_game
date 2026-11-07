@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 use ruina_engine::life::state::{House, LifeState, Scarecrow};
 use ruina_engine::life::{Command, OtherPlayer, OthersVehicle, Placement};
 use ruina_engine::open::Mover;
+use ruina_engine::open::map::{Edges, Grown, world_map};
+use ruina_engine::open::zone::{BoxCollider, Heightfield, Obstacle, Zone};
 use ruina_engine::player::{Actions, Build};
 use ruina_engine::session::Session;
 use ruina_engine::skills::SKILL_WORDS;
@@ -252,6 +254,57 @@ pub extern "C" fn session_life(h: u32) -> usize {
     give(with(h, |s| s.life_json().to_string()).unwrap_or_default())
 }
 
+/// Hands the session's world a region its page's worker grew (src/engine/world/grower.ts,
+/// `region_grow` in its own engine): the region at `place` in the world's map, its heights (`hn`
+/// f32s from `hp`, row by row), its surfaces (`sn` bytes at `sp`), its cells kept clear (`cn` at
+/// `cp`), its edges as its recipe grew them (`en` f32s from `ep`), and what's solid on it (`jn`
+/// bytes of JSON at `jp`: `{obstacles, boxes, decks}`). Its ground is the rules' and what's on it solid
+/// from then on. 1 if taken; 0 if the arrays aren't that region's as the world places it.
+///
+/// # Safety
+/// Each pointer and its length lie in room `alloc` gave.
+#[unsafe(no_mangle)]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn session_adopt_region(
+    h: u32,
+    place: u32,
+    hp: *const u8,
+    hn: usize,
+    sp: *const u8,
+    sn: usize,
+    cp: *const u8,
+    cn: usize,
+    ep: *const u8,
+    en: usize,
+    jp: *const u8,
+    jn: usize,
+) -> u32 {
+    #[derive(Deserialize)]
+    struct Solids {
+        obstacles: Vec<Obstacle>,
+        boxes: Vec<BoxCollider>,
+        decks: Vec<BoxCollider>,
+    }
+    let read = |p: *const u8, n: usize| unsafe { std::slice::from_raw_parts(p, n) }.to_vec();
+    // The floats as the page wrote them, byte by byte (the room `alloc` gives is bytes, not floats).
+    let floats = |p: *const u8, n: usize| read(p, n * 4).as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect::<Vec<f32>>();
+    let Some(r) = world_map().regions().get(place as usize) else { return 0 };
+    let Ok(solids) = serde_json::from_str::<Solids>(unsafe { text(jp, jn) }) else { return 0 };
+    let t = &r.recipe().terrain;
+    // Where the generator puts the grid: centred on its origin (Heightfield::new).
+    let half = t.cells as f64 * t.cell / 2.0;
+    let (min_x, min_z) = (t.origin[0] - half, t.origin[1] - half);
+    let Some(terrain) = Heightfield::from_parts(t.cells, t.cell, t.water, min_x, min_z, floats(hp, hn), read(sp, sn)) else { return 0 };
+    let Some(edges) = Edges::from_parts(t.cells, t.cell, min_x, min_z, floats(ep, en)) else { return 0 };
+    let clear = read(cp, cn);
+    if clear.len() != t.cells * t.cells {
+        return 0;
+    }
+    let radius = terrain.size() / 2.0 - 8.0;
+    let zone = Zone { recipe: r.recipe().clone(), terrain, clear, obstacles: solids.obstacles, boxes: solids.boxes, decks: solids.decks, radius };
+    u32::from(with(h, |s| s.adopt_region(place as usize, Grown::of(zone, edges)).is_ok()).unwrap_or(false))
+}
+
 /// One of the Engine's other calls, named in `call` with its arguments beside it (JSON); the
 /// answer is JSON too (null for none).
 ///
@@ -291,6 +344,12 @@ fn call(s: &mut Session, v: &Value) -> Value {
         "floorHere" => return json!(s.floor_here()),
         "solidity" => return json!(s.solidity()),
         "spaceGround" => return s.space_ground(),
+        "regionsHeld" => {
+            let (held, unheld) = s.regions_held();
+            return json!({ "held": held, "unheld": unheld });
+        }
+        "releaseRegion" => s.release_region(n("place") as usize),
+        "regionSolids" => return s.region_solids(n("place") as usize),
         "groundY" => return json!(s.ground_y(n("x"), n("z"))),
         "standingAt" => return json!(s.standing_at(n("x"), n("z"), n("near"), n("pad"))),
         "loadIsland" => return json!(v.get("data").is_some_and(|d| s.load_island(d, n("now")))),

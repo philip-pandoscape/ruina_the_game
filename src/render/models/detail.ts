@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { asset } from '../../assets/manifest';
 import { picture, track } from '../assets';
 import { GRAPHICS } from '../look';
+import { followOrigin, repeatShift } from '../origin';
 import { toon } from '../toon';
 
 // The grain of built things drawn in vertex colours (buildings, vehicles, docks, props, packs),
@@ -10,6 +11,8 @@ import { toon } from '../toon';
 // paint) a faint plaster tooth. Projected from three sides in world space, so no model needs
 // texture coordinates. One texture holds all three, a channel each (CC0, Poly Haven:
 // brown_planks_05, stone_wall, plastered_wall). Creatures keep the plain vertex-colour material.
+// Laid in the world: drawn from positions relative to the scene's origin, shifted by what the origin
+// is worth in repeats (src/render/origin.ts).
 
 /** Each channel's average, so the grain multiplies colours without darkening them on the whole. */
 const MEAN = [0.771, 0.555, 0.638];
@@ -47,6 +50,7 @@ const vertexBody = /* glsl */ `
 const fragmentHead = /* glsl */ `
   uniform sampler2D tDetail;
   uniform float uDetailOn;
+  uniform vec3 uDetailShift;
   varying vec3 vDetailPos;
   varying vec3 vDetailNormal;
 `;
@@ -64,7 +68,7 @@ const fragmentBody = /* glsl */ `
     vec3 n = normalize(vDetailNormal);
     vec3 w = pow(abs(n), vec3(4.0));
     w /= w.x + w.y + w.z;
-    vec3 p = vDetailPos * ${SCALE.toFixed(2)};
+    vec3 p = vDetailPos * ${SCALE.toFixed(2)} + uDetailShift;
     vec3 t = texture2D(tDetail, p.zy).rgb * w.x + texture2D(tDetail, p.xz).rgb * w.y + texture2D(tDetail, p.xy).rgb * w.z;
     t /= vec3(${MEAN.map((m) => m.toFixed(3)).join(', ')});
     float d = mix(mix(1.0 + (t.b - 1.0) * 0.45, t.g, stone), t.r, wood);
@@ -73,8 +77,12 @@ const fragmentBody = /* glsl */ `
   #endif
 `;
 
+/** Where the scene's origin stands in the grain's repeats, for every grained material. */
+const detailShift = new THREE.Vector3();
+followOrigin((ox, oz) => detailShift.set(repeatShift(ox, SCALE), 0, repeatShift(oz, SCALE)));
+
 function withGrain(material: THREE.MeshToonMaterial): THREE.MeshToonMaterial {
-  const uniforms = { tDetail: { value: detailTexture() }, uDetailOn: { value: 1 } };
+  const uniforms = { tDetail: { value: detailTexture() }, uDetailOn: { value: 1 }, uDetailShift: { value: detailShift } };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader

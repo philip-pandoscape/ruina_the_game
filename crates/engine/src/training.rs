@@ -39,12 +39,12 @@ pub struct Target {
 /// one, else the world's terrain. On the yard's flat ground there is neither, and heights are as
 /// they are kept.
 #[derive(Clone, Copy, Default)]
-pub struct Footing {
+pub struct Footing<'a> {
     pub floor: Option<&'static DungeonDef>,
-    pub terrain: Option<&'static WorldMap>,
+    pub terrain: Option<&'a WorldMap>,
 }
 
-impl Footing {
+impl Footing<'_> {
     /// Whether heights stand on a ground (everywhere but the yard's flat ground).
     pub fn raised(&self) -> bool {
         self.floor.is_some() || self.terrain.is_some()
@@ -58,7 +58,7 @@ impl Footing {
 
 /// Everything standing that an attack could land on: on an island or in a copy their heights are
 /// raised onto the ground under them.
-pub fn targets(actors: &Actors, footing: Footing) -> Vec<Target> {
+pub fn targets(actors: &Actors, footing: Footing<'_>) -> Vec<Target> {
     let mut out = Vec::new();
     for a in &actors.list {
         if !a.is_alive() || a.faction == NEUTRAL {
@@ -128,7 +128,7 @@ pub fn point_hit(targets: &[Target], x: f64, y: f64, z: f64, pad: f64) -> Option
 pub struct Blows<'a> {
     pub actors: &'a mut Actors,
     pub player: &'a Player,
-    pub footing: Footing,
+    pub footing: Footing<'a>,
     pub events: &'a mut Vec<Event>,
 }
 
@@ -187,7 +187,7 @@ impl Blows<'_> {
 /// A swing's blow, on a frame it could land: whatever is in
 /// its arc and reach takes it, and everything pauses a moment. `above` is how high you are over
 /// the ground; returns the frames of hit pause, if it landed.
-pub fn check_hit(actors: &mut Actors, footing: Footing, events: &mut Vec<Event>, player: &mut Player, step: &AttackStep, above: f64) -> Option<i32> {
+pub fn check_hit(actors: &mut Actors, footing: Footing<'_>, events: &mut Vec<Event>, player: &mut Player, step: &AttackStep, above: f64) -> Option<i32> {
     // Too far up in the air to reach anything.
     if above > 2.0 {
         return None;

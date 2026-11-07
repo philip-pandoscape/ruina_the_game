@@ -26,7 +26,7 @@ use crate::life::{
 use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{Spot, dungeon};
-use crate::open::map::WorldMap;
+use crate::open::map::{Grown, WorldMap};
 use crate::open::spawns::{band_around, instance_spawns};
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
@@ -102,7 +102,9 @@ impl Session {
         let (ground, mut spawns, spawn) = if open_world {
             let zone = emberholm();
             let s = zone.recipe.spawn;
-            (Ground::Open(Box::new(OpenWorld::new(zone))), island_spawns(&zone.recipe), Spawn { x: s.x, z: s.z, facing: s.facing })
+            // The world holding its home region alone: the page adopts the regions near you as its
+            // worker grows them (adopt_region), and drops them behind you.
+            (Ground::Open(Box::new(OpenWorld::alone(zone))), island_spawns(&zone.recipe), Spawn { x: s.x, z: s.z, facing: s.facing })
         } else {
             let y = yard(YARD_SEED);
             let (spawns, spawn) = (y.spawns.clone(), y.spawn);
@@ -156,18 +158,9 @@ impl Session {
         s
     }
 
-    /// The ground creatures stand on: the floor of the copy you're in, the world's terrain, or
-    /// neither on the yard's flat ground.
-    fn footing(&self) -> Footing {
-        Footing { floor: self.dungeon.as_deref().and_then(dungeon), terrain: self.terrain() }
-    }
-
     /// The world's ground (none on the yard's flat ground).
-    pub fn terrain(&self) -> Option<&'static WorldMap> {
-        match &self.ground {
-            Ground::Open(w) => Some(w.map),
-            Ground::Flat { .. } => None,
-        }
+    pub fn terrain(&self) -> Option<&WorldMap> {
+        terrain_of(&self.ground)
     }
 
     fn training(&self) -> bool {
@@ -206,6 +199,13 @@ impl Session {
     pub fn step(&mut self, a: &Actions) {
         self.placed = None;
         self.frame += 1;
+        // A region the rules grew on the spot (asked about before the page handed it over) is solid
+        // from this step on.
+        if let Ground::Open(w) = &mut self.ground
+            && w.solid_behind()
+        {
+            w.make_regions_solid();
+        }
         let training = self.training();
         self.player.remember_presses(a);
         // Hit pause (offline): everything freezes briefly when a hit lands. Presses are kept.
@@ -213,12 +213,12 @@ impl Session {
             self.hitstop -= 1;
         } else {
             self.player.count_down(a);
-            self.player.aim_assist = training.then(|| targets(&self.actors, self.footing()).iter().map(|t| (t.x, t.z)).collect());
+            self.player.aim_assist = training.then(|| targets(&self.actors, footing(&self.ground, &self.dungeon)).iter().map(|t| (t.x, t.z)).collect());
             self.act(a);
             self.take_player_events();
             if training && let Some(step) = self.player.swing_due.take() {
                 let above = self.height_above_ground();
-                let footing = self.footing();
+                let footing = footing(&self.ground, &self.dungeon);
                 if let Some(pause) = check_hit(&mut self.actors, footing, &mut self.events, &mut self.player, &step, above) {
                     self.hitstop = pause;
                 }
@@ -226,7 +226,7 @@ impl Session {
             self.player.update_crouch_frame();
             self.player.bodies.clear();
             if training {
-                let footing = self.footing();
+                let footing = footing(&self.ground, &self.dungeon);
                 for a in self.actors.list.iter().filter(|a| a.solid && a.is_alive()) {
                     let y = if footing.raised() { footing.height(a.x, a.z) + a.y } else { a.y };
                     self.player.bodies.push(Body { x: a.x, z: a.z, r: a.radius, y });
@@ -259,7 +259,7 @@ impl Session {
         self.catch_fall();
         if training {
             let seen = self.events.len();
-            let footing = self.footing();
+            let footing = footing(&self.ground, &self.dungeon);
             let mut blows = Blows { actors: &mut self.actors, player: &self.player, footing, events: &mut self.events };
             self.range.step(&mut blows, seen);
             self.observe();
@@ -355,8 +355,6 @@ impl Session {
     fn step_actors(&mut self) {
         // In a copy of a dungeon or a developer zone, its creatures stand on its floor, as the
         // server's do.
-        let footing = self.footing();
-        let ground = move |x: f64, z: f64| footing.height(x, z);
         let foes: Vec<Foe> = if self.player.down_frame >= 0 {
             Vec::new()
         } else {
@@ -364,6 +362,8 @@ impl Session {
             f.air = self.height_above_ground();
             vec![f]
         };
+        let footing = footing(&self.ground, &self.dungeon);
+        let ground = move |x: f64, z: f64| footing.height(x, z);
         let player = &mut self.player;
         let pr = tuning().movement.player_radius;
         let hurt = |player: &mut Player, ev: &mut Vec<Event>, damage: f64, nx: f64, nz: f64, knock: f64| {
@@ -448,13 +448,15 @@ impl Session {
     /// ground, or the floor of the copy you're in), off whatever you were riding, gliding or
     /// swimming in: teleports, and a dungeon's arrival and door.
     pub fn place(&mut self, x: f64, z: f64, facing: f64, from_y: Option<f64>) {
-        let Some(hf) = self.terrain() else { return };
+        if self.terrain().is_none() {
+            return;
+        }
         if self.player.mode == Mode::Ride
             && let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground)
         {
             vehicles::dismount(life, &mut Sim { player: &mut self.player, world, owner: 0 });
         }
-        let near = from_y.or(self.floor_here()).unwrap_or_else(|| hf.height(x, z));
+        let near = from_y.or(self.floor_here()).unwrap_or_else(|| self.terrain().map_or(0.0, |hf| hf.height(x, z)));
         self.settle(x, z, near);
         let p = &mut self.player;
         p.vel = Default::default();
@@ -733,6 +735,54 @@ impl Session {
         }
     }
 
+    // ---------- The world's regions, grown by need ----------
+
+    /// The open world, wherever you are: the one set aside while you're in a copy of an instance.
+    fn open_world(&self) -> Option<&OpenWorld> {
+        match (self.outside.as_deref(), &self.ground) {
+            (Some(w), _) => Some(w),
+            (None, Ground::Open(w)) => Some(w),
+            _ => None,
+        }
+    }
+
+    fn open_world_mut(&mut self) -> Option<&mut OpenWorld> {
+        match (self.outside.as_deref_mut(), &mut self.ground) {
+            (Some(w), _) => Some(w),
+            (None, Ground::Open(w)) => Some(w),
+            _ => None,
+        }
+    }
+
+    /// Holds a region grown elsewhere (the page's worker, src/engine/world/grower.ts): its ground the
+    /// rules' and what's on it solid from now on. Refused if it isn't that region as the world
+    /// places it.
+    pub fn adopt_region(&mut self, place: usize, grown: Grown) -> Result<(), String> {
+        self.open_world_mut().ok_or("no open world")?.adopt(place, grown)
+    }
+
+    /// Lets a region go (the page drops what's behind you).
+    pub fn release_region(&mut self, place: usize) {
+        if let Some(w) = self.open_world_mut() {
+            w.release(place);
+        }
+    }
+
+    /// The regions the world holds (places in the world's map), and how many it has grown on the spot
+    /// because the rules asked about ground before the page handed it over.
+    pub fn regions_held(&self) -> (Vec<usize>, u32) {
+        self.open_world().map_or((Vec::new(), 0), |w| (w.held(), w.map.unheld()))
+    }
+
+    /// What's solid on a region the world holds, as grown (`{obstacles, boxes, decks}`; null if it
+    /// doesn't hold it): for the page, when the rules grew one on the spot.
+    pub fn region_solids(&self, place: usize) -> Value {
+        match self.open_world().and_then(|w| w.map.held_region(place)) {
+            Some(g) => json!({ "obstacles": g.zone.obstacles, "boxes": g.zone.boxes, "decks": g.zone.decks }),
+            None => Value::Null,
+        }
+    }
+
     /// A house solid here as it is on the server: yours, or someone else's where you see it (their
     /// houses come with ids of their own, so they're never taken for yours).
     pub fn add_solid_house(&mut self, h: &House) {
@@ -889,7 +939,7 @@ impl Session {
     /// A blow from you to an actor, as if your weapon had landed it.
     pub fn hurt_actor(&mut self, id: u32, amount: f64) {
         let weapon = self.player.weapon;
-        let footing = self.footing();
+        let footing = footing(&self.ground, &self.dungeon);
         Blows { actors: &mut self.actors, player: &self.player, footing, events: &mut self.events }.damage(id, amount, 0.0, 0, Some(weapon));
         self.observe();
         self.stamp();
@@ -912,8 +962,8 @@ impl Session {
     }
 
     /// A number that changes whenever what's solid changes (a house or a scarecrow made solid, a
-    /// dungeon's floors and walls put in or taken out), so the page knows to read the colliders
-    /// again (`colliders_json`, `clear`) for its camera and drawing.
+    /// dungeon's floors and walls put in or taken out, a region held or let go), so the page knows to
+    /// read the colliders again (`colliders_json`, `clear`) for its camera and drawing.
     pub fn solid_key(&self) -> u32 {
         let Ground::Open(w) = &self.ground else { return 0 };
         let mut h: u32 = 0x811c_9dc5;
@@ -922,19 +972,26 @@ impl Session {
                 h = (h ^ b as u32).wrapping_mul(0x0100_0193);
             }
         };
+        let (obstacles, boxes, decks) = w.built();
         mix(w.added.len());
-        mix(w.index.obstacles.len());
-        mix(w.index.boxes.len());
-        mix(w.index.decks.len());
+        mix(obstacles.len());
+        mix(boxes.len());
+        mix(decks.len());
+        for r in w.held() {
+            mix(r);
+        }
         mix(self.crossings as usize);
         h
     }
 
-    /// Everything solid on the island as it stands, in src/engine/world/types.ts's shapes (`{obstacles,
-    /// boxes, decks}`; null on the yard's flat ground).
+    /// What's solid in the world as it stands, in src/engine/world/types.ts's shapes: the regions held
+    /// (`regions`, places in the world's map: the page has what's on them from its worker), and what's
+    /// been built since (`{obstacles, boxes, decks}`: houses, scarecrows, a copy's floors and walls);
+    /// null on the yard's flat ground.
     pub fn colliders_json(&self) -> Value {
         let Ground::Open(w) = &self.ground else { return Value::Null };
-        json!({ "obstacles": w.index.obstacles, "boxes": w.index.boxes, "decks": w.index.decks })
+        let (obstacles, boxes, decks) = w.built();
+        json!({ "regions": w.held(), "obstacles": obstacles, "boxes": boxes, "decks": decks })
     }
 
     /// The island's cells kept clear of trees and scarecrows (the zone's, and ground cleared for houses).
@@ -1044,6 +1101,20 @@ impl Session {
             Ground::Open(_) => json!({ "spawns": self.spawns }),
         }
     }
+}
+
+/// The world's ground (none on the yard's flat ground).
+fn terrain_of(ground: &Ground) -> Option<&WorldMap> {
+    match ground {
+        Ground::Open(w) => Some(&w.map),
+        Ground::Flat { .. } => None,
+    }
+}
+
+/// The ground creatures stand on: the floor of the copy you're in, the world's terrain, or neither
+/// on the yard's flat ground.
+fn footing<'a>(ground: &'a Ground, inside: &Option<String>) -> Footing<'a> {
+    Footing { floor: inside.as_deref().and_then(dungeon), terrain: terrain_of(ground) }
 }
 
 fn mode_of(s: &str) -> Option<Mode> {

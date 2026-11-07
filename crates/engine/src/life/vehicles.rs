@@ -1427,7 +1427,7 @@ mod tests {
         (v.x, v.z, v.heading) = (x, z, 0.0);
         w.board(id);
         let def = rideable("rowboat");
-        let hf = w.world.terrain();
+        let hf = w.world.terrain().clone();
         let mut stopped = 0;
         for _ in 0..600 {
             w.frames(1, drive(1.0, 0.0, false));
@@ -1622,7 +1622,7 @@ mod tests {
         w.stand((x, z + 8.0, PI));
         w.mount();
         let id = w.p.vehicle;
-        let hf = w.world.terrain();
+        let hf = w.world.terrain().clone();
         let mut swam = false;
         for _ in 0..400 {
             w.frames(1, walk(0.0, -1.0, false));
@@ -1645,7 +1645,7 @@ mod tests {
         w.stand((x, z + 16.0, PI));
         let id = w.summon("deed.farmCart").expect("a cart on the beach");
         w.board(id);
-        let hf = w.world.terrain();
+        let hf = w.world.terrain().clone();
         for _ in 0..300 {
             w.frames(1, drive(1.0, 0.0, false));
             let v = w.v(id);
