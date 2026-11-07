@@ -3,18 +3,7 @@ import { claimsPlot, RECIPES, VENDORS } from '../../../content/items';
 import { type Objective, objectiveTarget, type QuestMarker, questDef } from '../../../content/quests';
 import { structureDef } from '../../../content/structures';
 import { packDef, placeName } from '../../../content/trade';
-import {
-  housePose,
-  isComplete,
-  stageReady,
-  stillNeeds,
-  nodeReady,
-  type LifeRead,
-  shipFinished,
-  shipNeeds,
-  shipOn,
-  shipStageReady,
-} from '../../../engine/life';
+import { housePose, isComplete, stageReady, stillNeeds, nodeReady, type LifeRead, shipFinished, shipNeeds, shipOn, shipStageReady } from '../../../engine/life';
 import type { SimRead } from '../../../engine/rules';
 
 // Where the quest you're on leads you: the ring on both maps, the marker on the compass, and what

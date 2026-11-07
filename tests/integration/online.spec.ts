@@ -6,13 +6,13 @@ import { onlineReady as waitOnline } from '../support/game';
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
 
-// Emberholm on the game server: signing in, choosing among several characters (each with an island
-// of its own), the server playing your island and keeping it in Postgres between visits, starting
+// Emberholm on the game server: signing in, choosing among several characters (each with a life
+// of its own), the server playing your life and keeping it in Postgres between visits, starting
 // over, one window per character, and sharing a channel. These play the real game against the real
 // server, so they need it running with developer sign-in: `npm run up` (Docker). Without it they're
 // skipped. (Updates and dropped connections are in tests/integration/update.spec.ts, with a server of its own.)
 //
-// The game steps (and sends its inputs) only as fast as it draws, and CI draws the island in
+// The game steps (and sends its inputs) only as fast as it draws, and CI draws the world in
 // software at a few frames a second, so waits on the server's answers are generous.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
@@ -41,13 +41,13 @@ const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.flo
 /** Runs `fn` in the page with the game's test API (window.__game). `fn` can't use anything from here. */
 const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString()})(window.__game)`) as Promise<T>;
 
-/** Waits until the server has written the island to the database again (it does every 5 s). */
+/** Waits until the server has written your life to the database again (it does every 5 s). */
 async function saveAndWait(page: Page): Promise<void> {
   const before = await game(page, (g) => g.online().lastSaved);
   await expect.poll(() => game(page, (g) => g.online().lastSaved), { timeout: 20_000 }).toBeGreaterThan(before);
 }
 
-test('a new player makes an account, and their island is kept on the server between visits', async ({ page }) => {
+test('a new player makes an account, and their life is kept on the server between visits', async ({ page }) => {
   const name = fresh('new');
   await page.goto('/?bugs=0');
   await page.getByRole('button', { name: 'Create Account' }).click();
@@ -90,7 +90,7 @@ test('the server decides where you are: a browser that moves itself is put back'
   await page.goto(`/?as=${fresh('stray')}&bugs=0`);
   await waitOnline(page);
   const before = await game(page, (g) => g.state().player.pos);
-  // Jump the browser's own copy across the island, as a modified browser might.
+  // Jump the browser's own copy across the region, as a modified browser might.
   await game(page, (g) => {
     const p = g.state().player.pos;
     g.reset({ x: p.x + 60, z: p.z + 60 });
@@ -152,7 +152,7 @@ test('names are unique regardless of case', async ({ request }) => {
   expect((await again.json()).error).toBe('That name is taken.');
 });
 
-test('starting over throws the island away on the server too', async ({ page }) => {
+test('starting over throws the life away on the server too', async ({ page }) => {
   const name = fresh('over');
   await page.goto(`/?as=${name}&bugs=0`);
   await waitOnline(page);
@@ -216,7 +216,7 @@ const worldLetsIn = (page: Page, query = '') =>
 test('the badge sits at the bottom right under the menu buttons, clear of their labels and the stats line', async ({ page }) => {
   await page.goto(`/?as=${fresh('badge')}&bugs=0`);
   await waitOnline(page);
-  // The title screen fades out a few frames after the island arrives: slow where frames are drawn
+  // The title screen fades out a few frames after your life arrives: slow where frames are drawn
   // in software (CI).
   await expect(page.locator('#splash')).toHaveCount(0, { timeout: 30_000 });
   for (const [width, height] of [
@@ -255,7 +255,7 @@ test('the open world needs a signed-in player', async ({ page }) => {
 
 // ---------- Characters ----------
 
-test('an account holds several characters, each with an island of its own', async ({ page }) => {
+test('an account holds several characters, each with a life of its own', async ({ page }) => {
   const name = fresh('many');
   await page.goto(`/?as=${name}&bugs=0`);
   await waitOnline(page);
@@ -282,11 +282,11 @@ test('an account holds several characters, each with an island of its own', asyn
   await page.getByRole('button', { name: 'Enter World' }).click();
   await waitOnline(page);
   expect(await game(page, (g) => g.online().character.name)).toBe(second);
-  // A fresh island of their own: none of the first one's coins.
+  // A fresh life of their own: none of the first one's coins.
   expect(await game(page, (g) => g.life().coins)).toBe(start);
   await expect(page.locator('#ruina-badge')).toContainText(second);
 
-  // The screen remembers who was chosen last; double-clicking the first goes back to their island.
+  // The screen remembers who was chosen last; double-clicking the first goes back to their life.
   await page.locator('#ruina-badge').getByRole('button', { name: 'Characters' }).click();
   await expect(page.locator('.cs-row.sel')).toContainText(second);
   await page.locator('.cs-row', { hasText: name }).dblclick();
@@ -392,12 +392,12 @@ test('players in the same channel see each other, wherever they go', async ({ br
     )
     .toBeLessThan(3);
 
-  // When she leaves, she's gone from Bea's island too.
+  // When she leaves, she's gone from Bea's world too.
   await a.context().close();
   await expect.poll(async () => (await seen(b, nameA))?.online, { timeout: 30_000 }).toBe(false);
 });
 
-test("a neighbour's house is drawn on your island, and their plot can't be taken", async ({ browser }) => {
+test("a neighbour's house is drawn in your world, and their plot can't be taken", async ({ browser }) => {
   const { a, b, nameA } = await pair(browser);
   const claims = await game(a, (g) => g.online().claims);
   const zone = await game(a, (g) => g.zone());
@@ -614,7 +614,7 @@ test("another player's name shows near you, fades past 30 m and is gone by 45 m"
   expect(p.plate).toBe(1);
 });
 
-test("everyone in a channel sees the same time of day, the server's, whatever their islands' clocks say", async ({ browser }) => {
+test("everyone in a channel sees the same time of day, the server's, whatever their lives' clocks say", async ({ browser }) => {
   const { a, b } = await pair(browser);
   const sky = JSON.parse(readFileSync('shared/regions/emberholm.json', 'utf8')).sky;
   /** The hour of the day by the server's clock: it runs on this computer, so Date.now() is its clock. */
@@ -638,7 +638,7 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
       return { sky: window.__game.dayHour() as number, hud: hh + mm / 60, at: Date.now() };
     });
 
-  // Bea skips ahead a third of a day on her island, so her island's clock and Ann's are 8 hours apart.
+  // Bea skips ahead a third of a day in her life, so her life's clock and Ann's are 8 hours apart.
   await b.bringToFront();
   const before = await game(b, (g) => g.life().clock);
   await game(b, (g) => g.lifeCommand({ t: 'warp', seconds: 600 }));
@@ -662,14 +662,14 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
   expect(Math.abs(apart(then.sky, first.sky) - passed)).toBeLessThan(0.003);
 });
 
-test("everyone in a channel has the same rain and wind, the world's, whatever their islands' clocks say", async ({ browser }) => {
+test("everyone in a channel has the same rain and wind, the world's, whatever their lives' clocks say", async ({ browser }) => {
   const { a, b } = await pair(browser);
-  // Each works its weather out as it plays, and the server works out a new island's only once it
-  // has played: until then it's the fresh island's. Online comes before the first frame, which in a
+  // Each works its weather out as it plays, and the server works out a new life's only once it
+  // has played: until then it's the fresh life's. Online comes before the first frame, which in a
   // browser drawing in software (the shaders) can take seconds.
   for (const page of [a, b]) await page.waitForFunction(() => window.__game.state().frame > 30, null, { timeout: 60_000 });
-  // Their islands' clocks count from when each was made, some seconds apart and nowhere near the
-  // world's, so each island's own showers and wind (as it was) would be neither each other's nor the
+  // Their lives' clocks count from when each was made, some seconds apart and nowhere near the
+  // world's, so each life's own showers and wind (as it was) would be neither each other's nor the
   // world's. The server runs on this computer: the world's clock is Date.now(), and the weather is
   // the schedule's (src/engine/life/weather.ts). What a page shows can be a few seconds behind the
   // server (more where it draws in software), so wait until no shower starts or stops for a while.
@@ -703,7 +703,7 @@ test("everyone in a channel has the same rain and wind, the world's, whatever th
     const w = await weather(page);
     const r = rainAt(w.at);
     expect(w.raining, 'raining or not').toBe(r.raining);
-    // The islands' own showers came one to every twelve minutes or so, each when its dice said.
+    // The lives' own showers came one to every twelve minutes or so, each when its dice said.
     expect(Math.abs(w.next - r.next), 'when the next shower starts').toBeLessThan(10);
     if (r.raining) expect(Math.abs(w.stops - r.end), 'when the rain stops').toBeLessThan(10);
     expect(Math.abs(w.windDir - (0.9 + 0.75 * Math.sin(w.at / 190) + 0.3 * Math.sin(w.at / 57 + 1.3))), 'the wind blows from').toBeLessThan(0.08);

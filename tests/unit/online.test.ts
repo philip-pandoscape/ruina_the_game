@@ -9,12 +9,12 @@ import type { WorldFeed } from '../../src/net/worldFeed';
 
 // The Engine online (src/engine/engine.ts, src/net/netPlayer.ts, src/app/onlineWiring.ts): the
 // engine's session predicting you a round trip ahead of a server, taking its word on you and your
-// island as it comes, running quick commands ahead of it, and offering what the page says is about
+// life as it comes, running quick commands ahead of it, and offering what the page says is about
 // you (someone's vehicle to ride along in, someone to challenge, a plot someone holds).
 
-test("online: the server's word on you, your island as it sends it and commands run ahead come out as the server has them", () => {
+test("online: the server's word on you, your life as it sends it and commands run ahead come out as the server has them", () => {
   const build = defaultBuild();
-  // An offline island stands in for the server, the engine's own (the page's island is built once
+  // An offline game stands in for the server, the engine's own (the page's region is built once
   // and every Engine on it shares its colliders): it runs the same inputs, a round trip behind.
   const server = new EngineSession({ online: false, build });
   const client = new Engine({ online: true, build });

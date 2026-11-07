@@ -68,7 +68,7 @@ test('routes between places keep to the roads and squares, clear of what stands 
       }
       expect(cramped, `${a.id} to ${b.id}: something solid in the way`).toEqual([]);
       if (counted) expect(paved / counted, `${a.id} to ${b.id} paved`).toBeGreaterThan(0.98);
-      // Deterministic: the same island, start and end give the same way.
+      // Deterministic: the same region, start and end give the same way.
       const again = net.plan(a.x, a.z, b.x, b.z);
       expect(again.ok && again.route.points).toEqual(r.points);
     }

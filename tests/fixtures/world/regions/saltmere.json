@@ -1,5 +1,5 @@
 {
-  "comment": "A fixture region (tests/fixtures/world/world.json): the west half of an island it shares with Thornmarch across a land border at x = 2048 m, a chunk of open sea west of Emberholm. In the shape of shared/regions/<id>.json, written where it stands.",
+  "comment": "A fixture region (tests/fixtures/world/world.json): the west half of a landmass it shares with Thornmarch across a land border at x = 2048 m, a chunk of open sea west of Emberholm. In the shape of shared/regions/<id>.json, written where it stands.",
   "id": "saltmere",
   "name": "Saltmere",
   "subtitle": "Across the strait",

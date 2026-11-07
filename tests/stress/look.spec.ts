@@ -131,7 +131,7 @@ async function open(page: Page, quality: string, extra = ''): Promise<string[]> 
   return errors;
 }
 
-/** Runs the island's clock forward to the hour. */
+/** Runs the life's clock forward to the hour. */
 async function setHour(page: Page, hour: number): Promise<void> {
   const now: number = await page.evaluate(() => window.__game.dayHour());
   const seconds = ((((hour - now) % 24) + 24) % 24) * (DAY / 24);

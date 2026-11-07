@@ -2,9 +2,9 @@ import { expect, test } from 'vitest';
 import { EMBERHOLM, generateZone } from '../../src/engine/zone';
 
 // The Windspire's waterfall (crates/engine/src/open/generate.rs, falls) is cut after the trees and rocks are
-// scattered, so nothing else on the island moves. The way in, in the game: tests/integration/dungeon-way-in.spec.ts.
+// scattered, so nothing else in the region moves. The way in, in the game: tests/integration/dungeon-way-in.spec.ts.
 
-test('cutting the falls moves no tree or rock anywhere else on the island', () => {
+test('cutting the falls moves no tree or rock anywhere else in the region', () => {
   const cut = generateZone(EMBERHOLM);
   const uncut = generateZone({ ...EMBERHOLM, terrain: { ...EMBERHOLM.terrain, falls: [] } });
   const key = (o: { kind: string; x: number; z: number }) => `${o.kind}@${o.x},${o.z}`;

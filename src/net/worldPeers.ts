@@ -1,14 +1,4 @@
-import {
-  LifeView,
-  newLifeState,
-  type OthersVehicle,
-  type House,
-  type Pack,
-  type Scarecrow,
-  type ShipBuild,
-  type Vehicle,
-  vehicleBodies,
-} from '../engine/life';
+import { LifeView, newLifeState, type OthersVehicle, type House, type Pack, type Scarecrow, type ShipBuild, type Vehicle, vehicleBodies } from '../engine/life';
 import { angleDiff, type Mover, type PlayerState } from '../engine/rules';
 import type { ZoneData } from '../engine/zone';
 import type { Engine } from '../engine/engine';

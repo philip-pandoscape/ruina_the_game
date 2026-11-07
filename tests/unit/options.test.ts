@@ -23,7 +23,7 @@ test('the options read elsewhere are read there', () => {
 
 test('every listed option changes what the page reads', () => {
   const plain = JSON.stringify(readOptions(''));
-  // Some only mean something beside another (the island kept with test).
+  // Some only mean something beside another (the life kept with test).
   const beside: Record<string, string> = { load: 'test&' };
   for (const o of OPTION_DOCS) {
     const name = nameOf(o.name);

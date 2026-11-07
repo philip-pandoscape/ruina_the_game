@@ -73,10 +73,10 @@ test("through the portal into a copy of Goblin's Dread and back out, nothing of 
   expect(p.pos.z).toBeCloseTo(arrive.z, 1);
   expect(p.pos.y).toBeCloseTo(floor, 1);
   expect(p.grounded).toBe(true);
-  // No island map in here.
+  // No region map in here.
   expect(await page.evaluate(() => getComputedStyle(document.getElementById('hud-minimap')!).display)).toBe('none');
   await page.screenshot({ path: `${SHOTS}/dungeon-02-inside.png` });
-  // Off its floor there's nothing at all (none of the island is here): down, and back at the way in.
+  // Off its floor there's nothing at all (none of the world is here): down, and back at the way in.
   await w.teleport(arrive.x + 40, arrive.z, arrive.facing);
   await w.advance(2);
   p = await w.player();

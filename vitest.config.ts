@@ -27,7 +27,7 @@ export default defineConfig({
           include: ['tests/conformance/**/*.test.ts'],
           environment: 'node',
           setupFiles: ['tests/support/engineSetup.ts'],
-          // Some cases walk the island for minutes of game time in both languages.
+          // Some cases walk the world for minutes of game time in both languages.
           testTimeout: 300_000,
           hookTimeout: 300_000,
         },

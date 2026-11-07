@@ -109,7 +109,7 @@ test("a glider off the Windspire's deck flies into the falls and lands behind th
           const need = (p.pos.y - target.y) / Math.max(1, dist);
           const dive = need > 0.24;
           const flare = need < 0.1 && !dive;
-          // Out over the island, straight for the next point; up the slot, along it, back to its middle.
+          // Out over the region, straight for the next point; up the slot, along it, back to its middle.
           let mx = dx / Math.max(dist, 1e-6);
           let mz = dz / Math.max(dist, 1e-6);
           if (leg >= 2) {

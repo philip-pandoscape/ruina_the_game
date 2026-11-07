@@ -19,7 +19,7 @@ import type { NetActor } from '../../src/net/worldFeed';
 import type { GameRefs } from '../../src/main';
 
 // The game without a page (.plans/refactor R6.2a): the rules through the engine (src/engine/), the
-// island's life, auto-walk and the camera's maths for real; in place of the drawing, the windows,
+// your life, auto-walk and the camera's maths for real; in place of the drawing, the windows,
 // the controller and the server, stand-ins that do nothing. The step
 // (src/app/step.ts) and the test API (src/app/testApi.ts) run on it as they run on the page, so a
 // rules test written for a page (page.evaluate over window.__game) runs here unchanged: `test` gives
@@ -77,7 +77,7 @@ function start(url: string) {
   let build: Build = loadBuild();
   const engine = new Engine({ online: false, build });
   const { world, terrain, sim, range, life } = engine;
-  // As main.ts: the island kept in this browser when asked for.
+  // As main.ts: the life kept in this browser when asked for.
   if (opt.test && opt.load) {
     const saved = savedLife();
     if (saved) engine.loadLife(saved);
@@ -148,7 +148,7 @@ function start(url: string) {
     shownById: new Map<number, NetActor>(),
     testMode: opt.test,
     serverRules: false,
-    // Offline and headless: no server, no windows over the island, nobody else.
+    // Offline and headless: no server, no windows over the world, nobody else.
     online: null,
     net: null,
     prediction: null,

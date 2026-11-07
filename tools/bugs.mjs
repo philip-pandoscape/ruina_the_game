@@ -197,7 +197,7 @@ function describeState(s) {
       );
     if (L.placing) out.push(`placing: ${JSON.stringify(L.placing).slice(0, 160)}`);
     out.push(
-      `island: ${L.coins} coins, ${L.seals} seals, ${Math.floor(L.labor)} labor, clock ${Math.round(L.clock)} s, ${L.bag?.length ?? 0} bag stacks, ${L.packs?.length ?? 0} packs, ${L.vehicles?.length ?? 0} vehicles, ${L.houses?.length ?? 0} houses, ${L.scarecrows?.length ?? 0} farms`,
+      `life: ${L.coins} coins, ${L.seals} seals, ${Math.floor(L.labor)} labor, clock ${Math.round(L.clock)} s, ${L.bag?.length ?? 0} bag stacks, ${L.packs?.length ?? 0} packs, ${L.vehicles?.length ?? 0} vehicles, ${L.houses?.length ?? 0} houses, ${L.scarecrows?.length ?? 0} farms`,
     );
     const q = L.quests?.active ?? [];
     if (q.length) out.push(`quests: ${q.map((x) => `${x.id}${x.step !== undefined ? ` (step ${x.step})` : ''}`).join(', ')}`);
@@ -366,7 +366,7 @@ function show(q) {
   h('Reproducing it');
   if (existsSync(join(dir, 'save.json'))) {
     out.push(
-      `  save.json is the island exactly as it was at the press. In a Playwright spec:`,
+      `  save.json is the life exactly as it was at the press. In a Playwright spec:`,
       `    await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('${rel(join(dir, 'save.json'))}', 'utf8'));`,
       `    await page.goto('/?test&load');   // then __game.teleport(x, z), __game.advance(frames, actions), __game.lifeCommand(...)`,
     );

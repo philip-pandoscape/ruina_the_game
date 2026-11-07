@@ -6,7 +6,7 @@ import { untitled } from '../support/labels';
 test.describe.configure({ mode: 'parallel' });
 
 // The UI gallery (/dev/ui.html, src/dev/ui/): every window of the interface in each of its made-up
-// states (src/dev/ui/entries.ts), made up on an offline island without an error, drawn, and in Title
+// states (src/dev/ui/entries.ts), made up in an offline game without an error, drawn, and in Title
 // Case where it labels things; and the content library framing it (#/ui/<window>/<state>). That every
 // entry is made up somewhere is a unit test (tests/unit/uiGallery.test.ts). The screenshots in
 // screenshots/ are for a human.
@@ -64,7 +64,7 @@ test('every entry has a window to look for', () => {
 
 for (const e of UI_ENTRIES) {
   const key = keyOf(e);
-  test(`${key}: made up on the island, drawn, and labelled in Title Case`, async ({ page }) => {
+  test(`${key}: made up in the game, drawn, and labelled in Title Case`, async ({ page }) => {
     const errors = await show(page, key);
     const ui = await page.evaluate(() => (window as unknown as { __ui: Ui }).__ui);
     expect(ui.entry).toBe(key);

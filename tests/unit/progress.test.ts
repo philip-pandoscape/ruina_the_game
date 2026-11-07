@@ -3,7 +3,7 @@ import { QUESTS } from '../../src/content/quests';
 import { START_POINTS } from '../../src/content/skills';
 import { newLifeState, skillBudget } from '../../src/engine/life';
 
-// What the page works out for itself about getting better on the island: the skill points you have,
+// What the page works out for itself about getting better in the world: the skill points you have,
 // counted from the quests and milestones you've finished (never stored). Points given, what trains
 // what, skills levelling up and milestones are the engine's, tested beside it
 // (crates/engine/src/life/progress.rs).

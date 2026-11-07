@@ -28,5 +28,5 @@
 *.ogg filter=lfs diff=lfs merge=lfs -text
 *.wav filter=lfs diff=lfs merge=lfs -text
 *.flac filter=lfs diff=lfs merge=lfs -text
-# The baked island (until the server makes the island itself) and packed kits
+# Packed kits and other archives
 *.zip filter=lfs diff=lfs merge=lfs -text

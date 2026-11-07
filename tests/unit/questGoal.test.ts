@@ -9,8 +9,8 @@ import { questGoal } from '../../src/ui/life/hud/goal';
 // Where a quest leads you (src/ui/life/hud/goal.ts): to what an objective names (the person, the
 // place, the trading post, the bench that makes the pack, your plot, house, ship or vehicle), and
 // otherwise to where its quest's data marks (an objective's `marker`, content/quests/), so no place
-// is named in the UI's code. The goal reads the island and where you stand, so each case is an
-// island's state as the rules keep it.
+// is named in the UI's code. The goal reads your life and where you stand, so each case is a
+// life's state as the rules keep it.
 
 let zone: ZoneData;
 beforeAll(() => {
@@ -41,7 +41,7 @@ function goalAt(quest: string, step: number, setup: (s: LifeState) => void = () 
 const recipe = () => zone.recipe;
 const place = (id: string) => recipe().places.find((p) => p.id === id)!;
 
-test("every marker names one spot on the island, and the rules don't read it", () => {
+test("every marker names one spot in the region, and the rules don't read it", () => {
   const markers: QuestMarker[] = QUESTS.flatMap((q) => q.steps.flatMap((s) => s.objectives.flatMap((o) => (o.marker ? [o.marker] : []))));
   expect(markers.length).toBeGreaterThan(5);
   const r = recipe();

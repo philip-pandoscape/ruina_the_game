@@ -4,7 +4,7 @@ import { gameReady } from '../support/game';
 // The buildings you can walk into (src/content/buildings.ts, src/render/village): their plans fit
 // their footprints and the kit, the rules wall them with their doorways open, and in the game you
 // walk in through a door, are drawn the room cut open, and climb the stairs. The server plays the
-// same walls and stairs from the baked island: tests/conformance/world.test.ts walks into the inn
+// same walls and stairs from the region it grows: tests/conformance/world.test.ts walks into the inn
 // and up its stairs on both sides.
 
 const SHOTS = 'screenshots';

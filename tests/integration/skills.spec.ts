@@ -247,9 +247,9 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
   expect(errors).toEqual([]);
 });
 
-// ---------- The island: points from quests, levels from use ----------
+// ---------- The world: points from quests, levels from use ----------
 
-test('island: the tree spends points earned from quests, and the sword levels up on slimes', async ({ page }) => {
+test('world: the tree spends points earned from quests, and the sword levels up on slimes', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
   await page.goto('/?test');
@@ -317,7 +317,7 @@ test('island: the tree spends points earned from quests, and the sword levels up
   expect(errors).toEqual([]);
 });
 
-test('island: a kept build the island has not earned the points for falls back to Sword Training', async ({ page }) => {
+test('world: a kept build the life has not earned the points for falls back to Sword Training', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
   // A build tried out in the yard (a developer zone: the whole tree), kept in this browser.
@@ -325,12 +325,12 @@ test('island: a kept build the island has not earned the points for falls back t
   await page.goto('/?offline=yard');
   await gameReady(page);
   expect(await page.evaluate((b) => window.__game.setBuild(b), tried)).toBe(true);
-  // A new island starts with START_POINTS, not enough for it, as the server would say on joining.
+  // A new life starts with START_POINTS, not enough for it, as the server would say on joining.
   await page.goto('/?test');
   await gameReady(page, 90_000);
-  const island = await page.evaluate(() => window.__game.build());
-  expect(island.chosen.skills).toEqual(skills('sword'));
-  expect(island.using.weapon).toBe(weaponIndex('sword'));
+  const inWorld = await page.evaluate(() => window.__game.build());
+  expect(inWorld.chosen.skills).toEqual(skills('sword'));
+  expect(inWorld.using.weapon).toBe(weaponIndex('sword'));
   expect((await page.evaluate(() => window.__game.skills())).left).toBe(START_POINTS - 1);
   // The yard still has it.
   await page.goto('/?offline=yard');

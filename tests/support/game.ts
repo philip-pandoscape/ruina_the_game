@@ -50,7 +50,7 @@ export async function openGame(page: Page, url = '/?test', timeout = 60_000): Pr
 
 /**
  * Waits until the page plays online: the game ready, connected, a few of the server's ticks in, and
- * the island the server sent loaded.
+ * the life the server sent loaded.
  */
 export async function onlineReady(page: Page, timeout = 60_000): Promise<void> {
   await page.waitForFunction(

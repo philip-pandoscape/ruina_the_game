@@ -32,7 +32,7 @@ test('the design bible draws from the game data without errors', async ({ page }
   await page.click('#trackerTools button[data-st="done"]');
   await expect(page.locator('#ledger tbody tr')).toHaveCount(status.features.filter((f: { status: string }) => f.status === 'done').length);
 
-  // The map is the island the generator grew: many colours of land and water, not a blank canvas.
+  // The map is the region the generator grew: many colours of land and water, not a blank canvas.
   const colours = await page.evaluate(() => {
     const c = document.querySelector<HTMLCanvasElement>('#worldMap')!;
     const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;

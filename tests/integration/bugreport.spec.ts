@@ -8,7 +8,7 @@ import { gameReady } from '../support/game';
 // In-game bug reports (src/app/bugs/, tools/bugReports.ts, tools/bugs.mjs). \ starts a report and
 // \ again saves it through the dev server, which is what these tests press. The whole path runs:
 // frames from before the press, a screenshot with the HUD, voice, live transcript, video, state,
-// the island save, and the CLI that /fix-bugs reads reports with. Test reports land in
+// the life's save, and the CLI that /fix-bugs reads reports with. Test reports land in
 // test-results/bug-reports/, never in bugs/.
 //
 // The microphone and the speech recognizer are stand-ins injected into the page. Chromium's own
@@ -213,7 +213,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
   expect(report.video.file).toMatch(/^video\.(webm|mp4)$/);
   expect(statSync(join(dir, report.video.file)).size).toBeGreaterThan(10_000);
 
-  // The state and the island save are from the press, not from when the report was finished.
+  // The state and the life's save are from the press, not from when the report was finished.
   const state = read('state.json');
   expect(state.atPress.mode).toContain('open world');
   expect(state.atPress.player.pos.z).toBeCloseTo(atPress.z, 1);

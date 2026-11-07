@@ -99,7 +99,7 @@
       <div id="skills" hidden></div>
     </div>
     <!-- The title screen: dusk over Emberholm's spire. Sign-in and character select happen on it
-         (src/ui/splash.ts), and it fades into the game once the island is built. -->
+         (src/ui/splash.ts), and it fades into the game once the world is built. -->
     <div id="splash" aria-label="Ruina">
       <svg class="sp-scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <defs>
@@ -213,11 +213,11 @@
         <div class="sp-orn"><i></i><b></b><i></i></div>
         <div class="sp-tag">Build a Life Among the Ruins</div>
       </div>
-      <div class="sp-load"><div class="sp-status">Waking the Island…</div><div class="sp-bar"><i></i></div></div>
+      <div class="sp-load"><div class="sp-status">Waking the World…</div><div class="sp-bar"><i></i></div></div>
       <div class="sp-foot">Prototype</div>
     </div>
     <script>
-      // The title screen's moving parts on one canvas: stars, embers rising off the island, the sun
+      // The title screen's moving parts on one canvas: stars, embers rising off Emberholm, the sun
       // glinting on the sea and the beacon on the spire. Light on purpose; still for reduced motion;
       // stopped (window.__splash.stop) once the game is showing.
       (function () {
@@ -244,7 +244,7 @@
         for (var i = 0; i < 130; i++) stars.push({ x: rnd() * 1920, y: rnd() * 470, r: 0.5 + rnd() * rnd() * 1.9, a: 0.25 + rnd() * 0.75, f: 0.6 + rnd() * 2.2, p: rnd() * 6.3 });
         for (i = 0; i < 46; i++) glints.push({ t: rnd(), w: 6 + rnd() * 22, p: rnd() * 6.3, f: 2 + rnd() * 5 });
         function ember(e, fresh) {
-          // Mostly off the island and up through the sky, a few drifting past close by.
+          // Mostly off Emberholm and up through the sky, a few drifting past close by.
           e.near = rnd() < 0.12;
           e.x = e.near ? rnd() * 1920 : 960 + rnd() * 1000 - (rnd() < 0.3 ? 900 : 0);
           e.y = fresh ? 300 + rnd() * 780 : 820 + rnd() * 260;

@@ -144,7 +144,7 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
   await expect.poll(() => page.evaluate(() => window.__game.bots().length), { timeout: 30_000 }).toBeGreaterThanOrEqual(30);
   expect(await page.evaluate(() => window.__game.dungeon().drawn)).toBe('battlefield');
 
-  // Out through its way out, at its door on the island.
+  // Out through its way out, at its door in the world.
   await page.evaluate(([x, z]) => window.__game.teleport(x, z), [zone.exit.x, zone.exit.z] as const);
   await expect
     .poll(() => page.evaluate(() => window.__game.throughPortal(false, 'battlefield') && window.__game.space()?.kind), { timeout: 30_000 })
@@ -179,7 +179,7 @@ test('an admin in the yard finds its dummy and slimes standing on its floor, and
   const post = at(zone.spawns.find((sp: { kind: string }) => sp.kind === 'dummy'));
   expect(Math.hypot(dummy.x - post.x, dummy.z - post.z)).toBeLessThan(0.1);
   expect(Math.abs(dummy.y)).toBeLessThan(0.5);
-  // Drawn there too, on the floor and not on the island far below.
+  // Drawn there too, on the floor and not on the world far below.
   await expect.poll(() => page.evaluate(() => window.__game.drawnDummy()?.y ?? null), { timeout: 10_000 }).toBeCloseTo(0, 0);
   expect(await page.evaluate(([x, z]) => window.__game.ground(x, z), [post.x, post.z] as const)).toBeCloseTo(0, 1);
 

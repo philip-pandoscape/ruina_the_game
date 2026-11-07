@@ -38,7 +38,7 @@ function bodies(): string[] {
 
 const ALLOWED: Allowance[] = [
   {
-    why: "words of the code's own that some content shares: harvest (an objective, an event and its effect), heal (a brain's act, a hit's marker), home (where a brain runs to, where you wake), block (a guard, and CSS), stone (a wall of the village kit, a gathering's effect, a colour), herbs and wheels (effects), pine (the island's wild pines)",
+    why: "words of the code's own that some content shares: harvest (an objective, an event and its effect), heal (a brain's act, a hit's marker), home (where a brain runs to, where you wake), block (a guard, and CSS), stone (a wall of the village kit, a gathering's effect, a colour), herbs and wheels (effects), pine (the world's wild pines)",
     ids: ['harvest', 'heal', 'home', 'block', 'stone', 'herbs', 'wheels', 'pine'],
   },
   { why: 'a word the bug reporter leaves out of what you said', files: ['src/app/bugs/reporter.ts'], ids: ['well'] },
