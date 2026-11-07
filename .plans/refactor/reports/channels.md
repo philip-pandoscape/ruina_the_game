@@ -250,3 +250,65 @@ Cargo.toml, docs, the test API and the bible's test, all both sides kept). Then:
   channels three by three.
 
 Next: the browser's protocol (12), `channels.spec.ts`, the docs, merge `refactor/first`, `npm run check`.
+
+## 2026-11-06 23:00: The second half done (the lean rule: no Playwright, specs and docs at the end)
+
+- **0d30d9a**: merged `refactor/first` again (offline and borders' engine half): conflicts in
+  `sim/mod.rs` (both kept: the fights noted, then the rules' time taken), the bible's test, contentc
+  (both checks), `shared/hash.json` rebuilt. **ba2be22**: the bible's test names
+  `directory/crowd.rs` as plumbing (it reads the server's tier folders now).
+- **`npm run check` passes** after the merge: 278 TypeScript tests in 46 files; Rust: channels 31,
+  engine 214, order 5, WebAssembly 4, server 95, world-api 6.
+- **WORLD_PROTOCOL 12** here; `refactor/first` is still at 11. Wire raises it too: whoever merges
+  second takes the next number.
+
+### For the end agent: integration and end-to-end tests to write
+
+`tests/integration/channels.spec.ts`, on a rig with `DEV_LOGIN=1` (every `?as=` player is an admin,
+who opens a channel by going to it, so a second channel needs no crowd):
+1. **The window**: the Channels menu button (or `__game.pressLife('channels')`) opens it; it lists
+   the player's channel tagged You're Here with its load (`__game.channels().rows`, `.windows.window`).
+2. **Changing**: `__game.changeChannel(77)` opens channel 77 and moves them there: `__game.space()` is
+   `{kind: 'channel', channel: 77}`, standing where they stood; the notice reads "You're in Channel
+   77 now." and `__game.channels().moved.why` is `'choice'`.
+3. **The cooldown**: changing straight back is refused ("You can change channel again in 5m."), and
+   the window's Change buttons are shut with that reason.
+4. **A party invitation**: Ann goes to channel 78; Bea (who hasn't changed lately) accepts her
+   invitation and is moved to 78 ("You've joined your party in Channel 78.", `moved.why === 'party'`).
+5. **Placement**: two fresh players coming in land in the same channel (the fullest with room).
+6. Optional: refused carrying a pack (one picked up at a workbench) or in combat.
+
+Elsewhere: the character select's "Emberholm N" now comes from the saved position's space
+(`online.spec.ts` covers the list); `update.spec.ts` covers a restart (players placed afresh, migration
+0020 on start). A merge seen in a browser needs a crowd: the Rust tests cover it
+(`a_quiet_channel_merges_and_its_player_is_moved_across`, the directory's crowd).
+
+### For the docs pass
+
+`docs/world.md` Channels (the directory places by the policy now; every channel shows every estate
+until land; the messages; `Directory::clock`, `start_channels` for tests); the bible's Parties page
+("you come out in your home channel" is now "placed by the channels' policy"); `crates/server/AGENTS.md`
+(the directory row: the policy, `ToSim::Hand`; grants give no channel); `docs/architecture.md` (what
+lasts: no home channel); `crates/world-api/AGENTS.md` (the new messages); `crates/channels/AGENTS.md`
+(the directory's arena, `crates/server/src/directory/crowd.rs`).
+
+### For other workstreams
+
+- **Message changes** (world-api, which now depends on `ruina-channels`): `ToDirectory::Parties` has
+  `leaders`; `ToDirectory::Forget` lost `channel`; new `ToDirectory::{Channels, Change, Standings}`,
+  `ToSim::Hand`, `Ask::{Channels, Channel}`, `After::Channel`, `ToConn::{Channels, ChannelMoved}`
+  (encoded in `gate/encode.rs` `message()`). `start::{services_with, start_channels}`;
+  `Directory::{tuning, clock, region(), placing()}`; the engine's `combat::EVENT_YOU_HIT` and
+  `EVENT_YOU_HURT` are public.
+- **Land**: `Db::residents` ignores its channel (every channel shows everyone with a life) until
+  land's rows replace residents; `characters.home_channel` is gone (0020). Merges move players with
+  their lives (`ToSim::Hand`); if land keys packs on the ground or parked vehicles by channel, the
+  directory's `carry_out(Action::Close { n, into })` is where to re-key them into `into`.
+- **Multiserver**: the regions' policy state lives in the directory's memory (a restart places
+  everyone afresh); a directory in a process of its own carries it there.
+- **Scale**: arrivals are placed one after another in the directory, so the `home_channel` race is
+  gone; `directory/crowd.rs`'s `DirArena` drives thousands of bots through the directory without
+  simulations.
+
+Left: friends, guilds and languages in the social tier (the policy's hooks answer nothing until
+then); a keyboard key for the Channels window; the docs and `channels.spec.ts` above.
