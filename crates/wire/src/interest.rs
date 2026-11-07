@@ -71,36 +71,70 @@ pub fn always_near(k: Kind) -> bool {
 /// The tier each candidate is in, given its squared distance (m²), its kind and whether it's in
 /// sight already: `None` for one that isn't sent (out of reach, or over a cap).
 pub fn tiers(cands: &[(f64, Kind, bool)]) -> Vec<Option<Tier>> {
-    let mut out = vec![None; cands.len()];
-    // Distances as judged for the caps: what's in sight a little nearer.
-    let judged = |i: usize| cands[i].0.sqrt() - if cands[i].2 { KNOWN_EDGE } else { 0.0 };
-    let mut pool: Vec<usize> = Vec::new();
-    for (i, &(d2, kind, _)) in cands.iter().enumerate() {
-        let r = reach(kind);
-        if d2 > r * r {
-            continue;
-        }
-        if always_near(kind) {
-            out[i] = Some(Tier::Near);
-        } else {
-            pool.push(i);
-        }
-    }
-    let mut rest = Vec::new();
-    for (tier, radius, cap) in [(Tier::Near, NEAR, NEAR_CAP), (Tier::Mid, MID, MID_CAP), (Tier::Far, FAR, FAR_CAP)] {
-        // Those within this tier's radius, and whatever a nearer tier had no room for.
-        let (mut inside, outside): (Vec<usize>, Vec<usize>) = pool.drain(..).partition(|&i| cands[i].0 <= radius * radius);
-        inside.append(&mut rest);
-        if inside.len() > cap {
-            inside.select_nth_unstable_by(cap, |&a, &b| judged(a).total_cmp(&judged(b)));
-            rest = inside.split_off(cap);
-        }
-        for &i in &inside {
-            out[i] = Some(tier);
-        }
-        pool = outside;
-    }
+    let mut out = Vec::new();
+    Tiers::default().sort(cands, &mut out);
     out
+}
+
+/// The tiers worked out with lists kept from one tick to the next (a gate does this for every
+/// connection every tick, so nothing is allocated once they've grown).
+#[derive(Default)]
+pub struct Tiers {
+    near: Vec<u32>,
+    mid: Vec<u32>,
+    far: Vec<u32>,
+    rest: Vec<u32>,
+    judged: Vec<f64>,
+}
+
+impl Tiers {
+    /// Fills `out` with each candidate's tier (crate::interest::tiers).
+    pub fn sort(&mut self, cands: &[(f64, Kind, bool)], out: &mut Vec<Option<Tier>>) {
+        out.clear();
+        out.resize(cands.len(), None);
+        self.near.clear();
+        self.mid.clear();
+        self.far.clear();
+        self.rest.clear();
+        // One pass: each candidate in reach into the list for its distance, in order.
+        for (i, &(d2, kind, _)) in cands.iter().enumerate() {
+            let r = reach(kind);
+            if d2 > r * r {
+                continue;
+            }
+            if always_near(kind) {
+                out[i] = Some(Tier::Near);
+            } else if d2 <= NEAR * NEAR {
+                self.near.push(i as u32);
+            } else if d2 <= MID * MID {
+                self.mid.push(i as u32);
+            } else {
+                self.far.push(i as u32);
+            }
+        }
+        let Tiers { near, mid, far, rest, judged } = self;
+        for (tier, list, cap) in [(Tier::Near, near, NEAR_CAP), (Tier::Mid, mid, MID_CAP), (Tier::Far, far, FAR_CAP)] {
+            // Whatever a nearer tier had no room for comes after its own.
+            list.append(rest);
+            if list.len() > cap {
+                // Distances as judged for the caps (what's in sight a little nearer), each worked out once.
+                judged.clear();
+                judged.extend(list.iter().map(|&i| {
+                    let (d2, _, known) = cands[i as usize];
+                    d2.sqrt() - if known { KNOWN_EDGE } else { 0.0 }
+                }));
+                let mut order: Vec<u32> = (0..list.len() as u32).collect();
+                order.select_nth_unstable_by(cap, |&a, &b| judged[a as usize].total_cmp(&judged[b as usize]));
+                let kept: Vec<u32> = order.iter().map(|&k| list[k as usize]).collect();
+                rest.extend_from_slice(&kept[cap..]);
+                list.clear();
+                list.extend_from_slice(&kept[..cap]);
+            }
+            for &i in list.iter() {
+                out[i as usize] = Some(tier);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

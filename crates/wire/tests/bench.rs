@@ -52,6 +52,33 @@ impl Crowd {
         Crowd { players, actors, tick: 529_000_000 }
     }
 
+    /// Player 0 at the middle, and groups of players and of creatures each spread over a ring
+    /// (count, from metres, to metres) round it.
+    fn rings(players: &[(usize, f64, f64)], creatures: &[(usize, f64, f64)]) -> Crowd {
+        let mut rng = common::Rng(0x1ce);
+        let mut spot = |from: f64, to: f64| {
+            let a = rng.unit() * std::f64::consts::TAU;
+            let r = from + (to - from) * rng.unit().sqrt();
+            (a.cos() * r, a.sin() * r)
+        };
+        let mut list = vec![(1, Arc::<str>::from("Watcher"), Player::new(Spawn { x: 0.0, z: 0.0, facing: 0.0 }, 0, Build::default()))];
+        for &(n, from, to) in players {
+            for _ in 0..n {
+                let (x, z) = spot(from, to);
+                let id = 1 + list.len() as i64;
+                list.push((id, Arc::from(format!("Wanderer {id}").as_str()), Player::new(Spawn { x, z, facing: 0.0 }, (id % 2) as u8, Build::default())));
+            }
+        }
+        let mut actors = Actors::new();
+        for &(n, from, to) in creatures {
+            for i in 0..n {
+                let (x, z) = spot(from, to);
+                actors.spawn(if i % 3 == 0 { "goblin" } else { "slime" }, x, z, 7 + i as u32);
+            }
+        }
+        Crowd { players: list, actors, tick: 529_000_000 }
+    }
+
     /// A tick of scripted play: everyone runs a circle, a few swing, a few are hurt.
     fn step(&mut self) {
         self.tick += 1;
@@ -164,7 +191,10 @@ struct Row {
 
 /// Plays `ticks` ticks of a crowd, measuring the last `measured`.
 fn measure(n: usize, m: usize, size: f64, ticks: usize, measured: usize) -> Row {
-    let mut crowd = Crowd::new(n, m, size);
+    measure_crowd(Crowd::new(n, m, size), ticks, measured)
+}
+
+fn measure_crowd(mut crowd: Crowd, ticks: usize, measured: usize) -> Row {
     let me = key(Kind::Player, crowd.players[0].0);
     let mut viewer = Viewer::new(me);
     let mut heard = Heard::new();
@@ -234,4 +264,29 @@ fn bytes_and_time_per_update() {
     }
     println!("JSON: everyone else's presence and the creatures within 70 m, as today (each client's own state, the same either way, left out).");
     println!("pack: the sim's Frame for the tick, once. write: one connection's update. JSON: one connection's tick message.");
+}
+
+#[test]
+#[ignore = "a measurement, run by hand: cargo test --release -p ruina-wire --test bench -- --ignored --nocapture"]
+fn what_one_gate_core_carries() {
+    // The research's three places (.plans/world/research.md 4.2): who is near, at the middle
+    // distance and far from someone standing there.
+    let places: [(&str, Crowd); 3] = [
+        (
+            "wilderness: 10 players and 20 creatures near, 20 at the middle distance, 30 far",
+            Crowd::rings(&[(10, 2.0, 40.0), (10, 40.0, 120.0), (20, 120.0, 250.0)], &[(20, 2.0, 40.0), (10, 40.0, 120.0), (10, 120.0, 250.0)]),
+        ),
+        (
+            "a busy town: 80 near, 300 at the middle distance, 600 far",
+            Crowd::rings(&[(70, 2.0, 40.0), (280, 40.0, 120.0), (580, 120.0, 250.0)], &[(10, 2.0, 40.0), (20, 40.0, 120.0), (20, 120.0, 250.0)]),
+        ),
+        ("a world boss: 500 players within 50 m", Crowd::rings(&[(500, 2.0, 50.0)], &[(1, 5.0, 10.0)])),
+    ];
+    println!();
+    println!("{:<82} | {:>9} {:>8} {:>9} | {:>12}", "where", "B/update", "KB/s", "write µs", "clients/core");
+    for (label, crowd) in places {
+        let r = measure_crowd(crowd, 300, 200);
+        println!("{label:<82} | {:>9.0} {:>8.1} {:>9.1} | {:>12.0}", r.wire, r.wire * 20.0 / 1024.0, r.write_us, 50_000.0 / r.write_us);
+    }
+    println!("clients/core: one core writing every client's update 20 times a second (50 ms a tick, nothing else).");
 }

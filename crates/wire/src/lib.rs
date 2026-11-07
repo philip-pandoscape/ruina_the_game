@@ -20,6 +20,7 @@
 pub mod ack;
 pub mod bytes;
 pub mod decode;
+pub mod fast;
 pub mod heard;
 pub mod interest;
 #[cfg(feature = "engine")]

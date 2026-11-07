@@ -21,11 +21,12 @@
 //! - **Budget.** A token bucket of [`Budget::bytes_per_second`] (64 KB/s), at most two ticks' worth
 //!   in hand. Removals and effects always go; records share what's left.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use crate::ack::Ack;
 use crate::bytes::{put_u16, put_u32, put_varint, zigzag, zigzag32};
-use crate::interest::{EVENTS_CAP, EVENTS_WITHIN, KEEP, KEEP_MARGIN, TOLD_CAP, every, rate, reach, tiers};
+use crate::fast::FxMap;
+use crate::interest::{EVENTS_CAP, EVENTS_WITHIN, KEEP, KEEP_MARGIN, TOLD_CAP, Tiers, every, rate, reach};
 use crate::record::{CELL, Cell, Event, Frame, Intro, Record};
 use crate::schema::{EVENT, Fields, Kind, MAX_FIELDS, Tier, reference};
 
@@ -37,6 +38,8 @@ pub const WINDOW: u32 = 63;
 pub const NOBODY: u16 = 0;
 pub const YOU: u16 = 1;
 const FIRST_HANDLE: u32 = 2;
+/// Due records that didn't fit, one after another, before the rest wait unwritten.
+const MISFITS: usize = 32;
 
 /// How many bytes a connection may be sent.
 #[derive(Clone, Copy, Debug)]
@@ -134,25 +137,35 @@ pub struct Viewer {
     seq: u32,
     tokens: f64,
     pub budget: Budget,
-    by_key: HashMap<u64, u16>,
+    by_key: FxMap<u64, u16>,
     slots: Vec<Slot>,
     free: VecDeque<u16>,
     /// Handles said to be gone and not yet acknowledged as gone.
     dying: Vec<u16>,
     flights: VecDeque<Flight>,
     pub stats: Stats,
+    /// Kept from one update to the next, so a tick allocates nothing once they've grown.
+    cands: Vec<Cand>,
+    judge: Vec<(f64, Kind, bool)>,
+    tier_of: Vec<Option<Tier>>,
+    tiers: Tiers,
 }
 
-/// An entity this update might write.
-struct Cand<'a> {
-    r: &'a Record,
+/// An entity this update might write: where its record is in the frame, and what's known of it.
+#[derive(Clone, Copy)]
+struct Cand {
+    cell: u32,
+    rec: u32,
     d2: f64,
+    kind: Kind,
     handle: u16,
     /// The handle of the entity its reference field names, as things stood when the update began
     /// (nobody if it had none then).
     refers: u16,
     tier: Option<Tier>,
     due: bool,
+    /// How overdue it is, for the order it's written in (a newcomer counts as a tick overdue).
+    acc: f32,
 }
 
 impl Viewer {
@@ -164,12 +177,16 @@ impl Viewer {
             seq: 0,
             tokens: budget.per_tick() * budget.burst_ticks,
             budget,
-            by_key: HashMap::new(),
+            by_key: FxMap::default(),
             slots: vec![Slot::new(); FIRST_HANDLE as usize],
             free: VecDeque::new(),
             dying: Vec::new(),
             flights: VecDeque::new(),
             stats: Stats::default(),
+            cands: Vec::new(),
+            judge: Vec::new(),
+            tier_of: Vec::new(),
+            tiers: Tiers::default(),
         }
     }
 
@@ -225,8 +242,8 @@ impl Viewer {
             self.flights.pop_front();
         }
 
-        let mut cands = self.gather(frame, view);
-        self.choose(&mut cands, seq);
+        self.gather(frame, view);
+        self.choose(frame, seq);
 
         // Gone: whatever was in sight and no longer is.
         let mut gone: Vec<u16> = self.by_key.values().copied().filter(|&h| self.slots[usize::from(h)].seen != seq).collect();
@@ -256,10 +273,20 @@ impl Viewer {
         let (mut n_intros, mut n_records, mut waited) = (0usize, 0usize, 0usize);
         let mut entry = Vec::with_capacity(64);
         let mut intro = Vec::with_capacity(32);
+        // Records that didn't fit, one after another: past a few dozen, the rest wait without being
+        // written out to see.
+        let mut misfits = 0;
+        let cands = std::mem::take(&mut self.cands);
         for c in cands.iter().filter(|c| c.due) {
+            // Nothing can be written in fewer than four bytes.
+            if left < 4.0 || misfits >= MISFITS {
+                waited += 1;
+                continue;
+            }
+            let r = &frame.cells()[c.cell as usize].records[c.rec as usize];
             let fresh = c.handle == NOBODY;
             let h = if fresh {
-                match self.give(c.r.key) {
+                match self.give(r.key) {
                     Some(h) => h,
                     None => continue,
                 }
@@ -269,23 +296,25 @@ impl Viewer {
             let tier = c.tier.unwrap_or(Tier::Far);
             entry.clear();
             intro.clear();
-            let Some(sent) = self.write_record(h, c, tier, seq, tick, &mut entry) else {
+            let Some(sent) = self.write_record(h, c, r, tier, seq, tick, &mut entry) else {
                 // Nothing about it changed: nothing to send.
                 self.slots[usize::from(h)].acc = 0.0;
                 continue;
             };
             let introducing = !self.slots[usize::from(h)].introduced;
             if introducing {
-                write_intro(h, &c.r.intro, &mut intro);
+                write_intro(h, &r.intro, &mut intro);
             }
             let size = (entry.len() + intro.len()) as f64;
             if size > left {
                 waited += 1;
+                misfits += 1;
                 if fresh {
                     self.take_back(h);
                 }
                 continue;
             }
+            misfits = 0;
             left -= size;
             records.extend_from_slice(&entry);
             n_records += 1;
@@ -295,12 +324,13 @@ impl Viewer {
                 n_intros += 1;
                 flight.intros.push((h, s.generation));
             }
-            let n = c.r.kind().fields().len();
+            let n = c.kind.fields().len();
             flight.entries.push((h, s.generation, flight.values.len() as u32, n as u8));
             flight.values.extend_from_slice(&sent[..n]);
             s.acc = 0.0;
             s.sent = seq;
         }
+        self.cands = cands;
 
         let mut out = Vec::with_capacity(fixed + intros.len() + records.len());
         out.push(UPDATE);
@@ -330,15 +360,16 @@ impl Viewer {
         out
     }
 
-    /// Everything within reach of `view` in the frame, but the connection's own.
-    fn gather<'a>(&self, frame: &'a Frame, view: View) -> Vec<Cand<'a>> {
-        let mut cands = Vec::with_capacity(self.by_key.len() + 16);
-        let reach = (KEEP / CELL).ceil() as i32;
+    /// Everything within reach of `view` in the frame, but the connection's own, into `cands`.
+    fn gather(&mut self, frame: &Frame, view: View) {
+        let mut cands = std::mem::take(&mut self.cands);
+        cands.clear();
+        let reach_cells = (KEEP / CELL).ceil() as i32;
         let centre = Cell::at(view.x, view.z);
-        for cz in centre.z - reach..=centre.z + reach {
-            for cx in centre.x - reach..=centre.x + reach {
-                let Some(cell) = frame.cell(Cell { x: cx, z: cz }) else { continue };
-                for r in &cell.records {
+        for cz in centre.z - reach_cells..=centre.z + reach_cells {
+            for cx in centre.x - reach_cells..=centre.x + reach_cells {
+                let Some(ci) = frame.cell_index(Cell { x: cx, z: cz }) else { continue };
+                for (ri, r) in frame.cells()[ci].records.iter().enumerate() {
                     if self.own(r) {
                         continue;
                     }
@@ -348,54 +379,62 @@ impl Viewer {
                         continue;
                     }
                     let handle = self.by_key.get(&r.key).copied().unwrap_or(NOBODY);
-                    cands.push(Cand { r, d2, handle, refers: self.handle_of(r.refers), tier: None, due: false });
+                    let refers = if r.refers == 0 { NOBODY } else { self.handle_of(r.refers) };
+                    cands.push(Cand { cell: ci as u32, rec: ri as u32, d2, kind: r.kind(), handle, refers, tier: None, due: false, acc: 0.0 });
                 }
             }
         }
-        cands
+        self.cands = cands;
     }
 
     /// Each candidate's tier, what's in sight now, and what's due, in the order to write it.
-    fn choose(&mut self, cands: &mut Vec<Cand<'_>>, seq: u32) {
-        let judged: Vec<(f64, Kind, bool)> = cands.iter().map(|c| (c.d2, c.r.kind(), c.handle != NOBODY)).collect();
-        for (c, t) in cands.iter_mut().zip(tiers(&judged)) {
-            c.tier = t;
-        }
+    fn choose(&mut self, frame: &Frame, seq: u32) {
+        let Viewer { cands, judge, tier_of, tiers, slots, .. } = self;
+        judge.clear();
+        judge.extend(cands.iter().map(|c| (c.d2, c.kind, c.handle != NOBODY)));
+        tiers.sort(judge, tier_of);
         // In sight: in a tier, or in sight already and not yet past the edge (kept, not refreshed).
-        let mut owners: HashMap<u64, bool> = HashMap::new();
-        for c in cands.iter_mut() {
+        let mut vehicles = false;
+        for (c, t) in cands.iter_mut().zip(tier_of.iter()) {
+            c.tier = *t;
             let d = c.d2.sqrt();
-            let r = reach(c.r.kind());
+            let r = reach(c.kind);
             if c.handle != NOBODY && (c.tier.is_some() || (d > r && d <= r + KEEP_MARGIN)) {
-                self.slots[usize::from(c.handle)].seen = seq;
+                slots[usize::from(c.handle)].seen = seq;
             }
             let Some(t) = c.tier else { continue };
             if c.handle == NOBODY {
                 c.due = true;
+                c.acc = 1.0 + rate(t);
             } else {
-                let s = &mut self.slots[usize::from(c.handle)];
+                let s = &mut slots[usize::from(c.handle)];
                 s.acc += rate(t);
                 c.due = s.acc >= 1.0 || !s.introduced;
+                c.acc = s.acc;
             }
-            if c.r.kind() == Kind::Player {
-                owners.insert(c.r.key, c.due);
-            }
+            vehicles |= c.kind == Kind::Vehicle;
         }
         // A player's vehicles go when the player does, so both are drawn from the same moment; one
         // whose owner isn't in sight goes on its own.
-        for c in cands.iter_mut() {
-            if c.tier.is_some()
-                && c.r.kind() == Kind::Vehicle
-                && let Some(&due) = owners.get(&c.r.owner)
-            {
-                c.due = due || (c.handle != NOBODY && !self.slots[usize::from(c.handle)].introduced);
+        if vehicles {
+            let record = |c: &Cand| &frame.cells()[c.cell as usize].records[c.rec as usize];
+            let owners: Vec<u64> = cands.iter().filter(|c| c.tier.is_some() && c.kind == Kind::Vehicle).map(|c| record(c).owner).collect();
+            let owners_due: Vec<(u64, bool)> = cands
+                .iter()
+                .filter(|c| c.tier.is_some() && c.kind == Kind::Player)
+                .map(|c| (record(c).key, c.due))
+                .filter(|(k, _)| owners.contains(k))
+                .collect();
+            for c in cands.iter_mut().filter(|c| c.tier.is_some() && c.kind == Kind::Vehicle) {
+                let owner = record(c).owner;
+                if let Some(&(_, due)) = owners_due.iter().find(|(k, _)| *k == owner) {
+                    c.due = due || (c.handle != NOBODY && !slots[usize::from(c.handle)].introduced);
+                }
             }
         }
-        // Nearest tier first; then the most overdue (a newcomer counts as a tick overdue); then the
-        // nearest.
-        let acc = |c: &Cand<'_>| if c.handle == NOBODY { 1.0 + c.tier.map_or(0.0, rate) } else { self.slots[usize::from(c.handle)].acc };
+        // Nearest tier first; then the most overdue; then the nearest.
         cands.retain(|c| c.due);
-        cands.sort_by(|a, b| a.tier.cmp(&b.tier).then(acc(b).total_cmp(&acc(a))).then(a.d2.total_cmp(&b.d2)));
+        cands.sort_by(|a, b| a.tier.cmp(&b.tier).then(b.acc.total_cmp(&a.acc)).then(a.d2.total_cmp(&b.d2)));
     }
 
     /// A handle for an entity coming into sight: one never given before while there are any, else
@@ -437,10 +476,11 @@ impl Viewer {
     /// Writes one record into `out`: its handle, its base byte (tier and how many updates back its
     /// baseline is, 0 for none), the mask of what changed and the changes. Returns the fields as the
     /// browser will have them, or None if nothing changed and nothing is running.
-    fn write_record(&self, h: u16, c: &Cand<'_>, tier: Tier, seq: u32, tick: u32, out: &mut Vec<u8>) -> Option<Fields> {
-        let kind = c.r.kind();
+    #[allow(clippy::too_many_arguments)]
+    fn write_record(&self, h: u16, c: &Cand, r: &Record, tier: Tier, seq: u32, tick: u32, out: &mut Vec<u8>) -> Option<Fields> {
+        let kind = c.kind;
         let schema = kind.fields();
-        let mut now = c.r.fields;
+        let mut now = r.fields;
         if let Some(i) = reference(kind) {
             now[i] = i32::from(c.refers);
         }

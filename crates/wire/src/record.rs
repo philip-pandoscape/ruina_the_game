@@ -7,11 +7,11 @@
 //! tick out), in one process as they are and between processes in whatever form the transport
 //! writes. A record's fields are written only as far as its last that isn't zero.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::fast::FxMap;
 use crate::schema::{EVENT, Fields, Kind, MAX_FIELDS};
 
 /// Interest cells are this many metres square (the world's words: a cell is 32 m).
@@ -173,13 +173,13 @@ pub struct Frame {
     /// The world's tick (crates/server's clock), whose low 32 bits each update carries.
     pub tick: u64,
     cells: Vec<CellRecords>,
-    index: HashMap<Cell, usize>,
+    index: FxMap<Cell, usize>,
     count: usize,
 }
 
 impl Frame {
     pub fn new(tick: u64) -> Self {
-        Frame { tick, cells: Vec::new(), index: HashMap::new(), count: 0 }
+        Frame { tick, cells: Vec::new(), index: FxMap::default(), count: 0 }
     }
 
     /// A tick's cells as a sim published them (crates/world-api's tick out).
@@ -238,6 +238,11 @@ impl Frame {
 
     pub fn cell(&self, c: Cell) -> Option<&CellRecords> {
         self.index.get(&c).map(|&i| &self.cells[i])
+    }
+
+    /// Where a cell is in [`Frame::cells`], if it holds anything.
+    pub fn cell_index(&self, c: Cell) -> Option<usize> {
+        self.index.get(&c).copied()
     }
 
     /// How many records it holds.
