@@ -8,6 +8,34 @@ R10.17's part for placed things (ids from a database sequence). Branch `refactor
 This file is a running log while the work goes on (dated entries at the end); the summary at the
 top is filled in when it's done.
 
+## Where It Stands (done, 2026-11-07)
+
+**Done, on `refactor/land`** (head in the log's last entry; refactor/first merged up to 2f40bf0):
+the first half below, and the server's side on its tiers. The store owns land's tables
+(`crates/server/src/store/land/`, moved from `crates/server/src/land/`) behind the store's messages,
+every write fenced by the character's epoch (and the writing simulation's lease where leases are in
+Postgres); a life is read with the land lent to it and a block of ids, and written apart from it (the
+life on its row, the land as rows, its entries as the ledger's). A region's simulation reads its
+land as it starts and keeps it for those away (`crates/server/src/sim/lands.rs`; residents and each
+channel's estates and plots are gone); claims go through the registry; sales lower the world's
+market (read again every 10 s); every channel takes a neglected house down on the world's clock and
+the keeper (channel 1) writes it; lives are written a second after they change and at least once a
+minute; pots go through the ledger; saves from before land had rows move into them as the server
+starts. One authority over each piece of land at a time (below). Unit-tested; no new multi-tier or
+database tests (the end agent's list is in the last entry).
+
+**Decision: packs on the ground and parked vehicles are shared by every channel**, the owner's land
+rows like a house, lent to their life wherever they play; nothing moves when a channel closes.
+
+**Left** (for the end pass): the integration and end-to-end tests in the last entry; a channel shows
+an absent owner's land as of its start or their last leave from it (changes made in another channel
+reach it at its next start; demolitions agree, as every channel runs the rule); packs on the ground
+and parked vehicles are drawn only with their owner; no game action takes someone's piece yet
+(`Game::take_piece` is the way one would); a claim in flight when the server stops loses its
+blueprint; among several processes, a simulation process that dies leaves its players' land lent
+(nothing of theirs can be taken) until they play again; the wire could key vehicles and packs by
+their land ids (world-unique online) instead of its stand-in keys.
+
 ## Where It Stands (the first half, 2026-11-06)
 
 **Done, on `refactor/land`:** the engine's land apart from a life (lent to its owner's life while
@@ -249,3 +277,74 @@ life in whichever channel they play and kept for them while they're away. Only t
 and they play in one channel at a time, so there's nothing to reconcile, and nothing to move when a
 channel closes. They're drawn with their owner (in the channel they play in); drawing them standing
 while the owner is away, or in other channels, is the browser's estate drawing to extend later.
+
+## 2026-11-07 02:30: one authority over each piece of land, unit tests, ready for the end pass
+
+Merged refactor/first twice more (fa5a417: the multi-server version, its lease fence now on land's
+writes and the keeper's take-downs too; 60e3a36: borders on the tiers, a player handed to another
+part taking their land with their life and leaving it standing behind). Then:
+
+**One authority over a piece of land at a time** (`b2f7cc2`; migration 0014 `characters.land_lent`,
+`store/land/pieces.rs`, the memory tables the same):
+- *While its owner plays*, their land is lent to their life: the store lends it as it reads the life
+  for the connection taking them up, and only that life changes it, in the one simulation playing
+  them (its writes fenced by their epoch). Anyone else acts on it there, through that simulation
+  (riding along already needs the owner there to drive). The store refuses anyone taking a piece of
+  a lent holding (`TakeResult::Lent`), and the keeper's take-downs skip its houses (the owner's own
+  life takes a neglected house down, by the same rule on the same clock).
+- *While they're away*, the store keeps it: the simulation gives it back after the life's last write
+  (`ToStore::ReturnLand`, under the grant it played under; a newer window's lend stays). Whoever acts
+  on a piece of it (a pack on the ground, or a vehicle with what's in its bed), from any channel or
+  process, asks the store (`ToStore::TakePiece`, `Game::take_piece`): the first has it (its rows
+  re-owned in one transaction, `ToSim::Taken`, into the taker's life where it stood), every later ask
+  is refused (`Gone`), and the owner comes back to what's still theirs (rows are only ever written by
+  their owner, so their stale copy can't write a taken piece back).
+- A lone server gives everyone's land back as it starts (nobody plays yet).
+
+**Unit tests added:** the store on its memory tables (a life written apart from its land and ledger
+and read back with them; older saves keep their own; a plot raced by two channels; the keeper taking
+down only what is still untaxed and never a playing owner's; a pot written once, its writer told; two
+sales lowering the world's demand; one authority over a piece: lent, first come, gone, stale, a newer
+lend kept); `sim/lands.rs` (read, lent and kept, plots, neglect); the simulation (land lent to
+whoever plays and kept when they go; claims answered Yours, Theirs and Stale; a sale here and in the
+world; saves a second after a change and once a minute; ids topped up; a neglected house down in
+every channel with only the keeper writing it; a deleted character's land; a piece taken through the
+store); a pot through the ledger; the engine's `claim_failed`. The store's Postgres tests
+(`crates/server/tests/land.rs`) are as they were, on epochs and without home channels. `npm run
+check` passes (below).
+
+**For the end agent: integration and end-to-end tests to write or run**, and what each proves:
+1. *Plot race across channels* (two channel simulations, one store, Postgres): two players in
+   channels 1 and 2 put a house on one plot at once; one keeps it, the other's comes down with the
+   blueprint back, and both channels show the winner's. The registry is first come in the world.
+2. *Land through a restart* (`tests/update.spec.ts`): plant a farm, drop a pack, park a cart, build a
+   house; restart; all of it where it was, with the same ids; the `land` table holds the pieces by
+   chunk and `characters.island` no land. Lives and land are written apart and read back together.
+3. *The beta copy's saves taken up* (the end pass's step 1): a server started on a copy of beta's
+   database moves every save into rows (`store::db::connect` logs what it moved); every character
+   logs in with everything, plots unique, a plot built on in several channels kept by the
+   first-made. Nothing is lost moving to rows.
+4. *The keeper's demolition*: an absent owner's house with an old `tax_paid_until`; channel 1 takes it
+   down in the store and every channel shows it gone; someone else claims the plot; an owner who paid
+   meanwhile, or is playing, keeps theirs.
+5. *One authority over a piece*: while Ada plays in channel 2, taking her dropped bale from channel 1
+   is refused; once she has left, two simulations (or two processes) ask at once: one has it, the
+   other is refused, and Ada logs back in without it. Needs a dev command or game action calling
+   `Game::take_piece`.
+6. *One market*: a sale in channel 1 lowers the demand a player sees in channel 2 within 10 s, and in
+   the same channel at once.
+7. *Saves when changed*: a purchase is saved within about a second (`saved`), an idle player at least
+   once a minute. Online specs that relied on the old 5-second cadence may need their waits changed.
+8. *A pot through the ledger* (`tests/minigames.spec.ts`): a game won for a stake leaves the pot's two
+   rows and each life's own entries once in `ledger`; a server stopping mid-game returns the stakes.
+9. *Ids across processes* (`npm run test:cluster`): players on two simulation processes place many
+   things; no two `land` rows share an id, and runs are topped up past a block.
+10. *A deleted character*: their land comes down in every channel, and their plots are free.
+11. *Leases among processes*: a simulation that lost its lease writes no life or land, and a keeper
+    that lost its lease takes nothing down.
+12. *Borders* (a split region): a cart crossing a border keeps its cargo and stays solid on the far
+    side; the part it left still shows the owner's houses; its row's chunk follows it.
+13. The online specs as they stand (`tests/online.spec.ts`, `tests/party.spec.ts`,
+    `tests/dungeon-way-in.spec.ts`, `tests/minigames.spec.ts`, `tests/update.spec.ts`): the welcome
+    and updates carry the region's land in the shapes the browser already reads (`estates`,
+    `estate`, `claims`).
