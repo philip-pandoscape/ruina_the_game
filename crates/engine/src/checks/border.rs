@@ -29,6 +29,15 @@ use crate::player::{Actions, Player};
 use crate::session::player_state_json;
 use crate::world::Spawn;
 
+/// How the posts between simulations travel: passed as they are, written out to count their bytes,
+/// or written out and read back as between processes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Posts {
+    Passed,
+    Counted,
+    Written,
+}
+
 /// How a world is split between simulations.
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -68,13 +77,14 @@ struct Case {
 /// Runs a case as one simulation and gives back a hash of each tick, and the islands at the end.
 pub fn run(input: &str) -> serde_json::Result<String> {
     let case: Case = serde_json::from_str(input)?;
-    Ok(answer(&case.crowd, None, false))
+    Ok(answer(&case.crowd, None, Posts::Passed))
 }
 
 /// The same, split by `rule` (with every post written out and read back if `wire`).
 pub fn run_split(input: &str, rule: Rule, wire: bool) -> serde_json::Result<String> {
+    let posts = if wire { Posts::Written } else { Posts::Passed };
     let case: Case = serde_json::from_str(input)?;
-    Ok(answer(&case.crowd, Some(rule), wire))
+    Ok(answer(&case.crowd, Some(rule), posts))
 }
 
 /// The splits a case lists.
@@ -83,8 +93,8 @@ pub fn splits(input: &str) -> serde_json::Result<Vec<Rule>> {
     Ok(case.splits)
 }
 
-fn answer(s: &Scenario, rule: Option<Rule>, wire: bool) -> String {
-    let mut played = play(s, rule, wire, false);
+fn answer(s: &Scenario, rule: Option<Rule>, posts: Posts) -> String {
+    let mut played = play(s, rule, posts, false);
     let islands = islands(&mut played.split);
     json!({ "ticks": played.ticks, "islands": islands }).to_string()
 }
@@ -113,17 +123,18 @@ fn client(k: usize) -> EntityId {
 
 /// Plays a scenario: as one simulation (`rule` none) or split; each tick hashed in the border's
 /// order, and in the crowd's too if `crowd` (one simulation only).
-pub(crate) fn play(s: &Scenario, rule: Option<Rule>, wire: bool, crowd: bool) -> Played {
-    play_keeping(s, rule, wire, crowd, false)
+pub(crate) fn play(s: &Scenario, rule: Option<Rule>, posts: Posts, crowd: bool) -> Played {
+    play_keeping(s, rule, posts, crowd, false)
 }
 
 /// The same, keeping each tick written out whole if `keep`.
-pub(crate) fn play_keeping(s: &Scenario, rule: Option<Rule>, wire: bool, crowd: bool, keep: bool) -> Played {
+pub(crate) fn play_keeping(s: &Scenario, rule: Option<Rule>, posts: Posts, crowd: bool, keep: bool) -> Played {
     let zone = emberholm();
     let map = world_map();
     let owners = rule.map_or_else(|| Owners::one(map, SimId(1)), Rule::owners);
     let mut split = Split::new(map, zone, Some(&zone.terrain), owners, 1000.0 / f64::from(TICK_HZ));
-    split.wire = wire;
+    split.wire = posts == Posts::Written;
+    split.count = posts != Posts::Passed;
     // Everyone in their slot (their place in the list), where they stand; a passenger with their
     // driver.
     let hf = map;
@@ -316,7 +327,7 @@ mod tests {
         // (and the server's play_tick) does: the same answer, hash for hash, the islands too.
         let input = case("crowdcheck");
         let s: Scenario = serde_json::from_str(&input).expect("a scenario");
-        let mut played = play(&s, None, false, true);
+        let mut played = play(&s, None, Posts::Passed, true);
         let islands: Vec<Value> = islands(&mut played.split);
         let mine = json!({ "ticks": played.crowd, "islands": islands }).to_string();
         assert_eq!(mine, super::super::crowd::run(&input).expect("the crowd runs"));
@@ -335,8 +346,8 @@ mod tests {
         let input = case("crowdcheck");
         let s: Scenario = serde_json::from_str(&input).expect("a scenario");
         let rule = Rule::Line { chunk: 4.0, x: None, z: Some(-44.0) };
-        let one = play_keeping(&s, None, false, false, true);
-        let split = play_keeping(&s, Some(rule), false, false, true);
+        let one = play_keeping(&s, None, Posts::Passed, false, true);
+        let split = play_keeping(&s, Some(rule), Posts::Passed, false, true);
         if let Some(t) = parted(&one, &split) {
             let dir = format!("{}/../../scratch", env!("CARGO_MANIFEST_DIR"));
             std::fs::write(format!("{dir}/one.json"), &one.texts[t]).expect("written");
@@ -349,11 +360,43 @@ mod tests {
     fn the_crowd_split_plays_as_one() {
         let input = case("crowdcheck");
         let s: Scenario = serde_json::from_str(&input).expect("a scenario");
-        let one = play(&s, None, false, false);
+        let one = play(&s, None, Posts::Passed, false);
         for rule in [Rule::X(0), Rule::Corner(0, 0), Rule::Line { chunk: 4.0, x: None, z: Some(-44.0) }] {
-            let split = play(&s, Some(rule), false, false);
+            let split = play(&s, Some(rule), Posts::Passed, false);
             assert_eq!(parted(&one, &split), None, "{rule:?}");
         }
+    }
+
+    #[test]
+    fn across_the_border_walkers_and_a_cart_with_its_passenger_are_handed_over() {
+        // The second case, Emberholm split at x = 0: a walker each way, and a cart with a
+        // passenger, cross; the two sides fight across the line, creatures either side of it.
+        let path = format!("{}/tests/golden/bordercheck.json", env!("CARGO_MANIFEST_DIR"));
+        let file: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("the golden file")).expect("golden JSON");
+        let s: Scenario = serde_json::from_value(file["cases"][1]["input"].clone()).expect("a scenario");
+        let one = play(&s, None, Posts::Passed, false);
+        let mut split = play(&s, Some(Rule::X(0)), Posts::Counted, false);
+        assert_eq!(parted(&one, &split), None);
+        let c = split.split.counts.clone();
+        eprintln!("{c:?}");
+        // The walkers ended up across the line, each the other side's now.
+        let (west, east) = (SimId(1), SimId(2));
+        let first = s.fighters.iter().position(|f| f.walks.is_some()).expect("walkers");
+        assert_eq!(split.split.owner_of(first), Some(east), "the walker going east");
+        assert_eq!(split.split.owner_of(first + 1), Some(west), "the walker going west");
+        // The cart's driver and its passenger went over as one, and sit in it there.
+        let driver = s.fighters.iter().position(|f| f.drives.is_some()).expect("a driver");
+        let passenger = s.fighters.iter().position(|f| f.rides == Some(driver)).expect("a passenger");
+        assert_eq!((split.split.owner_of(driver), split.split.owner_of(passenger)), (Some(east), Some(east)));
+        let sim = split.split.sim_mut(east);
+        let (d, _, life) = sim.players.open_view(client(driver)).expect("the driver");
+        let v = &life.expect("an island").state.vehicles[0];
+        assert!(v.x > 28.0, "the cart is {} m past the line", v.x);
+        assert_eq!(d.vehicle, v.id);
+        let p = sim.players.open_view(client(passenger)).expect("the passenger").0;
+        assert_eq!((p.host, p.vehicle), (character(driver), v.id));
+        assert!(c.handoffs >= 3, "{c:?}");
+        assert!(c.across_bytes > 0 && c.struck_bytes > 0, "{c:?}");
     }
 
     #[test]
@@ -362,8 +405,8 @@ mod tests {
         // as a post written out and read back, as between processes, and it still plays as one.
         let input = case("crowdcheck");
         let s: Scenario = serde_json::from_str(&input).expect("a scenario");
-        let one = play(&s, None, false, false);
-        let split = play(&s, Some(Rule::Line { chunk: 4.0, x: None, z: Some(-44.0) }), true, false);
+        let one = play(&s, None, Posts::Passed, false);
+        let split = play(&s, Some(Rule::Line { chunk: 4.0, x: None, z: Some(-44.0) }), Posts::Written, false);
         assert_eq!(parted(&one, &split), None);
         let c = &split.split.counts;
         eprintln!("{c:?}");
