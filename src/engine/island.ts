@@ -12,7 +12,7 @@ export { islandData } from './life/save';
 export type { Saved } from './life/save';
 export { IslandView } from './islandView';
 export type { Command, IslandRead, LifeEvent, OthersVehicle } from './life/life';
-export { skillBudget, trainedBy } from './life/progress';
+export { skillBudget } from './life/progress';
 export { isReady, questsAt } from './life/quests';
 export { shipFinished, shipNeeds, shipOn, shipStageReady } from './life/shipyard';
 export { newLifeState } from './life/state';

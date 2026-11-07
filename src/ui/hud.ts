@@ -120,7 +120,6 @@ export class Hud {
   private v = new THREE.Vector3();
   private bar = document.getElementById('abilities') as HTMLDivElement;
   private castBar = document.getElementById('castbar') as HTMLDivElement;
-  private vitalsEl = document.getElementById('player-hp') as HTMLDivElement;
   private refuseEl = document.createElement('div');
   private barKey = '';
   private wasCasting = 0; // castKind last frame
@@ -133,11 +132,6 @@ export class Hud {
   private dragFrom = -1;
 
   constructor() {
-    // Health with MP and stamina under it, over the hotbar (the training yard and the battlefield;
-    // the open world shows them beside your portrait).
-    this.vitalsEl.innerHTML =
-      '<div class="pv pv-hp"><div class="fill"></div><span class="label"></span></div>' +
-      '<div class="pv-row"><div class="pv pv-mp" title="MP"><div class="fill"></div></div><div class="pv pv-st" title="Stamina"><div class="fill"></div></div></div>';
     // "Not Enough Stamina" and the like, when you ask for what you can't afford.
     this.refuseEl.id = 'hud-refuse';
     (this.bar.parentElement ?? document.body).appendChild(this.refuseEl);
@@ -187,37 +181,6 @@ export class Hud {
 
   setStats(text: string): void {
     this.stats.textContent = text;
-  }
-
-  /**
-   * Your health, with MP and stamina under it, over the hotbar (the training yard, the
-   * battlefield). Pass null to hide them. `team` is the battlefield's side; null where there are
-   * no sides.
-   */
-  setVitals(v: Vitals | null, team: number | null = 0): void {
-    const el = this.vitalsEl;
-    if (v === null) {
-      el.style.display = 'none';
-      return;
-    }
-    el.style.display = 'block';
-    el.classList.toggle('hurt', v.hp < v.maxHp * 0.35);
-    const width = (sel: string, frac: number) => {
-      const w = `${(Math.max(0, Math.min(1, frac)) * 100).toFixed(1)}%`;
-      const fill = el.querySelector(`${sel} .fill`) as HTMLDivElement;
-      if (fill.style.width !== w) fill.style.width = w;
-    };
-    width('.pv-hp', v.hp / v.maxHp);
-    width('.pv-mp', v.mp / v.maxMp);
-    width('.pv-st', v.stamina / v.maxStamina);
-    const label = el.querySelector('.pv-hp .label') as HTMLSpanElement;
-    const text =
-      v.hp <= 0
-        ? 'Knocked Down…'
-        : team === null
-          ? `${Math.round(v.hp)} / ${v.maxHp}`
-          : `${team === 0 ? 'Blue' : 'Red'} Team · ${Math.round(v.hp)} / ${v.maxHp}`;
-    if (label.textContent !== text) label.textContent = text;
   }
 
   /** Says why what you asked for didn't happen ("Not Enough Stamina"), for a moment. */

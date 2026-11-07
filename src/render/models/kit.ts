@@ -24,7 +24,6 @@ export type Col = Rgb | ColorFn;
 
 /** One palette for the island, so separately built models still look like they belong together. */
 export const PAL = {
-  // shared with src/render/scene.ts
   grass: 0x86c55a,
   grassDark: 0x5fa843,
   trunk: 0x8d5a3b,

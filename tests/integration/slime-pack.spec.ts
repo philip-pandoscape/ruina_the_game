@@ -154,7 +154,7 @@ test('the target plate shows the gather filling', async ({ page }) => {
 test('on a hillside the slam warning lies on the slope, not under it', async ({ page }) => {
   const errors = watchErrors(page);
   // The island, offline and stepped by the test: the training yard is flat, the island is not.
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 60_000);
   await page.evaluate((v) => window.__game.setBuild(v), SWORD);
   // The steepest walkable ground within reach of the spawn.

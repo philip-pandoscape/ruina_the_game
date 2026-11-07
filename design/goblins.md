@@ -60,7 +60,7 @@ what its scenarios come to.
 
 1. **The goblin in the yard** (built). Engine parts and the goblin, in both languages, with
    conformance tests and the yard tests (`tests/unit/rules/goblin.test.ts`), box body. Try it with
-   `npm run dev` and `/?yard&goblins=6`.
+   `npm run dev` and `/?offline=goblinCamp` (the goblin camp, a developer zone with the war-band).
 2. **Online at Thornwood.** The server's foes from every player, hits on players, missiles on the
    wire, a band at Thornwood's southern edge; pushed to beta for a playtest.
 3. **Its look.** The grunt made with Meshy beside the free goblin; the user picks.

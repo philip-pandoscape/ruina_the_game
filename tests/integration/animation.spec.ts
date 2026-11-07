@@ -39,7 +39,7 @@ for (const fps of [30, 144]) {
     // the handles are this frame, not a frame ago.
     await page.setViewportSize({ width: 480, height: 270 });
     await page.addInitScript(fixedFrameRate);
-    await page.goto('/?world&test');
+    await page.goto('/?test');
     await gameReady(page, 60_000);
     const boarded = await page.evaluate(() => {
       const g = window.__game;

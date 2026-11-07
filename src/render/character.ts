@@ -473,8 +473,8 @@ export class Hero {
 
   /**
    * A swing of yours connected: hold it where it is for `frames` (sixtieths of a second), then let
-   * it catch up, as the rules' own hit pause does in the training yard. Online the rules can't stop
-   * for it - the server decides where you are - so only the drawing does.
+   * it catch up, as the rules' own hit pause does offline. Online the rules can't stop for it - the
+   * server decides where you are - so only the drawing does.
    */
   hitPause(frames: number, swing: number): void {
     if (frames <= 0) return;

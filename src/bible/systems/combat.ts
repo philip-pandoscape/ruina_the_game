@@ -33,7 +33,7 @@ import serverPlay from '../../../crates/world-api/src/lib.rs?raw';
 // (combat.rs).
 const QUEUE = () => sourceNumber(playerSource, /attack_queued && f >= active_end \+ (\d+)/, 'when a queued hit starts');
 const WINDUP_LUNGE = () => sourceNumber(playerSource, /step\.lunge \* ([\d.]+) \} else \{ step\.lunge \}/, 'the lunge during a wind-up');
-const SWING_HEIGHT = () => sourceNumber(serverCombat, /feet\.is_none_or\(\|\(above, _\)\| above <= ([\d.]+)\)/, 'how high a swing still reaches from');
+const SWING_HEIGHT = () => sourceNumber(serverCombat, /if p\.pos\.y - under <= ([\d.]+) \{/, 'how high a swing still reaches from');
 const FEET_APART = () =>
   sourceNumber(serverCombat, /\(y \+ ground_under\(floor, terrain, x, z\) - fy\)\.abs\(\) <= ([\d.]+)\)/, 'how far below or above a swing reaches');
 const REWIND = () => rustConst(serverCombat, 'MAX_REWIND_TICKS');

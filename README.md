@@ -32,7 +32,7 @@ can play several characters in different windows.
 
 | Page | What |
 |---|---|
-| http://localhost:5173/ | The world. `?fresh` starts your character's life over; `?yard` opens the training yard, offline. |
+| http://localhost:5173/ | The world. `?fresh` starts your character's life over; `?offline` plays the world offline, `?offline=yard` the training yard (any instance by its id). |
 | http://localhost:5173/bible/ | The Ruina Bible: how the game works, exactly, with every control on a keyboard and on a controller. |
 | http://localhost:5173/dev/library.html | The content library: everything the game draws, every animation frame by frame (admins). |
 | http://localhost:5173/design/ | The design bible's Development tab and its tracker (admins); the UI design system is `design/ui.html`. |

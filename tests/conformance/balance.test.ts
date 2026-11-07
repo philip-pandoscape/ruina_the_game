@@ -12,6 +12,7 @@ const BALANCE = `target/release/balance${process.platform === 'win32' ? '.exe' :
 test('a skill upgrade beats the build it upgrades, measured through the server rules', (ctx) => {
   ctx.skip(!existsSync(BALANCE), 'build it first: cargo build --release --bin balance');
   const scenario = {
+    arena: 'battlefield',
     duels: 6,
     seed: 3,
     maxSeconds: 25,

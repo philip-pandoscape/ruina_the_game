@@ -142,6 +142,8 @@ export interface WorldStats {
   bots: number;
   /** How long a tick takes to run, ms (smoothed). */
   tickMs: number;
+  /** Every tick since the last stats: its rules and its updates, ms each (the load harness reads them). */
+  ticks?: Array<[number, number]>;
   /** What this tick sent this browser, bytes: the JSON tick this came with and the update on the wire. */
   bytes: number;
   /** Of which the update on the wire (the wire for crowds), bytes. */

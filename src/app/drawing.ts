@@ -351,10 +351,8 @@ export function makeDrawing(g: GameRefs) {
       }
     }
     drawAbilityBar();
-    // Health, MP and stamina: in the open world beside your portrait, elsewhere over the hotbar.
-    const vitals = { hp: g.sim.player.hp, maxHp: COMBAT.maxHp, mp: g.sim.player.mp, maxMp: MP.max, stamina: g.sim.player.stamina, maxStamina: STAMINA.max };
-    hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, null);
-    lifeUI?.setVitals(vitals);
+    // Health, MP and stamina, beside your portrait.
+    lifeUI?.setVitals({ hp: g.sim.player.hp, maxHp: COMBAT.maxHp, mp: g.sim.player.mp, maxMp: MP.max, stamina: g.sim.player.stamina, maxStamina: STAMINA.max });
     const pos = hero.root.position;
     if (openStage) {
       // Which building you are in (it is drawn cut open, and holds the camera), its doors and lamps.
@@ -405,7 +403,7 @@ export function makeDrawing(g: GameRefs) {
           }
         : null,
     );
-    // The dummy has its own health bar in the training yard; hide it when the target plate is
+    // The dummy has its own health bar offline; hide it when the target plate is
     // already showing the same thing, or they stack on top of each other.
     const plateOnDummy = !!markNow && markNow.name === NAMES.dummy;
     hud.layout(follow.camera, innerWidth, innerHeight, dummyTop, (dAct?.hp ?? 0) / DUMMY.hp, !serverRules && !plateOnDummy);

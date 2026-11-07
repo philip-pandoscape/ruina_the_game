@@ -45,10 +45,11 @@ use crate::open::{OpenWorld, SIM_BAND, Sim};
 use crate::player::{Actions, Build, Mode, Player};
 use crate::sim::channels::{Channel, estate_of};
 use crate::skills::{allowed, build_from_saved};
-use crate::world::{Spawn, World};
+use crate::world::Spawn;
 
 /// Bots: players without a socket, their inputs decided by their brains.
 mod bots;
+pub use bots::set_bot_limit;
 /// The channels' residents: everyone's estates and who holds which plot.
 pub mod channels;
 /// The world's clock: ticks numbered from the world's epoch.
@@ -178,7 +179,6 @@ pub struct Game {
     /// Everyone's estates and who holds which plot, online or not.
     pub estates: Channel,
     pub members: HashMap<CharacterId, Member>,
-    world: World,
     pub open: OpenWorld,
     pub(crate) players: Players,
     pub(crate) actors: Actors,
@@ -199,6 +199,9 @@ pub struct Game {
     bot_count: u32,
     /// How long a tick takes to run (ms, smoothed), for the admins' stats.
     step_ms: f64,
+    /// Each tick since the last stats: its rules and its publishing, ms (the stats carry them, for
+    /// load tests: crates/tools/src/bin/loadtest.rs).
+    timed: Vec<[f32; 2]>,
     /// How its players are stepped each tick (the server's `--parallel`).
     pub stepping: stepping::Stepping,
 }
@@ -251,9 +254,6 @@ impl Game {
     }
 
     fn playing(sim: SimId, at: SpaceId, zone: &'static Zone, open: OpenWorld, actors: Actors) -> Game {
-        let r = &zone.recipe;
-        let spawn = Spawn { x: r.spawn.x, z: r.spawn.z, facing: r.spawn.facing };
-        let world = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
         let mut players = Players::new(1000.0 / TICK_HZ as f64);
         players.ground = Some(&zone.terrain);
         Game {
@@ -265,7 +265,6 @@ impl Game {
             lingering: HashMap::new(),
             estates: Channel::default(),
             members: HashMap::new(),
-            world,
             open,
             players,
             actors,
@@ -279,6 +278,7 @@ impl Game {
             bots: Vec::new(),
             bot_count: 0,
             step_ms: 0.0,
+            timed: Vec::new(),
             stepping: stepping::Stepping::chosen(),
         }
     }
@@ -844,9 +844,14 @@ impl Game {
             self.tick = at - 1;
         }
         self.play_tick(elapsed, world);
+        let ruled = Instant::now();
         let out = self.publish(now);
         let took = now.elapsed().as_secs_f64() * 1000.0;
         self.step_ms = if self.step_ms == 0.0 { took } else { self.step_ms * 0.9 + took * 0.1 };
+        if self.timed.len() < 4 * STATS_EVERY as usize {
+            let rules = (ruled - now).as_secs_f64() * 1000.0;
+            self.timed.push([rules as f32, (took - rules) as f32]);
+        }
         out
     }
 
@@ -867,7 +872,7 @@ impl Game {
         self.players.gather_movers(&mut self.open);
         self.drive_bots();
         let stepping = &mut self.stepping;
-        self.players.step_by(&mut self.actors, &self.world, self.tick, Some(&mut self.open), |jobs, step| stepping.run(jobs, step));
+        self.players.step_by(&mut self.actors, self.tick, &mut self.open, |jobs, step| stepping.run(jobs, step));
         self.players.seat_passengers(&self.open);
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
@@ -992,7 +997,7 @@ fn stand_on_ground(p: &mut Player, world: &OpenWorld) {
 
 /// Brings to life what a region's or an instance's spawns list (open/spawns.rs), each war-band
 /// fighting together.
-fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::yard::SpawnPoint>) {
+fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::open::spawns::SpawnPoint>) {
     for p in points {
         let seed = p.seed.unwrap_or(1);
         if p.band > 0 {
@@ -1256,7 +1261,7 @@ pub(crate) mod tests {
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
-                ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, tick, &mut ch.open);
             }
         };
         // Seeing the present, the swing finds nobody in reach.
@@ -1302,7 +1307,7 @@ pub(crate) mod tests {
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
-                ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, tick, &mut ch.open);
             }
         };
         // Seeing the present, the swing finds nothing in reach.
@@ -1339,7 +1344,7 @@ pub(crate) mod tests {
             ch.inputs(7, inputs.into_iter());
             ch.players.inputs_per_tick = 12.0;
             for tick in 0..frames.div_ceil(12) {
-                ch.players.step_in(&mut ch.actors, &ch.world, tick as u64 + 1, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, tick as u64 + 1, &mut ch.open);
             }
         };
         let xp = |ch: &Game, id: &str| ch.players.open_view(client(7)).unwrap().2.unwrap().state.skill_xp.get(id).copied().unwrap_or(0.0);
@@ -1423,7 +1428,7 @@ pub(crate) mod tests {
             ch.inputs(8, (first..=*seq).map(|s| (s, [0; OPEN_INPUT])));
             ch.players.inputs_per_tick = 3.0;
             ch.players.gather_movers(&mut ch.open);
-            ch.players.step_in(&mut ch.actors, &ch.world, 1, Some(&mut ch.open));
+            ch.players.step_in(&mut ch.actors, 1, &mut ch.open);
             ch.players.seat_passengers(&ch.open);
         }
     }

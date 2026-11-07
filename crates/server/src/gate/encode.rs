@@ -99,10 +99,10 @@ impl Encoder {
         let life = me.life.as_ref().or(owed.life.as_ref());
         let mut update = Update { t: "tick", tick: out.tick, you: &me.you, life_events: &life_events, life, tables, stats: None };
         let text = serde_json::to_string(&update).unwrap_or_default();
-        let text = match (self.admin, out.stats) {
+        let text = match (self.admin, &out.stats) {
             // With the size of what this tick sent, before the stats were added to it.
             (true, Some(stats)) => {
-                update.stats = Some(StatsOut { stats, bytes: text.len() + bytes.len(), wire: bytes.len() });
+                update.stats = Some(StatsOut { stats: stats.clone(), bytes: text.len() + bytes.len(), wire: bytes.len() });
                 serde_json::to_string(&update).unwrap_or_default()
             }
             _ => text,

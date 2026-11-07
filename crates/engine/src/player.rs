@@ -1,7 +1,7 @@
-//! Player movement and combat rules, as the server runs them (no training dummy, no hit pause, no
-//! auto-aim: the yard's stand-ins for those are training.rs). The browser runs the same code through
-//! the WebAssembly to predict your own moves. Open worlds reuse these pieces from
-//! crate::open::step_player.
+//! Player movement and combat rules, as the server runs them (no hit pause, no auto-aim: those are
+//! the offline session's, training.rs). A player is stepped in a world, a region or a copy of an
+//! instance, by crate::open::step_player, which puts these pieces together over its ground. The
+//! browser runs the same code through the WebAssembly to predict your own moves.
 
 use serde::{Deserialize, Serialize};
 
@@ -15,12 +15,12 @@ use crate::tuning::{
     AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability, ability_cooldown, ability_mp_for, cast_frames_for, combo_for, movement_action,
     movement_cooldown_for, movement_stamina_for, pierce_targets, slide_skill, tuning, weapon_index,
 };
-use crate::world::{Spawn, World};
+use crate::world::Spawn;
 
 const PI: f64 = std::f64::consts::PI;
 const TAU: f64 = std::f64::consts::TAU;
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Actions {
     pub move_x: f64,
     pub move_z: f64,
@@ -69,7 +69,10 @@ pub struct V3 {
     pub z: f64,
 }
 
-#[derive(Clone, Debug)]
+/// Read and written whole where a player is handed between simulations (crate::border), but for
+/// what a step keeps for itself (its events, the yard's swing and bodies) and the skills' numbers,
+/// which are worked out again from the skills and levels once one is read ([`Player::resolve`]).
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Player {
     pub pos: V3,
     pub vel: V3,
@@ -107,10 +110,11 @@ pub struct Player {
     pub weapon: u8,       // its place in shared/tuning.json's weapons
     pub skills: SkillSet, // which skills are learned (skills.rs)
     /// The level of each skill in the skill book (skills.rs book()), which adds to what it does.
-    /// An open-world player's island keeps the experience behind them and sets these
-    /// (crate::life::progress::sync_levels); on the battlefield they stay at 1.
+    /// A player's island keeps the experience behind them and sets these
+    /// (crate::life::progress::sync_levels); a player without one keeps them at 1.
     pub levels: Levels,
     /// Resolved once when the build or a level changes, never in a frame.
+    #[serde(skip)]
     pub resolved: ResolvedSkills,
     pub abilities: [u8; HOTBAR_SLOTS],  // one per hotbar slot (NO_ABILITY = empty)
     pub cooldowns: [i32; HOTBAR_SLOTS], // frames until each slot can be used again
@@ -137,7 +141,7 @@ pub struct Player {
     /// The movement skill that started this frame (the slide too), else NO_MOVEMENT: the page's
     /// `action` event, which trains it in an open world.
     pub started_action: u8,
-    // ---- Open-world traversal (src/engine/shapes.ts). Always at rest on the battlefield. ----
+    // ---- Getting about the world (src/engine/shapes.ts). ----
     /// The trade pack on your back (an id in the life systems), 0 for none.
     pub pack: i64,
     /// What you are riding (a vehicle id in the life systems), 0 on foot; and which seat.
@@ -157,17 +161,20 @@ pub struct Player {
     pub gust_frames: i32,
     /// What happened this step, in the order it happened (crate::event): taken by the browser's
     /// session after each step, cleared at the next.
+    #[serde(skip)]
     pub events: Vec<Event>,
     /// Where you were and faced at the start of this step, for drawing between steps.
     pub prev_pos: V3,
     pub prev_facing: f64,
-    /// Offline, where everything worth swinging at stands, for a swing's gentle auto-aim (the
-    /// session's training: crate::training); None online, where nothing aims for you.
+    /// Offline in a copy whose practice rules have aim assist (crate::open::dungeon::Practice),
+    /// where everything worth swinging at stands, for a swing's gentle auto-aim; None elsewhere.
     pub aim_assist: Option<Vec<(f64, f64)>>,
     /// The swing whose blow could land this step (an active frame of a melee swing that hasn't
-    /// landed yet), for the training yard to check what it hits; the server checks for itself.
+    /// landed yet), for the offline session to check what it hits; the server checks for itself.
+    #[serde(skip)]
     pub swing_due: Option<AttackStep>,
     /// Offline, the creatures you can't walk through (crate::training).
+    #[serde(skip)]
     pub bodies: Vec<Body>,
 }
 
@@ -482,54 +489,6 @@ impl Player {
         (self.attack_frame > s.startup && self.attack_frame <= s.startup + s.active).then(|| s.clone())
     }
 
-    /// One step of the rules on the flat battlefield, as the server runs them.
-    /// Open worlds step through crate::open::step_player, which shares every piece of this but the
-    /// modes only they have and the ground.
-    pub fn step(&mut self, a: &Actions, world: &World) {
-        self.begin_step(a);
-        if self.down_frame >= 0 {
-            if self.update_down() {
-                self.respawn(world.team_spawns[self.team as usize & 1]);
-                self.respawned();
-            }
-        } else if self.stun > 0 {
-            self.update_stun();
-        } else {
-            match self.mode {
-                Mode::Action => self.update_action(a),
-                Mode::Cast => self.update_cast(a),
-                Mode::Attack => self.update_attack(a),
-                Mode::Normal => self.update_normal(a),
-                // Only open worlds have these, and they step through crate::open::traverse.
-                Mode::Swim | Mode::Glide | Mode::Ride => self.update_normal(a),
-            }
-        }
-        self.update_crouch_frame();
-        self.integrate(world);
-        self.check_shot();
-        self.end_step();
-    }
-
-    /// Out of a circle of radius `r` at (cx, cz), losing the speed into it.
-    fn push_from(&mut self, cx: f64, cz: f64, r: f64, pr: f64) {
-        let (dx, dz) = (self.pos.x - cx, self.pos.z - cz);
-        let min = r + pr;
-        let d2 = dx * dx + dz * dz;
-        if d2 >= min * min {
-            return;
-        }
-        let root = d2.sqrt();
-        let d = if root == 0.0 { 0.0001 } else { root };
-        let (nx, nz) = (dx / d, dz / d);
-        self.pos.x = cx + nx * min;
-        self.pos.z = cz + nz * min;
-        let vn = self.vel.x * nx + self.vel.z * nz;
-        if vn < 0.0 {
-            self.vel.x -= vn * nx;
-            self.vel.z -= vn * nz;
-        }
-    }
-
     /// Says you're back up where you now stand (after `respawn` and whatever puts you on the ground).
     pub(crate) fn respawned(&mut self) {
         self.events.push(Event::Respawn { x: self.pos.x, y: self.pos.y, z: self.pos.z });
@@ -682,8 +641,8 @@ impl Player {
         self.mp = tuning().mp.max;
     }
 
-    /// Knocked down: lie still. True on the frame it is time to get back up; where depends on the
-    /// world (a team's spawn on the battlefield, the island's own in an open world).
+    /// Knocked down: lie still. True on the frame it is time to get back up; where is the world's
+    /// (crate::open::OpenWorld::spawn_point: a region's spawn, an instance's arrival).
     pub(crate) fn update_down(&mut self) -> bool {
         let t = tuning();
         self.mode = Mode::Normal;
@@ -910,7 +869,7 @@ impl Player {
         if len(a.aim_x, a.aim_z) > 0.01 {
             self.facing = a.aim_x.js_atan2(a.aim_z);
         }
-        // Gentle auto-aim toward whatever is nearest and roughly in front (offline only).
+        // Gentle auto-aim toward whatever is nearest and roughly in front, where practice has it.
         if let Some(targets) = &self.aim_assist {
             let t = &tuning().attack;
             let (mut best, mut best_dist) = (None, t.auto_aim_range);
@@ -1058,6 +1017,12 @@ impl Player {
             return;
         }
         self.levels = levels.to_vec();
+        self.resolved = resolve_skills(&self.skills, &self.levels);
+    }
+
+    /// The skills' numbers worked out again from the skills and levels: what a player read from
+    /// its written form (serde) needs before it steps, as they aren't written.
+    pub fn resolve(&mut self) {
         self.resolved = resolve_skills(&self.skills, &self.levels);
     }
 
@@ -1227,70 +1192,21 @@ impl Player {
         self.cast_frame = 0;
         self.cooldowns = [0; HOTBAR_SLOTS];
     }
-
-    pub(crate) fn integrate(&mut self, world: &World) {
-        let t = tuning();
-        let dt = step_len();
-        if !self.grounded {
-            let mut g = if self.vel.y > 0.0 { t.jump.gravity_up } else { t.jump.gravity_down };
-            if self.mode == Mode::Attack {
-                let step = &combo_for(self.weapon, &self.resolved)[self.attack_index];
-                if self.attack_frame <= step.startup + step.active {
-                    g *= t.attack.air_gravity_scale;
-                }
-            }
-            self.vel.y = (self.vel.y - g * dt).max(-t.jump.max_fall);
-        }
-
-        self.pos.x += self.vel.x * dt;
-        self.pos.y += self.vel.y * dt;
-        self.pos.z += self.vel.z * dt;
-
-        self.collide(world);
-
-        if self.pos.y <= 0.0 {
-            if !self.grounded && self.vel.y <= 0.0 {
-                self.grounded = true;
-                self.jumps_used = 0;
-                self.flip_frame = -1;
-                self.land_frame = 0;
-                self.land_impact = (-self.vel.y / 20.0).min(1.0);
-                self.events.push(Event::Land { x: self.pos.x, y: 0.0, z: self.pos.z, impact: self.land_impact });
-            }
-            self.pos.y = 0.0;
-            self.vel.y = 0.0;
-        }
-
-        if self.grounded && self.mode == Mode::Normal {
-            self.run_phase += len(self.vel.x, self.vel.z) * dt;
-        }
-    }
-
-    fn collide(&mut self, world: &World) {
-        let pr = tuning().movement.player_radius;
-        for o in &world.obstacles {
-            self.push_from(o.x, o.z, o.r, pr);
-        }
-        if self.pos.y < 1.8 {
-            for i in 0..self.bodies.len() {
-                let b = self.bodies[i];
-                self.push_from(b.x, b.z, b.r, pr);
-            }
-        }
-        let r = len(self.pos.x, self.pos.z);
-        if r > world.radius {
-            self.pos.x *= world.radius / r;
-            self.pos.z *= world.radius / r;
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::open::dungeon::dungeon;
+    use crate::open::zone::emberholm;
+    use crate::open::{OpenWorld, step_player};
     use crate::skills::{book_index, skills_from};
     use crate::tuning::{ability_index, movement_index};
-    use crate::world::{SEED, battlefield};
+
+    /// The battlefield, an arena of the world's instances, for a player to be stepped in.
+    fn arena() -> OpenWorld {
+        OpenWorld::instance(dungeon("battlefield").expect("the battlefield"), emberholm())
+    }
 
     /// Where an id is in the content now.
     fn weapon(id: &str) -> u8 {
@@ -1305,7 +1221,7 @@ mod tests {
 
     #[test]
     fn a_dodge_costs_stamina_by_its_level_instead_of_cooling_down() {
-        let world = battlefield(SEED);
+        let world = arena();
         let roll = move_at("dodgeRoll");
         let build = Build {
             skills: skills_from(&["sword", "dodgeRoll"]),
@@ -1316,17 +1232,17 @@ mod tests {
         let (max, cost) = (tuning().stamina.max, tuning().movement_skills[usize::from(roll)].stamina_cost);
         let dodge = Actions { movement_slot: 1, move_z: 1.0, ..Default::default() };
         let after_a_dodge = |level: u32| {
-            let mut p = Player::new(world.team_spawns[0], 0, build);
+            let mut p = Player::new(world.spawn_point(), 0, build);
             let mut levels = base_levels();
             levels[book_index("dodgeRoll").unwrap()] = level;
             p.set_levels(&levels);
-            p.step(&dodge, &world);
+            step_player(&mut p, &dodge, &world, None, 0);
             assert_eq!((p.mode, p.started_action), (Mode::Action, 0), "the dodge started, and says so for one frame");
             let left = p.stamina;
             assert_eq!(p.stamina_delay, tuning().stamina.regen_delay_frames, "and nothing refills for a moment");
             let mut frames = 0;
             while p.mode == Mode::Action && frames < 200 {
-                p.step(&Actions::default(), &world);
+                step_player(&mut p, &Actions::default(), &world, None, 0);
                 assert_eq!(p.started_action, NO_MOVEMENT);
                 frames += 1;
             }
@@ -1337,19 +1253,19 @@ mod tests {
         assert_eq!(after_a_dodge(1), max - cost);
         assert_eq!(after_a_dodge(10), max - cost * (1.0 - 0.03 * 9.0), "each level makes it 3% cheaper");
         // Without enough it doesn't start; it refills, and then it does.
-        let mut p = Player::new(world.team_spawns[0], 0, build);
+        let mut p = Player::new(world.spawn_point(), 0, build);
         p.stamina = cost - 1.0;
-        p.step(&dodge, &world);
+        step_player(&mut p, &dodge, &world, None, 0);
         assert_eq!((p.mode, p.stamina), (Mode::Normal, (cost - 1.0 + tuning().stamina.regen_per_second * step_len()).min(max)));
         let mut frames = 0;
         while p.stamina < cost && frames < 600 {
-            p.step(&Actions::default(), &world);
+            step_player(&mut p, &Actions::default(), &world, None, 0);
             frames += 1;
         }
-        p.step(&dodge, &world);
+        step_player(&mut p, &dodge, &world, None, 0);
         assert_eq!(p.mode, Mode::Action);
         // Getting back up fills it again.
-        p.respawn(world.team_spawns[0]);
+        p.respawn(world.spawn_point());
         assert_eq!((p.stamina, p.stamina_delay, p.mp), (max, 0, tuning().mp.max));
         // The guard is no dodge: it keeps its short cooldown and costs nothing.
         let guard = &tuning().movement_skills[usize::from(move_at("block"))];
@@ -1359,41 +1275,41 @@ mod tests {
 
     #[test]
     fn a_cast_pays_its_mp_when_it_goes_off_and_waits_for_enough() {
-        let world = battlefield(SEED);
+        let world = arena();
         let mut build = Build { skills: skills_from(&["club", "heal"]), weapon: weapon("club"), ..Build::default() };
         build.abilities[0] = ability_at("heal");
         let cost = tuning().abilities[usize::from(ability_at("heal"))].mp_cost;
         let max = tuning().mp.max;
         let regen = tuning().mp.regen_per_second * step_len();
         let cast = Actions { ability_slot: 1, ..Default::default() };
-        let mut p = Player::new(world.team_spawns[0], 0, build);
-        p.step(&cast, &world);
+        let mut p = Player::new(world.spawn_point(), 0, build);
+        step_player(&mut p, &cast, &world, None, 0);
         assert_eq!((p.mode, p.mp), (Mode::Cast, max), "nothing paid as it starts");
         // Interrupted: it fizzles, and costs nothing.
         p.take_hit(1.0, 0.0, 1.0, 0.0);
         assert_eq!(p.mp, max);
         for _ in 0..240 {
-            p.step(&Actions::default(), &world);
+            step_player(&mut p, &Actions::default(), &world, None, 0);
         }
         p.cooldowns = [0; HOTBAR_SLOTS];
-        p.step(&cast, &world);
+        step_player(&mut p, &cast, &world, None, 0);
         let mut frames = 0;
         while p.fired_ability == NO_ABILITY && frames < 200 {
-            p.step(&Actions::default(), &world);
+            step_player(&mut p, &Actions::default(), &world, None, 0);
             frames += 1;
         }
         assert_eq!(p.mp, max - cost, "paid as it goes off");
         // Without enough it doesn't start, until enough has come back.
         p.cooldowns = [0; HOTBAR_SLOTS];
         p.mp = cost - regen * 3.0;
-        p.step(&cast, &world);
+        step_player(&mut p, &cast, &world, None, 0);
         assert_eq!(p.mode, Mode::Normal);
         for _ in 0..4 {
-            p.step(&Actions::default(), &world);
+            step_player(&mut p, &Actions::default(), &world, None, 0);
         }
         assert_eq!(p.mode, Mode::Cast, "the press waited in its buffer for the MP");
         // A new build keeps the levels it was given.
-        let mut p = Player::new(world.team_spawns[0], 0, build);
+        let mut p = Player::new(world.spawn_point(), 0, build);
         let mut levels = base_levels();
         levels[book_index("sword").unwrap()] = 3;
         p.set_levels(&levels);

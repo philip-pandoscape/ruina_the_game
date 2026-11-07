@@ -1,9 +1,9 @@
 import { defaultBuild, readSavedBuild, savedBuild } from '../content/build';
 import type { Build } from '../content/tuning';
 
-// In the open world your build is kept on the game server with your character. The training yard
-// and the battlefield, which are developer tools, keep theirs in this browser, by id as the server
-// keeps a character's (src/content/build.ts savedBuild); one kept by index before that still loads.
+// Online your build is kept on the game server with your character. Offline (the tests, ?offline)
+// it's kept in this browser, by id as the server keeps a character's (src/content/build.ts
+// savedBuild); one kept by index before that still loads.
 
 const STORAGE_KEY = 'ruina.build';
 

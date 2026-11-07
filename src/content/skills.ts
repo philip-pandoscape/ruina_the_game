@@ -98,7 +98,7 @@ function placedNode(n: NodeFile): SkillNode {
   return out;
 }
 
-/** What the training yard and the battlefield may spend. */
+/** What a build may spend where nothing else says (the balance harness's duels; a kept build read without its place's points). */
 export const SKILL_POINTS = raw.points;
 /** What every character starts with in the open world, before quests and milestones add more. */
 export const START_POINTS = raw.startPoints;

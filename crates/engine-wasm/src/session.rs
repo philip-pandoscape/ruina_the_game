@@ -56,8 +56,7 @@ pub fn build_of(v: &Value) -> Option<Build> {
     Some(b)
 }
 
-/// A new session from its options (JSON: `openWorld`, `online`, `build`, and `band`, a war-band of
-/// `count` of a `kind` in the yard): its handle, or 0 if they can't be read.
+/// A new session from its options (JSON: `online`, `build`): its handle, or 0 if they can't be read.
 ///
 /// # Safety
 /// `p..p + n` lies in room `alloc` gave.
@@ -65,9 +64,8 @@ pub fn build_of(v: &Value) -> Option<Build> {
 pub unsafe extern "C" fn session_new(p: *const u8, n: usize) -> u32 {
     let Ok(o) = serde_json::from_str::<Value>(unsafe { text(p, n) }) else { return 0 };
     let Some(build) = o.get("build").and_then(build_of) else { return 0 };
-    let flag = |k: &str| o.get(k).and_then(Value::as_bool).unwrap_or(false);
-    let band = o.get("band").and_then(|b| Some((b.get("kind")?.as_str()?, b.get("count")?.as_u64()? as usize)));
-    let s = Session::new(flag("openWorld"), flag("online"), band, build);
+    let online = o.get("online").and_then(Value::as_bool).unwrap_or(false);
+    let s = Session::new(online, build);
     SESSIONS.with(|list| {
         let mut list = list.borrow_mut();
         list.push(Some(s));
@@ -248,7 +246,7 @@ pub extern "C" fn session_actors(h: u32) -> usize {
     give(with(h, |s| s.actors_json().to_string()).unwrap_or_default())
 }
 
-/// The island as the page shows it (JSON `{state, focus, placing, resting, revision}`, null in the yard).
+/// The island as the page shows it (JSON `{state, focus, placing, resting, revision}`).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_life(h: u32) -> usize {
     give(with(h, |s| s.life_json().to_string()).unwrap_or_default())
@@ -372,7 +370,6 @@ fn call(s: &mut Session, v: &Value) -> Value {
         "spawnBand" => return json!(s.spawn_band(str_of("kind"), n("count") as usize, n("x"), n("z"))),
         "hurtActor" => s.hurt_actor(n("id") as u32, n("amount")),
         "takeHit" => s.take_hit(n("damage"), n("dirX"), n("dirZ"), n("knock")),
-        "world" => return s.world_json(),
         "frame" => return json!(s.frame),
         "placed" => return json!(s.placed),
         "lifeEvents" => return json!(s.life.as_mut().map(|l| l.drain_events()).unwrap_or_default()),
