@@ -50,3 +50,28 @@ integration and end-to-end tests each workstream listed are in its report
 language placement wait for the social tier to keep them.
 
 **Land** (`reports/land.md`): what its final report says is left.
+
+## Found by the First Whole Run (2026-11-07, on cddb69b, everything merged but the words)
+
+The integration tier: 209 passed, 2 failed, 4 didn't run (behind the failures), 1 skipped.
+- `online.spec.ts:174` (a second window takes the character over): `saveAndWait` waits for a save,
+  but lives are now saved a second after they change and at least once a minute (land), and the
+  second window had changed nothing. Make it change something first; `saveAndWait`'s comment still
+  says every 5 s. Check the other online specs' waits for the same assumption.
+- `update.spec.ts:73`: its own Vite didn't answer within 180 s while another workstream built on the
+  machine; the spec alone passes whole (5 of 5).
+
+## The Cluster Tests' First Run (2026-11-07)
+
+Multiserver's tests had never run. On a fresh database: the 8 lease tests pass; of the 6 tests
+across processes, 4 pass (a player on sims in other processes, a cut and doubled link losing and
+repeating nothing, every message written twice applied once, processes finding each other) and the
+two failovers fail:
+- `a_sim_cut_off_from_the_directory_stops_and_its_player_comes_back_on_another`: A stops 1.2 s after
+  it's cut off, but the space is never granted to B (the services process logged "lost the lease on
+  channel:emberholm:1 (epoch 2) to another holder").
+- `a_sim_killed_with_a_player_in_it_and_they_come_back_on_another`: the player is told to come back
+  1.9 s after the kill, then their connection closes (1006) before a welcome: nowhere to play.
+Both point at the directory not placing a lost space on another sim process. Fix and run again.
+(`npm run test:cluster` runs `--test leases --test cluster`; cargo stops at the first failing
+binary, so the leases ran on their own.)
