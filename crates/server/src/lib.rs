@@ -28,3 +28,7 @@ pub mod sim;
 pub mod social;
 pub mod start;
 pub mod store;
+
+/// The tiers together, as players use them.
+#[cfg(test)]
+mod tests;

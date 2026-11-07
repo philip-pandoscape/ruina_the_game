@@ -55,6 +55,9 @@ pub struct Sim {
     /// A copy's occupancy as last told to the directory.
     told: Option<(usize, bool)>,
     period: Duration,
+    /// Tests: this much longer each tick takes (a crowd too big for it).
+    #[cfg(test)]
+    pub(crate) slow: Duration,
 }
 
 impl Sim {
@@ -91,6 +94,8 @@ impl Sim {
             gone: HashMap::new(),
             told: None,
             period: Duration::from_secs_f64(1.0 / f64::from(TICK_HZ)),
+            #[cfg(test)]
+            slow: Duration::ZERO,
         }
     }
 
@@ -163,6 +168,8 @@ impl Sim {
     /// One tick: the game stepped, its records to the gates, whoever doesn't belong in a copy put
     /// out in time.
     pub fn tick(&mut self) {
+        #[cfg(test)]
+        std::thread::sleep(self.slow);
         let out = self.game.step();
         self.publish(out);
         for who in self.game.sweep_copy(Instant::now()) {
@@ -537,5 +544,54 @@ impl Spawner for Threads {
                 post.close_sim(id);
             })
             .expect("start a simulation's thread");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::directory::EXPEL_AFTER;
+    use crate::sim::tests::arrival;
+    use ruina_world_api::Epoch;
+    use ruina_world_api::directory::Lease;
+
+    #[test]
+    fn a_slow_simulation_holds_up_nobody_else() {
+        let post = Post::new();
+        let mut gate = post.open_gate(GateId(1));
+        // Two channels, each on its thread; the second takes 300 ms too long over every tick.
+        let start = |sim: u64, slow: Duration| {
+            let lease = Lease { space: SpaceId::channel("emberholm", sim as u32), sim: SimId(sim), epoch: Epoch(1), until: 0, chunks: Vec::new() };
+            let inbox = post.open_sim(SimId(sim));
+            let transport: Arc<dyn Transport> = post.clone();
+            let mut s = Sim::new(SimSetup { lease, owner: None, expel_after: EXPEL_AFTER }, inbox, transport);
+            s.slow = slow;
+            std::thread::spawn(move || s.run())
+        };
+        let threads = [start(1, Duration::ZERO), start(2, Duration::from_millis(300))];
+        // Nobody lives in either yet (there's no store here to ask); someone plays in each.
+        for (sim, who) in [(1, 7), (2, 8)] {
+            post.sim(SimId(sim), ToSim::Residents(Vec::new()));
+            post.sim(SimId(sim), ToSim::Arrive(Box::new(arrival(who, 1, "P", false, None))));
+        }
+        let mut ticks = [0usize; 3];
+        let t = Instant::now();
+        while t.elapsed() < Duration::from_millis(1500) {
+            while let Ok(m) = gate.try_recv() {
+                if let ToGate::Tick(out) = m {
+                    ticks[out.sim.0 as usize] += 1;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        for sim in [1, 2] {
+            post.sim(SimId(sim), ToSim::Stop);
+        }
+        for th in threads {
+            th.join().expect("stopped");
+        }
+        // The first kept its 20 a second; the second managed what it could.
+        assert!(ticks[1] >= 24, "the healthy channel ticked {} times in 1.5 s", ticks[1]);
+        assert!(ticks[2] <= 6, "the slow one {} times", ticks[2]);
     }
 }

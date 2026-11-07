@@ -1537,6 +1537,61 @@ pub(crate) mod tests {
         assert!(ch.ride_along(8, 7, id));
     }
 
+    /// A copy of the instance `id`, for everyone allowed in.
+    fn copy(id: &str) -> Game {
+        Game::copy(SimId(1), crate::open::dungeon::dungeon(id).expect("the instance"), 1, Owner::Everyone)
+    }
+
+    #[test]
+    fn the_goblin_camp_brings_a_war_band() {
+        let g = copy("goblinCamp");
+        let goblins: Vec<_> = g.actors.list.iter().filter(|a| a.kind == "goblin").collect();
+        assert_eq!(goblins.len(), 6);
+        assert!(goblins.iter().all(|a| a.band != 0 && a.band == goblins[0].band), "one band");
+    }
+
+    #[test]
+    fn the_yard_brings_its_dummy_and_slimes_and_they_stand_on_its_floor() {
+        let mut g = copy("yard");
+        g.join(arrival(1, 1, "Ada", true, None));
+        let kinds: Vec<String> = g.actors.list.iter().map(|a| a.kind.clone()).collect();
+        assert_eq!(kinds.iter().filter(|k| *k == "dummy").count(), 1);
+        assert_eq!(kinds.iter().filter(|k| *k == "slime").count(), 5);
+        for _ in 0..40 {
+            g.step();
+        }
+        // A creature's height is above the ground under it, which in the copy is the yard's floor.
+        let yard = crate::open::dungeon::dungeon("yard").unwrap();
+        for a in &g.actors.list {
+            assert_eq!(yard.floor_at(a.x, a.z), Some(0.0), "{} is over the yard's floor", a.kind);
+            assert!(a.y.abs() < 1.0, "{} stands on it ({} above it)", a.kind, a.y);
+        }
+    }
+
+    #[test]
+    fn an_angry_slime_in_the_yard_slams_the_player_beside_it() {
+        let mut g = copy("yard");
+        g.join(arrival(1, 1, "Ada", true, None));
+        let (sx, sz) = {
+            let a = g.actors.list.iter_mut().find(|a| a.kind == "slime").unwrap();
+            a.angry = 600;
+            (a.x, a.z)
+        };
+        {
+            let p = g.players.open_mut(client(1)).unwrap().0;
+            (p.pos.x, p.pos.z) = (sx + 1.5, sz);
+        }
+        let full = g.players.open_view(client(1)).unwrap().0.hp;
+        for _ in 0..200 {
+            g.step();
+            // Stood still in a nearby spot, as a player waiting for it.
+            if g.players.open_view(client(1)).unwrap().0.hp < full {
+                return;
+            }
+        }
+        panic!("no slam landed");
+    }
+
     #[test]
     fn a_life_saved_in_a_copy_stands_outside_its_door_in_its_home_channel() {
         let def = crate::open::dungeon::dungeon("goblinsDread").unwrap();

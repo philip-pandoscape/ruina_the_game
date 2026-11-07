@@ -122,4 +122,50 @@ mod tests {
         assert!(claim(&db, 999, 0).await.is_err());
         assert_eq!((next_copy(&db).await, next_copy(&db).await), (Ok(1), Ok(2)));
     }
+
+    /// The same against Postgres, where RUINA_TEST_DATABASE_URL names one (the private rig's): the
+    /// grant bumps characters.epoch, and the store's fenced write takes the newest grant only.
+    #[tokio::test]
+    async fn postgres_refuses_a_write_under_an_older_grant() {
+        let Ok(url) = std::env::var("RUINA_TEST_DATABASE_URL") else {
+            eprintln!("skipped: RUINA_TEST_DATABASE_URL names no database");
+            return;
+        };
+        let pool = crate::store::db::connect(&url).await.expect("the database");
+        let name = format!("fence{}", crate::store::now_ms() % 1_000_000_000);
+        let account: i64 = sqlx::query_scalar("INSERT INTO accounts (username, username_key, password_hash) VALUES ($1, $2, 'x') RETURNING id")
+            .bind(&name)
+            .bind(name.to_lowercase())
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let character: i64 = sqlx::query_scalar("INSERT INTO characters (account_id, name) VALUES ($1, $2) RETURNING id")
+            .bind(account)
+            .bind(&name)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let db = Db::Pg(pool.clone());
+        let first = claim(&db, character, 1).await.unwrap();
+        let moved = bump(&db, character).await.unwrap();
+        assert_eq!(moved, first.epoch.next());
+        let write = |epoch: Epoch, coins: f64| ruina_world_api::store::LifeWrite {
+            character,
+            epoch,
+            life: serde_json::json!({ "state": { "coins": coins }, "player": {} }),
+            space: SpaceId::channel("emberholm", first.channel),
+            writer: None,
+            tell: None,
+        };
+        // Under the newest grant: written. Under the one before: refused, the newer kept.
+        assert_eq!(db.write_lives(&[write(moved, 5.0)]).await, Ok(vec![true]));
+        assert_eq!(db.write_lives(&[write(first.epoch, 9.0)]).await, Ok(vec![false]));
+        // In one transaction, a stale one among them is refused alone.
+        assert_eq!(db.write_lives(&[write(moved, 6.0), write(first.epoch, 9.0)]).await, Ok(vec![true, false]));
+        let saved = db.load_life(character).await.unwrap().life.unwrap();
+        assert_eq!(saved["state"]["coins"], 6.0);
+        let space: Option<String> = sqlx::query_scalar("SELECT space FROM characters WHERE id = $1").bind(character).fetch_one(&pool).await.unwrap();
+        assert_eq!(space.as_deref(), Some(format!("channel:emberholm:{}", first.channel).as_str()));
+        sqlx::query("DELETE FROM accounts WHERE id = $1").bind(account).execute(&pool).await.unwrap();
+    }
 }
