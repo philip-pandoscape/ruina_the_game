@@ -26,7 +26,7 @@ use crate::life::{
 use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{Spot, dungeon};
-use crate::open::map::WorldMap;
+use crate::open::map::{Grown, WorldMap};
 use crate::open::spawns::{band_around, instance_spawns};
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
@@ -102,7 +102,9 @@ impl Session {
         let (ground, mut spawns, spawn) = if open_world {
             let zone = emberholm();
             let s = zone.recipe.spawn;
-            (Ground::Open(Box::new(OpenWorld::new(zone))), island_spawns(&zone.recipe), Spawn { x: s.x, z: s.z, facing: s.facing })
+            // The world holding its home region alone: the page adopts the regions near you as its
+            // worker grows them (adopt_region), and drops them behind you.
+            (Ground::Open(Box::new(OpenWorld::alone(zone))), island_spawns(&zone.recipe), Spawn { x: s.x, z: s.z, facing: s.facing })
         } else {
             let y = yard(YARD_SEED);
             let (spawns, spawn) = (y.spawns.clone(), y.spawn);
@@ -197,6 +199,13 @@ impl Session {
     pub fn step(&mut self, a: &Actions) {
         self.placed = None;
         self.frame += 1;
+        // A region the rules grew on the spot (asked about before the page handed it over) is solid
+        // from this step on.
+        if let Ground::Open(w) = &mut self.ground
+            && w.solid_behind()
+        {
+            w.make_regions_solid();
+        }
         let training = self.training();
         self.player.remember_presses(a);
         // Hit pause (offline): everything freezes briefly when a hit lands. Presses are kept.
@@ -726,6 +735,54 @@ impl Session {
         }
     }
 
+    // ---------- The world's regions, grown by need ----------
+
+    /// The open world, wherever you are: the one set aside while you're in a copy of an instance.
+    fn open_world(&self) -> Option<&OpenWorld> {
+        match (self.outside.as_deref(), &self.ground) {
+            (Some(w), _) => Some(w),
+            (None, Ground::Open(w)) => Some(w),
+            _ => None,
+        }
+    }
+
+    fn open_world_mut(&mut self) -> Option<&mut OpenWorld> {
+        match (self.outside.as_deref_mut(), &mut self.ground) {
+            (Some(w), _) => Some(w),
+            (None, Ground::Open(w)) => Some(w),
+            _ => None,
+        }
+    }
+
+    /// Holds a region grown elsewhere (the page's worker, src/engine/world/grower.ts): its ground the
+    /// rules' and what's on it solid from now on. Refused if it isn't that region as the world
+    /// places it.
+    pub fn adopt_region(&mut self, place: usize, grown: Grown) -> Result<(), String> {
+        self.open_world_mut().ok_or("no open world")?.adopt(place, grown)
+    }
+
+    /// Lets a region go (the page drops what's behind you).
+    pub fn release_region(&mut self, place: usize) {
+        if let Some(w) = self.open_world_mut() {
+            w.release(place);
+        }
+    }
+
+    /// The regions the world holds (places in the world's map), and how many it has grown on the spot
+    /// because the rules asked about ground before the page handed it over.
+    pub fn regions_held(&self) -> (Vec<usize>, u32) {
+        self.open_world().map_or((Vec::new(), 0), |w| (w.held(), w.map.unheld()))
+    }
+
+    /// What's solid on a region the world holds, as grown (`{obstacles, boxes, decks}`; null if it
+    /// doesn't hold it): for the page, when the rules grew one on the spot.
+    pub fn region_solids(&self, place: usize) -> Value {
+        match self.open_world().and_then(|w| w.map.held_region(place)) {
+            Some(g) => json!({ "obstacles": g.zone.obstacles, "boxes": g.zone.boxes, "decks": g.zone.decks }),
+            None => Value::Null,
+        }
+    }
+
     /// A house solid here as it is on the server: yours, or someone else's where you see it (their
     /// houses come with ids of their own, so they're never taken for yours).
     pub fn add_solid_house(&mut self, h: &House) {
@@ -905,8 +962,8 @@ impl Session {
     }
 
     /// A number that changes whenever what's solid changes (a house or a scarecrow made solid, a
-    /// dungeon's floors and walls put in or taken out), so the page knows to read the colliders
-    /// again (`colliders_json`, `clear`) for its camera and drawing.
+    /// dungeon's floors and walls put in or taken out, a region held or let go), so the page knows to
+    /// read the colliders again (`colliders_json`, `clear`) for its camera and drawing.
     pub fn solid_key(&self) -> u32 {
         let Ground::Open(w) = &self.ground else { return 0 };
         let mut h: u32 = 0x811c_9dc5;
@@ -915,19 +972,26 @@ impl Session {
                 h = (h ^ b as u32).wrapping_mul(0x0100_0193);
             }
         };
+        let (obstacles, boxes, decks) = w.built();
         mix(w.added.len());
-        mix(w.index.obstacles.len());
-        mix(w.index.boxes.len());
-        mix(w.index.decks.len());
+        mix(obstacles.len());
+        mix(boxes.len());
+        mix(decks.len());
+        for r in w.held() {
+            mix(r);
+        }
         mix(self.crossings as usize);
         h
     }
 
-    /// Everything solid on the island as it stands, in src/engine/world/types.ts's shapes (`{obstacles,
-    /// boxes, decks}`; null on the yard's flat ground).
+    /// What's solid in the world as it stands, in src/engine/world/types.ts's shapes: the regions held
+    /// (`regions`, places in the world's map: the page has what's on them from its worker), and what's
+    /// been built since (`{obstacles, boxes, decks}`: houses, scarecrows, a copy's floors and walls);
+    /// null on the yard's flat ground.
     pub fn colliders_json(&self) -> Value {
         let Ground::Open(w) = &self.ground else { return Value::Null };
-        json!({ "obstacles": w.index.obstacles, "boxes": w.index.boxes, "decks": w.index.decks })
+        let (obstacles, boxes, decks) = w.built();
+        json!({ "regions": w.held(), "obstacles": obstacles, "boxes": boxes, "decks": decks })
     }
 
     /// The island's cells kept clear of trees and scarecrows (the zone's, and ground cleared for houses).

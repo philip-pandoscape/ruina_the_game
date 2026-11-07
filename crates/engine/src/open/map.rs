@@ -426,6 +426,25 @@ impl WorldMap {
         out
     }
 
+    /// The region at `i` grown whole, as a worker grows it to hand over (the browser's,
+    /// src/engine/world/grower.ts): everything its recipe grows, its borders blended (what's drawn,
+    /// and what the rules walk on once it's adopted: `Zone::of`), and its edges as its recipe grew
+    /// them, kept for the world. Nothing holds it here.
+    pub fn grow_whole(&self, i: usize) -> (Generated, Edges) {
+        let r = &self.world.regions[i];
+        let mut g = generate(&r.recipe);
+        let raw = g.terrain.clone();
+        let edges = Edges::of(&raw);
+        let others = {
+            let mut shared = self.world.lock();
+            shared.grows[i] += 1;
+            shared.edges[i].get_or_insert_with(|| Arc::new(edges.clone()));
+            self.edges_around(i, &mut shared)
+        };
+        self.blend_borders(i, &raw, &mut g.terrain, &|j| &others[&j]);
+        (g, edges)
+    }
+
     /// What a zone's recipe grows, its ground blended along its borders where this world places it
     /// (if it's one of its regions): what the browser draws, the same ground the rules walk on.
     pub fn generate(&self, recipe: &Recipe) -> Generated {
@@ -768,12 +787,18 @@ fn vertex_or_height(hf: &Heightfield, x: f64, z: f64) -> f64 {
 /// A region's recipe as built into the engine (shared/regions/<id>.json), or as given in its place or
 /// beside them (crate::bundles), by its id.
 pub fn region_recipe(id: &str) -> Option<Recipe> {
-    let path = format!("regions/{id}.json");
-    let text = match built::REGIONS.iter().find(|(z, _)| *z == id) {
-        Some((_, compiled)) => crate::bundles::bundle(&path, compiled),
-        None => crate::bundles::given(&path)?,
-    };
+    let text = region_recipe_text(id)?;
     Some(serde_json::from_str(text).unwrap_or_else(|e| panic!("shared/regions/{id}.json is a region's recipe: {e}")))
+}
+
+/// A region's recipe as text, as `region_recipe` reads it: what the page reads of a region it's
+/// handed (src/engine/world/grower.ts).
+pub fn region_recipe_text(id: &str) -> Option<&'static str> {
+    let path = format!("regions/{id}.json");
+    match built::REGIONS.iter().find(|(z, _)| *z == id) {
+        Some((_, compiled)) => Some(crate::bundles::bundle(&path, compiled)),
+        None => crate::bundles::given(&path),
+    }
 }
 
 /// The world (shared/world.json), each region grown the first time anything asks of this view, which

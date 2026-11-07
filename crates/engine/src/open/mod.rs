@@ -78,6 +78,18 @@ impl OpenWorld {
         w
     }
 
+    /// A copy of one of the world's regions holding that region alone: the browser's rules, which
+    /// adopt the regions near you as its worker grows them (`adopt`), and grow on the spot only what
+    /// they're asked about before then.
+    pub fn alone(zone: &'static Zone) -> Self {
+        let map = world_map();
+        let mut w = Self::holding(map.view(), zone);
+        if let Some(i) = map.place_of(&zone.recipe.id) {
+            w.hold(&[i]);
+        }
+        w
+    }
+
     /// A world for a simulation playing `chunks`: it holds the regions standing on them and those
     /// within `band` metres of them (`SIM_BAND`), and what's solid in it is theirs.
     pub fn playing(map: &WorldMap, zone: &'static Zone, chunks: &[(i32, i32)], band: f64) -> Self {
