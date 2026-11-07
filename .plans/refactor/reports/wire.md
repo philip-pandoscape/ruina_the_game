@@ -5,83 +5,53 @@ Workstream **wire** (`refactor/wire`, worktree `C:\GitHub\games\ruina-wt-wire`, 
 protocol, its codec both ends, the feed's adapter, far peers as crowd bodies) goes ahead of the
 server's tiers; the second half (the gate and the sims on it, measured) waits for them.
 
-## The First Half, in Short (done; the second half waits on the tiers)
+## The First Half, in Short (done; the second half is next, on the tiers)
 
-**What landed** (each its own commit on `refactor/wire`; `refactor/first` merged in at a25ce4d):
+**Landed** on `refactor/wire` (latest `refactor/first`, with the tiers, merged in at 79549c6):
 
 | Commit | What |
 |---|---|
-| 7a243c9 | `crates/wire`: records per 32 m cell, a `Viewer` per connection (u16 handles, deltas against what was acknowledged, tiers as priority rates, a 64 KB/s budget), the acknowledgement, the browser's side in Rust; 22 tests over a lossy, shuffling road |
-| 0476309 | A tick's cells Serialize and Deserialize (for world-api's tick out); packing the engine's things behind the default `engine` feature; the benchmark against today's JSON |
-| 2ecbef3 | `src/net/wire` (the browser's decoder and what it's heard), golden fixtures from the Rust (`tests/fixtures/wire/`), `tests/unit/wire.test.ts`; the viewer's removals in handle order (the same game writes the same bytes) |
-| 3cf8a43 | Each connection's update 2-3 times cheaper (same bytes); what one gate core carries |
-| b72af2a | The feed through one adapter (`src/net/feedTick.ts`: `feedFromJson` today, `WireFeed` for the wire), entities refreshed at their own rates (WorldPeers, a timeline per creature, arrows as of their own tick) |
-| e82b13d | Far peers as crowd bodies (past 42 m, back to heroes within 38 m, a 0.35 s dithered crossfade); `tests/integration/crowd-bodies.spec.ts` |
-| 645c6c5 | A cell crosses between processes as one blob (bytes; MessagePack's `bin`), 14 bytes for a creature alone |
-| 0f2b49c | The world link ready for binary updates (heard, acknowledged, handed on as the world), dormant until the server sends them |
-| 1cf834e | The guides: `crates/wire/AGENTS.md` (the protocol byte by byte, and why), `src/net/AGENTS.md`, `docs/architecture.md` (what a page hears, changing), `src/render/AGENTS.md`, `AGENTS.md`, `docs/testing.md` |
+| 7a243c9 | `crates/wire`: records per 32 m cell; a `Viewer` per connection (u16 handles, deltas against what was acknowledged, tiers as priority rates, 64 KB/s); the acknowledgement; the browser's side in Rust; tests over a lossy, shuffling road |
+| 0476309, 645c6c5 | A tick's cells serialize (each cell one blob of bytes, for MessagePack); packing behind the default `engine` feature (a gate needs nothing of the engine's); the bench against today's JSON |
+| 2ecbef3 | `src/net/wire` (the browser's decoder), golden fixtures from the Rust (`tests/fixtures/wire/`), `tests/unit/wire.test.ts` |
+| 3cf8a43 | Each connection's update 2-3 times cheaper, same bytes; what a gate core carries |
+| b72af2a | The feed through one adapter (`src/net/feedTick.ts`: `feedFromJson` today, `WireFeed` for the wire); entities at their own rates (WorldPeers, a timeline per creature) |
+| e82b13d, 6fb3e22 | Far peers as crowd bodies (past 42 m; heroes again within 38 m; a 0.35 s dithered crossfade); `tests/integration/crowd-bodies.spec.ts` |
+| 0f2b49c | The world link ready for binary updates (heard, acknowledged, handed on), dormant until the server sends them |
+| 1cf834e | The guides (`crates/wire/AGENTS.md` has the protocol byte by byte, and why) |
 
-**The numbers.** Today's JSON on this machine: 22.3-23.5 KB an update with 32 bots, 43.5-44.4 KB
-with 64 (the Mac's 22.3 and 42.9). The wire in `crates/wire/tests/bench.rs`, a player in the middle of
-a crowd, acknowledgements back 200 ms later: 33 players 22.9 KB → 424 B (54×); 65, 44.0 KB → 780 B;
-257, 175 KB → 2.0 KB; 1,025, 682 KB → 2.6 KB (the budget's); 4,097, 2.7 MB → 3.2 KB. Writing one
-connection's update: about 30 µs for 40 in sight, 120-160 µs for 1,100, 180-270 µs for 1,500 (JSON
-1.3 ms to 107 ms). One gate core at 20 updates a second: 1,650-2,150 connections in a wilderness (6.8
-KB/s each), about 300 in a busy town (45.7 KB/s), 260-400 at a world boss (61.8 KB/s).
+**Numbers.** Today's JSON on this machine: 22.3-23.5 KB an update with 32 bots, 43.5-44.4 KB with
+64. The wire (`crates/wire/tests/bench.rs`): 33 players 22.9 KB -> 424 B (54 times smaller), 1,025
+players 682 KB -> 2.6 KB (the budget's); writing a connection's update 30 µs (40 in sight) to
+120-270 µs (1,100-1,500). One gate core at 20 Hz: 1,650-2,150 connections in a wilderness (6.8 KB/s
+each), about 300 in a busy town (45.7 KB/s), 260-400 at a world boss (61.8 KB/s).
 
-**Decisions, and why** (the protocol's own reasons are in `crates/wire/AGENTS.md`):
-- *Deltas against what was acknowledged, each record naming its baseline* (a base byte: tier << 6 |
-  updates back, at most 63). With priorities an entity isn't in every update, so one baseline for a
-  whole update (Quake 3) won't do; the server keeps each update's records until acknowledged. The
-  browser keeps an entity's states from the newest baseline the server has used: baselines only move
-  on. Found by the tests: a whole record says nothing of which baselines remain (an earlier whole one
-  may be acknowledged first), and a repeated introduction is the same entity (its states kept).
-- *Tiers as rates of an accumulated priority*, near 40 m every tick (120), mid 120 m every fourth
-  (400), far 250 m about once a second (1000); a budget that runs short slows the furthest first. 40 m
-  rather than the old battle server's 30: a hero is drawn up close out to there.
-- *A tier refreshes some fields*: far, where it is and its side, health and being down; mid, what a
-  crowd body needs; near, everything. First sight is whole.
-- *Frame counters measured against where they'd have run to*, so a swing in progress costs nothing,
-  and an entity that only ran on isn't sent (the browser runs it on). Counters for a swing, a cast and
-  a movement skill are packed as -1 outside their mode (the drawing reads them only then).
-- *Handles*: 0 nobody, 1 you; an introduction sent with every record until acknowledged; given again
-  only after a removal is acknowledged, the freed longest ago first, a generation guarding what's on
-  its way. Ids cross only in introductions.
-- *Updates applied whole and in order*: a stale one dropped and never acknowledged; a reference
-  resolved to the handle it had as the update began.
-- *Vehicles go with their owners* (the same updates, so both are drawn from the same moment); a
-  carried pack and a cargo slot are fields; a pack on the ground is an item of its own, so a parked
-  cart or a dropped crate is seen where it is, whoever owns it.
-- *What stays JSON*: your own player (exact, for the prediction), your life, tables, notices,
-  estates, admins' numbers: private, rare or exact. The world near you goes on the wire.
-- *Cells as one blob between processes*, and nothing of the engine's needed on a gate (the
-  orchestrator's ask, for the multi-server version's MessagePack).
-- *A quick hash* (FxHash) for the server's own keys; *removals in handle order* for determinism.
-- *Far peers*: switch at 42/38 m around the wire's 40 m, a 0.35 s crossfade (the crowd's own dither,
-  the hero's alpha hash; the made body's shared materials copied for a fading hero), riders and those
-  at a table stay heroes, far heroes aren't posed.
-- *Small edits outside my area*: the engine gained `rideable_index` and `glider_index`
-  (`crates/engine/src/life/content.rs`, land's area; additive); the content-id guard allows the wire's
-  record kind `meteor`.
+**Checks.** `npm run check` passes on the merge (276 TypeScript tests; 312 Rust, the wire's 24 among
+them). Integration against my rig before the tiers' merge (PW_WORKERS=3): online, online-combat,
+yard, battlefield, party, dungeon-way-in, minigames, update, crowd-bodies: 49 of 52 passed;
+`online.spec.ts:109` and `:258` failed on a page navigation mid-test (an edit of mine to a source file
+reached Vite during the run); `battlefield.spec.ts:376` (@gpu, beside others) passed in its own
+spec's run earlier. Not run again since, as asked.
 
-**For the second half** (from the tiers' layout; the pieces are ready):
-- *In the sim, each tick*: a `Frame` from its players (`pack::player`: their key, character id, name,
-  bot, the carried pack's id, their host's key), creatures, vehicles and packs on the ground (with
-  their owner's key and life's packs), arrows (their shooter's key), meteors, and effects shown
-  (`Frame::event`); effects told go in each player's private part. Keys are world-api's `EntityId`
-  words; vehicles and packs on the ground need ids of their own from land (`pack::owned_key` stands
-  in). `TickOut.cells` carries `Vec<ruina_wire::CellRecords>`; tiers' structured records go.
-- *In the gate*: a `Viewer` per connection (`me` = the player's key); each tick
-  `Frame::from_cells` once (shared), `viewer.update(&frame, view, &told)` per connection on the
-  gate's threads, sent as a binary message beside a JSON tick without peers, actors, arrows, meteors
-  or events; a binary message from the browser starting with 8 is `Ack::read` into `viewer.ack`; an
-  update the outbox drops is `viewer.lost(seq)`; going to another space, the JSON `space` message then
-  `viewer.reset()`. `WORLD_PROTOCOL` up on both sides.
-- *Measured* with N bots on the battlefield (tick time, bytes a client, the browser's frames) against
-  the before numbers; the online specs and the whole integration tier.
-- *Still open*: encoding introductions and whole records once a tick per entity rather than per
-  connection; skipping the middle and far tiers' work on ticks none is due; the crowd body baked from
-  the made body rather than the box hero, so the switch is subtler still.
+**Left: the second half**, on the tiers' layout:
+- the sims pack a `Frame` each tick (`pack::*`; keys are the engine's `EntityId` words; vehicles and
+  packs on the ground need ids of their own: `pack::owned_key` stands in) and send its cells in
+  `TickOut.cells` (`Vec<ruina_wire::CellRecords>`), the effects told to a player in its private part;
+- the gate keeps a `Viewer` per connection: `Frame::from_cells` once a tick, `viewer.update(&frame,
+  view, &told)` per connection (on its threads), sent as a binary message beside a JSON tick without
+  peers, actors, arrows, meteors or events; binary messages starting with 8 to `viewer.ack`; an update
+  the outbox drops to `viewer.lost`; after the JSON `space` message, `viewer.reset()`;
+  `WORLD_PROTOCOL` up on both sides;
+- measured with N bots on the battlefield against the before numbers; the online specs.
+
+**For others to know:**
+- The engine gained `rideable_index` and `glider_index` (`crates/engine/src/life/content.rs`, land's
+  area; additive). The content-id guard allows the wire's record kind `meteor`.
+- The feed's contract changed (`src/net/feedTick.ts`): `WorldFeed.applyYou` and `applyWorld`,
+  `WorldLink.onWorld`, `onPeers(list, kept)`; an arrow record says `mine` and its `tick`.
+- `PeersView` draws far peers with the crowd renderer; the crowd body is baked from the box hero, so
+  the switch could be subtler if it were baked from the made body.
+- Cells cross between processes as bytes (`CellRecords` serializes as one blob).
 
 ## 2026-11-06 20:47: The Before Numbers, and `crates/wire`
 
