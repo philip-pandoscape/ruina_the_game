@@ -77,3 +77,31 @@ so the second half spreads connections over threads; ideas to make it cheaper ar
 
 **Next:** the feed's adapter (one place where decoded records become what the feed draws), the feed
 taking entities refreshed at different rates, far peers as crowd bodies.
+
+## 2026-11-06 21:25: A Cheaper Update, and What a Gate Core Carries
+
+**Landed (3cf8a43):** the orchestrator asked about the per-connection cost (440 µs with ~1,500 in
+sight). Measured inside `Viewer::update` first: choosing tiers and what's due was the most of it, then
+writing out due records that then didn't fit, then the map lookups. Now the lists are kept between
+ticks, keys and cells hash quickly, tiers come from one pass with each distance judged once, vehicles'
+owners are looked for only among vehicles, and the writing stops after 32 misfits in a row. Same bytes
+(the golden fixtures hold); about a third to a half of the time: 1,025 in reach 270 → ~120 µs, 4,097
+440 → ~180 µs.
+
+**What one gate core carries** (writing every connection's update 20 times a second, nothing else;
+`what_one_gate_core_carries` in `crates/wire/tests/bench.rs`; times vary by half as other suites share
+the machine):
+
+| Place | Bytes an update | KB/s a client | µs a client | Clients a core |
+|---|---|---|---|---|
+| Wilderness (10 players and 20 creatures near, 20 mid, 30 far) | 346 | 6.8 | 23-30 | 1,650-2,150 |
+| Busy town (80 near, 300 mid, 600 far) | 2,339 | 45.7 | 150-165 | 300-330 |
+| World boss (500 within 50 m) | 3,165 | 61.8 | 125-190 | 260-400 |
+
+The bandwidth lands on the research's estimates (about 12, 46 and 62 KB/s). Still open, for the
+second half once the real gate measures it: encoding each entity's introduction and whole record once
+a tick for every connection that needs it (they don't depend on the connection but for the handle),
+skipping the middle and far tiers' work on ticks none of them is due, and spreading connections over
+the gate's threads (each Viewer is independent; the Frame is shared read-only).
+
+**Next:** the feed's adapter, then far peers as crowd bodies.
