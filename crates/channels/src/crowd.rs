@@ -29,7 +29,7 @@ pub trait Arena {
     /// A bot joined a party.
     fn joined_party(&mut self, who: CharacterId, standing: &Standing, ties: &Social, now: Millis) -> Follow;
     /// A bot left its party, or was left alone in it.
-    fn left_party(&mut self, who: CharacterId);
+    fn left_party(&mut self, who: CharacterId, ties: &Social);
     /// A second has passed: what's due.
     fn review(&mut self, now: Millis, ties: &Social, standing: &dyn Fn(CharacterId) -> Standing) -> Vec<Action>;
     /// Where a bot plays.
@@ -71,7 +71,7 @@ impl Arena for Here {
         self.region.joined_party(who, standing, ties, now, &self.tuning)
     }
 
-    fn left_party(&mut self, who: CharacterId) {
+    fn left_party(&mut self, who: CharacterId, _ties: &Social) {
         self.region.left_party(who);
     }
 
@@ -469,9 +469,9 @@ impl Crowd {
         }
         if in_party && self.rng.chance(self.plan.quit * k) {
             let alone = self.social.leave(id);
-            arena.left_party(id);
+            arena.left_party(id, &self.social);
             if let Some(l) = alone {
-                arena.left_party(l);
+                arena.left_party(l, &self.social);
             }
             return;
         }

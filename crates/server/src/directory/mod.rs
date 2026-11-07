@@ -39,6 +39,9 @@ use crate::open::dungeon::dungeon;
 use crate::open::map::world_map;
 use crate::store::{Db, now_ms};
 
+/// The channels' crowd of bots played against the directory (tests).
+#[cfg(test)]
+mod crowd;
 /// Characters' grants and copies' numbers, on their rows.
 pub mod grants;
 /// Spaces' leases.
@@ -128,6 +131,8 @@ pub struct Directory<L: Leases> {
     pub copy_kept: Duration,
     /// How long a copy's simulation lets whoever doesn't belong stay.
     pub expel_after: Duration,
+    /// Tests: the time the channels go by (a crowd's own clock), in place of the world's.
+    pub clock: Option<Millis>,
 }
 
 impl<L: Leases> Directory<L> {
@@ -155,6 +160,7 @@ impl<L: Leases> Directory<L> {
             next_ask: 0,
             copy_kept: COPY_KEPT,
             expel_after: EXPEL_AFTER,
+            clock: None,
         }
     }
 
@@ -193,8 +199,9 @@ impl<L: Leases> Directory<L> {
                 if self.who.get(&conn.character).is_some_and(|w| w.conn == conn) {
                     self.who.remove(&conn.character);
                     // Their channel is kept for them a while (the policy's rejoinWithin).
+                    let now = self.now();
                     for r in self.regions.values_mut() {
-                        r.leave(conn.character, now_ms());
+                        r.leave(conn.character, now);
                     }
                     self.post.social(ToSocial::Offline { character: conn.character, session: conn.session });
                 }
@@ -205,8 +212,9 @@ impl<L: Leases> Directory<L> {
                     self.pending.remove(&character);
                     // Into a copy: out of their channel (it's kept for them a while).
                     if space.is_copy() {
+                        let now = self.now();
                         for r in self.regions.values_mut() {
-                            r.leave(character, now_ms());
+                            r.leave(character, now);
                         }
                     }
                     self.last.insert(character, space.clone());
@@ -549,9 +557,23 @@ impl<L: Leases> Directory<L> {
 
     // ---------- Channels (crates/channels) ----------
 
+    /// The time now, as the channels go by it: the world's clock (or a test's).
+    fn now(&self) -> Millis {
+        self.clock.unwrap_or_else(now_ms)
+    }
+
     /// A region's channels, as the policy keeps them (tests).
     pub fn region(&self, id: &str) -> Option<&Region> {
         self.regions.get(id)
+    }
+
+    /// Where the policy would place `who` coming in now, and why (tests).
+    pub fn placing(&self, who: CharacterId) -> ruina_channels::Placed {
+        let region = self.region_of(who);
+        match self.regions.get(&region) {
+            Some(r) => r.place(who, &self.ties(), self.now(), &self.tuning),
+            None => ruina_channels::Placed { n: 1, why: Placement::New },
+        }
     }
 
     /// Who belongs with whom, as placing asks it (parties, from the social tier).
@@ -577,7 +599,7 @@ impl<L: Leases> Directory<L> {
     /// `character` comes into `region`: placed by the policy (a channel opened for them if it must
     /// be), and the channel they're in.
     async fn arrive(&mut self, region: &str, character: CharacterId) -> u32 {
-        let now = now_ms();
+        let now = self.now();
         let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
         let r = self.regions.entry(region.to_string()).or_insert_with(|| Region::new(region));
         let (placed, actions) = r.arrive(character, &ties, now, &self.tuning);
@@ -590,7 +612,7 @@ impl<L: Leases> Directory<L> {
     /// The channel `character` would be placed in in `region`, open (opened now if it must be), and
     /// nobody seated: where someone in a copy would come out.
     fn home_channel(&mut self, region: &str, character: CharacterId) -> u32 {
-        let now = now_ms();
+        let now = self.now();
         let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
         let r = self.regions.entry(region.to_string()).or_insert_with(|| Region::new(region));
         let placed = r.place(character, &ties, now, &self.tuning);
@@ -630,7 +652,7 @@ impl<L: Leases> Directory<L> {
             Action::Merging { from, into, at } => {
                 let players: Vec<CharacterId> =
                     self.regions.get(region).and_then(|r| r.channel(from)).map(|c| c.players.iter().copied().collect()).unwrap_or_default();
-                let secs = ((at - now_ms()).max(0) + 999) / 1000;
+                let secs = ((at - self.now()).max(0) + 999) / 1000;
                 for who in players {
                     let Some(conn) = self.who.get(&who).map(|w| w.conn) else { continue };
                     self.post.conn(conn, ToConn::Notice { text: format!("This channel is closing: you'll be moved to Channel {into} in {secs} seconds.") });
@@ -676,7 +698,7 @@ impl<L: Leases> Directory<L> {
     /// (they're told why they wait).
     async fn follow(&mut self, who: CharacterId) {
         let region = self.region_of(who);
-        let now = now_ms();
+        let now = self.now();
         let follow = {
             let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
             let sim =
@@ -701,8 +723,8 @@ impl<L: Leases> Directory<L> {
         let region = self.region_of(who);
         let ties = self.ties();
         match self.regions.get(&region) {
-            Some(r) => r.view(who, standing, &ties, now_ms(), &self.tuning),
-            None => Region::new(&region).view(who, standing, &ties, now_ms(), &self.tuning),
+            Some(r) => r.view(who, standing, &ties, self.now(), &self.tuning),
+            None => Region::new(&region).view(who, standing, &ties, self.now(), &self.tuning),
         }
     }
 
@@ -711,7 +733,7 @@ impl<L: Leases> Directory<L> {
     async fn change(&mut self, conn: Conn, from: SimId, to: Target, standing: Standing, dev: bool) {
         let who = conn.character;
         let region = self.region_of(who);
-        let now = now_ms();
+        let now = self.now();
         if dev
             && let Target::Channel(n) = to
             && let Some(r) = self.regions.get_mut(&region)
