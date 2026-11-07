@@ -1,7 +1,7 @@
 //! Ruina's rules, one copy: the server runs them natively to decide what happens, and the browser
 //! runs them compiled to WebAssembly (crates/engine-wasm) to predict it and to play offline (the
 //! browser's game is session): movement and traversal (player, open), combat and
-//! skills (player, skills, actors, missiles, tuning), creatures and their brains (actor, actors,
+//! skills (player, combat, skills, actors, missiles, tuning), creatures and their brains (actor, actors,
 //! ai, pack, content, creatures), the island's life systems (life), the mini-games (minigames) and
 //! the battlefield's layout (world). Nothing here reads a clock, starts a thread or does I/O: whoever
 //! runs the rules hands in the time and the inputs, so the same inputs give the same results.
@@ -15,6 +15,7 @@ pub mod bots;
 pub mod bundles;
 /// Scenarios run through the rules, whose answers the golden tests hold.
 pub mod checks;
+pub mod combat;
 pub mod content;
 pub mod creatures;
 pub mod event;

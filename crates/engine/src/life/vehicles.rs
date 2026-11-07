@@ -22,7 +22,7 @@ use crate::open::colliders::{ground_at, push_out_of_box};
 use crate::open::map::WorldMap;
 use crate::open::zone::{surface, to_local, to_world};
 use crate::open::{Mover, Sim};
-use crate::player::{Actions, Mode, angle_diff};
+use crate::player::{Actions, Mode, Player, angle_diff};
 use crate::tuning::tuning;
 
 const TAU: f64 = PI * 2.0;
@@ -379,6 +379,46 @@ pub fn dismount(life: &mut Life, sim: &mut Sim) -> bool {
     p.vel.y = 0.0;
     p.vel.z = 0.0;
     true
+}
+
+/// Puts a passenger riding along in someone else's vehicle in seat `seat`, facing the way it faces
+/// and moving with it (crate::combat seats everyone once their hosts have driven).
+pub fn sit(p: &mut Player, v: &Vehicle, seat: usize) {
+    let def = rideable(&v.def);
+    let Some(a) = def.seats.get(seat) else { return };
+    let (x, y, z) = anchor_world(v, a);
+    p.pos.x = x;
+    p.pos.y = y;
+    p.pos.z = z;
+    p.facing = v.heading;
+    p.vel.x = v.vx;
+    p.vel.y = v.vy;
+    p.vel.z = v.vz;
+    p.bank = 0.0;
+}
+
+/// A passenger steps out of someone else's vehicle: beside it, or where they are if it has gone.
+pub fn step_off(sim: &mut Sim, v: Option<&Vehicle>) {
+    let (x, y, z, dry) = match v {
+        Some(v) => exit_spot(sim, v),
+        None => {
+            let hf = sim.terrain();
+            let (x, z) = (sim.player.pos.x, sim.player.pos.z);
+            let y = ground_at(hf, &sim.world.index, x, z, sim.player.pos.y.max(hf.water) + 0.5, 3.0);
+            let dry = y > hf.water - content::swim().depth + 0.2;
+            (x, if dry { y } else { hf.water - content::swim().float }, z, dry)
+        }
+    };
+    let p = &mut *sim.player;
+    p.mode = Mode::Normal;
+    p.vehicle = 0;
+    p.host = 0;
+    p.seat = 0;
+    p.pos.x = x;
+    p.pos.y = y;
+    p.pos.z = z;
+    p.vel = Default::default();
+    p.grounded = dry;
 }
 
 /// Seats the player in the vehicle (driver's seat).

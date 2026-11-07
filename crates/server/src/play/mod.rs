@@ -1,7 +1,7 @@
 //! Emberholm as the server plays it: one game per channel, 20 ticks a second. Each player's
 //! browser sends what they press (about 60 inputs a second) and what they ask their island to do
 //! (commands); here those run through the island's rules (crates/engine/src/open, crates/engine/src/life) and
-//! the players' combat (crates/server/src/combat.rs), the channel's slimes live and fight,
+//! the players' combat (crates/engine/src/combat.rs), the channel's slimes live and fight,
 //! and every browser hears back where it really is, what its island now holds, and what everyone
 //! else in the channel is doing. Nothing a browser says about its own state is believed: it can
 //! only press keys and ask.
@@ -17,7 +17,7 @@ use tokio::sync::mpsc;
 
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::Brain;
-use crate::combat::{OPEN_INPUT, Players, open_actions_from};
+use crate::combat::{OPEN_INPUT, Players, effects_json, open_actions_from};
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
@@ -44,6 +44,8 @@ pub mod parties;
 pub mod socket;
 /// Every channel and every party's copy of a dungeon, and moving between them.
 pub mod spaces;
+/// How a channel's players are stepped each tick: one after another, or all at once.
+pub mod stepping;
 /// Mini-games here: challenges, tables and the money on them.
 mod tables;
 
@@ -58,9 +60,6 @@ const ACTOR_RADIUS: f64 = 70.0;
 const ACTOR_CAP: usize = 48;
 /// How long someone who left is remembered as they were (see ChannelGame::lingering).
 const LINGER: Duration = Duration::from_secs(60);
-/// How close to someone's vehicle you have to be to climb in (the hull, as the island's prompts
-/// measure it, with a little slack for where you were drawn).
-const CLIMB_IN: f64 = 2.6;
 
 /// An island to write to Postgres, and whose browser to tell once it's written.
 pub struct Save {
@@ -185,6 +184,8 @@ pub struct ChannelGame {
     bot_count: u32,
     /// How long a tick takes to run (ms, smoothed), for the admins' stats.
     step_ms: f64,
+    /// How its players are stepped each tick (the server's `--parallel`).
+    pub stepping: stepping::Stepping,
 }
 
 /// Ticks between the stats an admin is sent (once a second).
@@ -226,6 +227,7 @@ impl ChannelGame {
             bots: Vec::new(),
             bot_count: 0,
             step_ms: 0.0,
+            stepping: stepping::Stepping::chosen(),
         }
     }
 
@@ -634,7 +636,7 @@ impl ChannelGame {
         }
         // Riding along with someone, the key that gets you out of your own vehicle gets you out of
         // theirs: their vehicle isn't on your island, so the channel does it.
-        if matches!(c, Command::Interact | Command::Exit) && self.passenger(character).is_some() {
+        if matches!(c, Command::Interact | Command::Exit) && self.players.passenger(client(character)).is_some() {
             self.drop_off(character);
             return true;
         }
@@ -642,133 +644,19 @@ impl ChannelGame {
         true
     }
 
-    /// Who a passenger rides with, which of their vehicles and which seat, if they ride along.
-    fn passenger(&self, character: i64) -> Option<(i64, i64, usize)> {
-        let (p, _, _) = self.players.open_view(client(character))?;
-        (p.mode == Mode::Ride && p.host != 0).then_some((p.host, p.vehicle, p.seat as usize))
-    }
-
-    /// A vehicle of `host`'s as it is now, if they're here and it's out.
-    fn vehicle_of(&self, host: i64, vehicle: i64) -> Option<crate::life::state::Vehicle> {
-        let (_, _, life) = self.players.open_view(client(host))?;
-        let life = life?;
-        vehicles::vehicle_index(life, vehicle).map(|i| life.state.vehicles[i].clone())
-    }
-
     /// Climbs into the free seat of `host`'s vehicle nearest you (the driver's is its owner's).
     /// You need to be beside it, on your feet or swimming, with your hands free. True if you're in.
     pub fn ride_along(&mut self, character: i64, host: i64, vehicle: i64) -> bool {
-        if host == character || !self.members.contains_key(&host) {
+        if host == character {
             return false;
         }
-        let Some(v) = self.vehicle_of(host, vehicle) else { return false };
-        let def = crate::life::content::rideable(&v.def);
-        let taken: Vec<usize> = self
-            .players
-            .each_open()
-            .filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host == host && p.vehicle == vehicle)
-            .map(|(_, _, p, _)| p.seat as usize)
-            .collect();
-        let owner_name = self.members.get(&host).map(|m| m.name.clone()).unwrap_or_default();
-        let Some((p, life)) = self.players.open_mut(client(character)) else { return false };
-        let say = |life: Option<&mut Life>, text: String| {
-            if let Some(l) = life {
-                l.toast(text, "bad");
-            }
-        };
-        if (p.mode != Mode::Normal && p.mode != Mode::Swim) || p.down_frame >= 0 || p.stun > 0 {
-            return false;
-        }
-        if p.pack != 0 {
-            say(life, format!("Put your pack down first - there's no room for it in {owner_name}'s {}", def.name.to_lowercase()));
-            return false;
-        }
-        if vehicles::distance_to(&v, p.pos.x, p.pos.z) > CLIMB_IN {
-            return false;
-        }
-        let near = |k: &usize| {
-            let (x, _, z) = vehicles::anchor_world(&v, &def.seats[*k]);
-            (x - p.pos.x).hypot(z - p.pos.z)
-        };
-        let Some(seat) = (1..def.seats.len()).filter(|k| !taken.contains(k)).min_by(|a, b| near(a).total_cmp(&near(b))) else {
-            say(life, format!("There's no room left in {owner_name}'s {}", def.name.to_lowercase()));
-            return false;
-        };
-        p.mode = Mode::Ride;
-        p.vehicle = vehicle;
-        p.host = host;
-        p.seat = seat as u8;
-        p.grounded = true;
-        p.jumps_used = 0;
-        p.sprinting = false;
-        p.crouching = false;
-        p.jump_buffer = 0;
-        sit(p, &v, seat);
-        true
+        let Some(name) = self.members.get(&host).map(|m| m.name.clone()) else { return false };
+        self.players.ride_along(client(character), host, vehicle, &name)
     }
 
     /// A passenger steps out beside the vehicle they ride in (or, if it has gone, where they are).
     fn drop_off(&mut self, character: i64) {
-        let Some((host, vehicle, _)) = self.passenger(character) else { return };
-        let v = self.vehicle_of(host, vehicle);
-        let Some((p, _)) = self.players.open_mut(client(character)) else { return };
-        let sim = Sim { player: p, world: &mut self.open, owner: character };
-        let (x, y, z, dry) = match &v {
-            Some(v) => vehicles::exit_spot(&sim, v),
-            None => {
-                let hf = sim.terrain();
-                let (x, z) = (sim.player.pos.x, sim.player.pos.z);
-                let y = ground_at(hf, &sim.world.index, x, z, sim.player.pos.y.max(hf.water) + 0.5, 3.0);
-                let dry = y > hf.water - crate::life::content::swim().depth + 0.2;
-                (x, if dry { y } else { hf.water - crate::life::content::swim().float }, z, dry)
-            }
-        };
-        let p = &mut *sim.player;
-        p.mode = Mode::Normal;
-        p.vehicle = 0;
-        p.host = 0;
-        p.seat = 0;
-        p.pos.x = x;
-        p.pos.y = y;
-        p.pos.z = z;
-        p.vel = Default::default();
-        p.grounded = dry;
-    }
-
-    /// Everyone riding along sits where their seat has gone this tick, now their host has driven;
-    /// whoever's vehicle (or host) has gone steps off where they are.
-    fn seat_passengers(&mut self) {
-        let riders: Vec<(i64, i64, i64, usize)> = self
-            .players
-            .each_open()
-            .filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host != 0)
-            .map(|(_, who, p, _)| (who, p.host, p.vehicle, p.seat as usize))
-            .collect();
-        for (who, host, vehicle, seat) in riders {
-            let v = self.vehicle_of(host, vehicle).filter(|v| seat < crate::life::content::rideable(&v.def).seats.len());
-            match v {
-                Some(v) => {
-                    if let Some((p, _)) = self.players.open_mut(client(who)) {
-                        sit(p, &v, seat);
-                    }
-                }
-                None => self.drop_off(who),
-            }
-        }
-    }
-
-    /// Everyone's vehicles, solid to everyone but their owner, as they stand when the tick begins.
-    fn gather_movers(&mut self) {
-        let mut movers = std::mem::take(&mut self.open.movers);
-        movers.clear();
-        for (_, owner, _, life) in self.players.each_open() {
-            if let Some(l) = life {
-                for v in &l.state.vehicles {
-                    movers.extend(vehicles::bodies(owner, v));
-                }
-            }
-        }
-        self.open.movers = movers;
+        self.players.drop_off(client(character), &self.open);
     }
 
     /// A new build (skills and loadout) as the browser sent it: used if it is one, and the skill
@@ -902,10 +790,14 @@ impl ChannelGame {
         for (_, life) in self.players.each_life_mut() {
             life.world_clock = Some(world);
         }
-        self.gather_movers();
+        // Everyone's vehicles solid as they stand; then everyone's inputs (bots' as their brains
+        // decide), each player stepped against everyone as the tick began, however `stepping` runs
+        // them (crates/engine/src/combat.rs); then whoever rides along sits where their seat went.
+        self.players.gather_movers(&mut self.open);
         self.drive_bots();
-        self.players.step_in(&mut self.actors, &self.world, self.tick, Some(&mut self.open));
-        self.seat_passengers();
+        let stepping = &mut self.stepping;
+        self.players.step_by(&mut self.actors, &self.world, self.tick, Some(&mut self.open), |jobs, step| stepping.run(jobs, step));
+        self.players.seat_passengers(&self.open);
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
         self.players.step_effects(&mut self.actors);
@@ -920,8 +812,9 @@ impl ChannelGame {
         }
         self.players.apply_slams(&done.slams);
         self.players.apply_foe_hits(&done.hits);
-        // Where everyone stood as this tick ends: swings are checked against what their swinger saw.
-        self.players.record_history(self.tick);
+        // Where everyone and everything stood as this tick ends: swings are checked against what
+        // their swinger saw.
+        self.players.record_history(self.tick, &self.actors);
         self.catch_fallers();
     }
 
@@ -978,7 +871,7 @@ impl ChannelGame {
                 m.last_life = now;
             }
             let (session, out) = (m.session, m.out.clone());
-            let (arrows, meteors, events) = self.players.effects_json(Some(slot), x, z);
+            let (arrows, meteors, events) = effects_json(&self.players, Some(slot), x, z);
             let peers: Vec<&Value> = presences.iter().filter(|(o, _)| *o != id).map(|(_, v)| v).collect();
             let actors = actors_json(&self.actors, &self.open, x, z);
             let mut life_events = Vec::new();
@@ -1059,21 +952,6 @@ fn outside_of(mut island: Value, outside: Option<Spot>) -> Value {
     island
 }
 
-/// Puts a passenger in seat `seat` of a vehicle, facing the way it faces and moving with it.
-fn sit(p: &mut Player, v: &crate::life::state::Vehicle, seat: usize) {
-    let def = crate::life::content::rideable(&v.def);
-    let Some(a) = def.seats.get(seat) else { return };
-    let (x, y, z) = vehicles::anchor_world(v, a);
-    p.pos.x = x;
-    p.pos.y = y;
-    p.pos.z = z;
-    p.facing = v.heading;
-    p.vel.x = v.vx;
-    p.vel.y = v.vy;
-    p.vel.z = v.vz;
-    p.bank = 0.0;
-}
-
 /// Stands a player on whatever is under them (terrain, a deck, a roof).
 fn stand_on_ground(p: &mut Player, world: &OpenWorld) {
     let hf = world.terrain();
@@ -1096,16 +974,9 @@ fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::yard::SpawnPoint>) {
 
 /// Makes an island's houses and farm posts solid in the channel (each piece once).
 pub fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
-    let zone = world.zone;
-    let spawn = Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing };
-    let mut p = Player::new(spawn, 0, Build::default());
-    let mut sim = Sim { player: &mut p, world, owner };
-    for h in &state.houses {
-        housing::add_house_colliders(&mut sim, h);
-    }
-    for sc in &state.scarecrows {
-        farming::add_scarecrow_collider(&mut sim, sc);
-    }
+    let mut life = Life::new(world.zone, None, None);
+    life.state = state.clone();
+    life.make_solid(world, owner);
 }
 
 /// Seconds as "1m 20s" (src/engine/life/interact.ts shortTime).
@@ -1139,7 +1010,7 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
         life.state.coins += s;
     }
     // Solid before anyone stands on it (a house floor is somewhere to stand).
-    make_solid(world, owner, &life.state);
+    life.make_solid(world, owner);
     // Time away.
     let c = clock();
     let away = ((now - saved_at) as f64 / 1000.0).clamp(0.0, c.max_offline_seconds) * c.offline_factor;
@@ -1489,10 +1360,10 @@ mod tests {
         place(&mut ch, 7, 0.0, 0.0);
         place(&mut ch, 8, 1.2, std::f64::consts::PI);
         ch.players.open_mut(client(8)).unwrap().0.team = 1;
-        ch.players.record_history(10);
+        ch.players.record_history(10, &ch.actors);
         // Then Bo steps well away; Ada's screen, a round trip behind, still shows them close.
         place(&mut ch, 8, 7.0, std::f64::consts::PI);
-        ch.players.record_history(11);
+        ch.players.record_history(11, &ch.actors);
         const ATTACK: [u8; OPEN_INPUT] = [0, 0, 4, 0, 0, 0, 0, 0, 0, 0];
         let hp = |ch: &ChannelGame| ch.players.open_view(client(8)).unwrap().0.hp;
         let full = hp(&ch);
@@ -1509,6 +1380,48 @@ mod tests {
         swing(&mut ch, u32::MAX, 12);
         assert_eq!(hp(&ch), full);
         // Seeing tick 10, it lands where Ada saw Bo.
+        swing(&mut ch, 10 * 16, 16);
+        assert!(hp(&ch) < full, "the rewound swing lands: {} of {full}", hp(&ch));
+    }
+
+    #[test]
+    fn a_swing_lands_on_a_creature_where_its_swinger_saw_it() {
+        // Ada and a slime a step apart, Ada facing it.
+        let mut ch = ChannelGame::new(1);
+        let (out, _) = mpsc::channel(16);
+        ch.join(Arrival { character: 7, session: 1, name: "Ada".into(), out, dev: false, island: None, saved_at: None, now: 0, build: None });
+        let (x, z) = {
+            let p = ch.players.open_mut(client(7)).unwrap().0;
+            p.facing = 0.0;
+            stand_on_ground(p, &ch.open);
+            (p.pos.x, p.pos.z)
+        };
+        let id = ch.actors.list.iter().find(|a| a.kind == "slime").expect("a slime").id;
+        let place = |ch: &mut ChannelGame, dz: f64| {
+            let a = ch.actors.get_mut(id).unwrap();
+            (a.x, a.y, a.z) = (x, 0.0, z + dz);
+        };
+        place(&mut ch, 1.2);
+        ch.players.record_history(10, &ch.actors);
+        // Then it hops well away; Ada's screen, a round trip behind, still shows it close.
+        place(&mut ch, 7.0);
+        ch.players.record_history(11, &ch.actors);
+        const ATTACK: [u8; OPEN_INPUT] = [0, 0, 4, 0, 0, 0, 0, 0, 0, 0];
+        let hp = |ch: &ChannelGame| ch.actors.get(id).unwrap().hp;
+        let full = hp(&ch);
+        let mut seq = 0u32;
+        let mut swing = |ch: &mut ChannelGame, view: u32, from: u64| {
+            ch.inputs_seen(7, (1..=48).map(|k| (seq + k, view, if k == 1 { ATTACK } else { [0; OPEN_INPUT] })));
+            seq += 48;
+            ch.players.inputs_per_tick = 12.0;
+            for tick in from..from + 4 {
+                ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+            }
+        };
+        // Seeing the present, the swing finds nothing in reach.
+        swing(&mut ch, u32::MAX, 12);
+        assert_eq!(hp(&ch), full);
+        // Seeing tick 10, it lands where Ada saw the slime, as a swing at a player does.
         swing(&mut ch, 10 * 16, 16);
         assert!(hp(&ch) < full, "the rewound swing lands: {} of {full}", hp(&ch));
     }
@@ -1618,14 +1531,14 @@ mod tests {
             ch.inputs(7, (first..=*seq).map(|s| (s, ada)));
             ch.inputs(8, (first..=*seq).map(|s| (s, [0; OPEN_INPUT])));
             ch.players.inputs_per_tick = 3.0;
-            ch.gather_movers();
+            ch.players.gather_movers(&mut ch.open);
             ch.players.step_in(&mut ch.actors, &ch.world, 1, Some(&mut ch.open));
-            ch.seat_passengers();
+            ch.players.seat_passengers(&ch.open);
         }
     }
 
     fn cart(ch: &ChannelGame, id: i64) -> crate::life::state::Vehicle {
-        ch.vehicle_of(7, id).expect("Ada's cart is out")
+        ch.players.vehicle_of(7, id).expect("Ada's cart is out")
     }
 
     #[test]

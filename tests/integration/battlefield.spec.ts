@@ -154,8 +154,9 @@ test('lag compensation: at 300 ms ping, hits on your screen count on the server'
   console.log('rewind', JSON.stringify(result));
   // The server checked the hits against where blue saw red: about 150 ms of lag, 100 ms of drawing
   // delay and the input's own. How many of them only landed because of it depends on where each blow
-  // knocked red, so it's logged (savedByRewind) rather than held to a number; the server's test
-  // a_swing_lands_where_its_swinger_saw_the_other_player shows a rewound swing landing where one
+  // knocked red, so it's logged (savedByRewind) rather than held to a number; the server's tests
+  // a_swing_lands_where_its_swinger_saw_the_other_player and, at a creature,
+  // a_swing_lands_on_a_creature_where_its_swinger_saw_it show a rewound swing landing where one
   // seeing the present misses.
   expect(result.hits).toBeGreaterThan(0);
   expect(result.rewindMs).toBeGreaterThan(200);

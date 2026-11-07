@@ -169,13 +169,13 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
             ];
             seq[me] += 1;
             let client = me as u32 + 1;
-            players.queue_inputs(client, std::iter::once((seq[me], (tick.saturating_sub(1)) * 16, raw)));
-            let _ = actions_from(raw); // keeps the decoder in the build, and documents the shape
+            // As a browser sends it: the bytes, read the way the server reads them.
+            players.queue_actions(client, std::iter::once((seq[me], f64::from(tick.saturating_sub(1)), actions_from(raw))));
         }
 
         players.step(&mut actors, &world, tick as u64);
         players.step_effects(&mut actors);
-        players.record_history(tick as u64);
+        players.record_history(tick as u64, &actors);
 
         let hps = [hp(&players, 0), hp(&players, 1)];
         if std::env::var("BALANCE_TRACE").is_ok() && tick % 30 == 0 {

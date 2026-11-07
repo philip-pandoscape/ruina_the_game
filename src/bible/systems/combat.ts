@@ -24,17 +24,19 @@ import { rustConst, sourceNumber } from '../source';
 import { nearestPlace } from '../things/refs';
 import playerSource from '../../../crates/engine/src/player.rs?raw';
 import actorsSource from '../../../crates/engine/src/actors.rs?raw';
-import serverCombat from '../../../crates/server/src/combat.rs?raw';
+import serverCombat from '../../../crates/engine/src/combat.rs?raw';
 import serverPlay from '../../../crates/server/src/play/mod.rs?raw';
 
 // Numbers the rules keep in their source rather than in the tuning: your combo is the engine's
 // (player.rs), the arc a swing catches creatures in is the engine's too (actors.rs), and where a
-// swing reaches from and how an arrow flies the server decides online (combat.rs).
+// swing reaches from, how far back it is judged and how an arrow flies the server decides online
+// (combat.rs).
 const QUEUE = () => sourceNumber(playerSource, /attack_queued && f >= active_end \+ (\d+)/, 'when a queued hit starts');
 const WINDUP_LUNGE = () => sourceNumber(playerSource, /step\.lunge \* ([\d.]+) \} else \{ step\.lunge \}/, 'the lunge during a wind-up');
 const SWING_HEIGHT = () => sourceNumber(serverCombat, /feet\.is_none_or\(\|\(above, _\)\| above <= ([\d.]+)\)/, 'how high a swing still reaches from');
 const FEET_APART = () =>
-  sourceNumber(serverCombat, /ground_under\(floor, terrain, a\.x, a\.z\) - y\)\.abs\(\) <= ([\d.]+)\)/, 'how far below or above a swing reaches');
+  sourceNumber(serverCombat, /\(y \+ ground_under\(floor, terrain, x, z\) - fy\)\.abs\(\) <= ([\d.]+)\)/, 'how far below or above a swing reaches');
+const REWIND = () => rustConst(serverCombat, 'MAX_REWIND_TICKS');
 const ON_TOP = () => sourceNumber(actorsSource, /!in_cone && dist > a\.radius \+ ([\d.]+) \{/, 'how close counts as on top of you');
 const ARROW_AHEAD = () => sourceNumber(serverCombat, /x: shooter\.pos\.x \+ dx \* ([\d.]+),/, 'where an arrow starts');
 const ARROW_HEIGHT = () => rustConst(serverCombat, 'ARROW_HEIGHT');
@@ -62,7 +64,7 @@ export const combat = system({
   summary: 'Health, stamina and MP; weapon combos, hits and knockback; casting abilities; dodges, blocks and getting knocked down.',
   icon: '⚔️',
   keywords: ['fight', 'fighting', 'attack', 'combo', 'damage', 'health', 'hp', 'stamina', 'mp', 'mana', 'dodge', 'block', 'stun', 'knockback', 'cast', 'spell'],
-  rules: ['crates/engine/src/player.rs', 'crates/server/src/combat.rs'],
+  rules: ['crates/engine/src/player.rs', 'crates/engine/src/combat.rs'],
   content: [
     'shared/tuning.json#attack',
     'shared/tuning.json#special',
@@ -222,7 +224,8 @@ Skills change all of these: cast time, cooldown, radius, healing and damage go t
 
 Your browser sends the server what you press, ${SIM_HZ} times a second; the server runs your moves with the same rules, in order, and answers ${TICK_HZ()} times a second. Nothing your browser says about itself is believed.
 
-- **Swings at creatures** are checked on the server, against where the creatures are there.
+- **Swings** are judged where your screen showed what you swung at. The server keeps where every player and creature stood, tick by tick, and checks each swing against the moment you were looking at, up to ${duration(REWIND() / TICK_HZ())} back: what was in reach on your screen is hit, even if it has moved on since.
+- **Everything that lands at once** is worked out against where everyone stood as that moment began, then lands in a fixed order: on whom it lands, then from whom. A blow on someone already knocked down, or on a creature already dead, does nothing.
 - **Arrows and meteors** fly and fall on the server, which hits whatever they reach there.
 - **A creature's blow** on you goes through the same steps as any other blow: a dodge's untouchable frames make it miss. A slam only catches you on the ground, no more than ${metres(SLAM_LIFT())} above it.
 `;

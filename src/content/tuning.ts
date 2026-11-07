@@ -86,7 +86,7 @@ export interface Weapon {
 
 // What an ability does, as a list of effects rather than a name the code knows. Adding a skill
 // built from these is a data change; only a genuinely new kind of thing costs code (the engine's,
-// crates/engine/src/player.rs, and the server's fighting, crates/server/src/combat.rs).
+// crates/engine/src/player.rs, and the server's fighting, crates/engine/src/combat.rs).
 export type EffectKind = 'healArea' | 'delayedArea';
 
 export interface Effect {

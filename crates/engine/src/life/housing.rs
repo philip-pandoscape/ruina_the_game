@@ -11,8 +11,8 @@ use super::state::House;
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::js_max;
-use crate::open::Sim;
 use crate::open::zone::{HousePlot, rect, to_world};
+use crate::open::{OpenWorld, Sim};
 
 pub const DAY: f64 = 86400.0;
 
@@ -69,7 +69,7 @@ pub fn stage_ready(h: &House) -> bool {
     still_needs(h).iter().all(|n| n.have >= n.need)
 }
 
-pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bool {
+pub fn place_house(life: &mut Life, _sim: &mut Sim, plot: &str, item: &str) -> bool {
     // Only the zone's plots can be built on.
     if plot_def(plot).is_none() {
         return false;
@@ -105,8 +105,7 @@ pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bo
         storage: Vec::new(),
         tax_paid_until,
     });
-    let i = life.state.houses.len() - 1;
-    add_house_colliders(sim, &life.state.houses[i]);
+    // Its ground is cleared once the step is over (Life::make_solid), as the island's shape changed.
     life.revision += 1;
     let first = bp.stages.first().map(|s| s.name.to_lowercase()).unwrap_or_default();
     life.toast(format!("📜 Plot claimed! Haul the {first} materials here to begin."), "quest");
@@ -133,7 +132,7 @@ pub fn deliver_material(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
     true
 }
 
-pub fn build_stage(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
+pub fn build_stage(life: &mut Life, _sim: &mut Sim, house: i64) -> bool {
     let Some(hi) = house_index(life, house) else { return false };
     let h = &life.state.houses[hi];
     let bp = blueprint_def(&h.blueprint);
@@ -148,7 +147,7 @@ pub fn build_stage(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
     h.stage += 1;
     h.delivered = BTreeMap::new();
     life.state.stats.built += 1.0;
-    add_house_colliders(sim, &life.state.houses[hi]);
+    // What the stage made solid is, once the step is over (Life::make_solid).
     life.revision += 1;
     let h = &life.state.houses[hi];
     let (x, z, _) = house_pose(h);
@@ -167,18 +166,18 @@ pub fn build_stage(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
 /// The house's solid parts as far as it has been built (each piece once per owner and house): the
 /// floor from the foundation up, the walls (with their doorway) once they are raised. The world is
 /// shared by a channel and house ids are only unique per character, so pieces are remembered in
-/// `sim.world.added` under the owner's id as well as the house's.
-pub fn add_house_colliders(sim: &mut Sim, h: &House) {
-    let hf = sim.terrain();
+/// `world.added` under the owner's id (`owner`) as well as the house's. A step that builds leaves
+/// this until it's over (`Life::make_solid`).
+pub fn add_house_colliders(world: &mut OpenWorld, owner: i64, h: &House) {
+    let hf = world.terrain();
     let def = structure_def(&blueprint_def(&h.blueprint).structure);
     let (px, pz, rot) = house_pose(h);
     let y = hf.height(px, pz);
-    let owner = sim.owner;
     let key = |what: &str| format!("{owner}:{}:{what}", h.id);
-    if sim.world.added.insert(key("ground")) {
+    if world.added.insert(key("ground")) {
         // Keep the footprint (and a metre round it) clear of trees and scarecrows.
-        let grid = sim.world.grid();
-        let clear = &mut sim.world.clear;
+        let grid = world.grid();
+        let clear = &mut world.clear;
         let mut a = -def.w / 2.0 - 1.0;
         while a <= def.w / 2.0 + 1.0 {
             let mut b = -def.d / 2.0 - 1.0;
@@ -198,16 +197,16 @@ pub fn add_house_colliders(sim: &mut Sim, h: &House) {
             a += grid.cell / 2.0;
         }
     }
-    if h.stage >= 1 && sim.world.added.insert(key("floor")) {
-        sim.world.index.add_deck(rect(px, pz, def.w / 2.0, def.d / 2.0, rot, y + def.floor.unwrap_or(0.25)));
+    if h.stage >= 1 && world.added.insert(key("floor")) {
+        world.index.add_deck(rect(px, pz, def.w / 2.0, def.d / 2.0, rot, y + def.floor.unwrap_or(0.25)));
     }
-    if h.stage >= 3 && sim.world.added.insert(key("walls")) {
+    if h.stage >= 3 && world.added.insert(key("walls")) {
         let t = def.wall.unwrap_or(0.3);
         let hw = def.w / 2.0;
         let hd = def.d / 2.0;
         let door = def.door.unwrap_or(1.4) / 2.0;
         let top = y + def.h;
-        let index = &mut sim.world.index;
+        let index = &mut world.index;
         let mut add = |lx: f64, lz: f64, w: f64, d: f64| {
             let (ox, oz) = to_world(lx, lz, rot);
             index.add_box(rect(px + ox, pz + oz, w / 2.0, d / 2.0, rot, top));
@@ -268,94 +267,109 @@ mod tests {
         deliver_material(life, sim, house)
     }
 
+    /// A Sim of its own for one thing a step does, as a statement's temporary.
+    macro_rules! sim {
+        ($p:expr, $world:expr, $owner:expr) => {
+            &mut Sim { player: &mut $p, world: &$world, owner: $owner }
+        };
+    }
+
     #[test]
     fn a_house_goes_up_stage_by_stage_and_is_made_solid_once() {
         let (mut life, mut world, mut p) = island(1000.0);
         let (decks, boxes) = (world.index.decks.len(), world.index.boxes.len());
-        let mut sim = Sim { player: &mut p, world: &mut world, owner: 7 };
         life.plot_owners.insert("rise-2".into(), "Brann".into());
         life.give("blueprint.cottage", 1, true);
         toasts(&mut life);
-        assert!(!place_house(&mut life, &mut sim, "rise-2", "blueprint.cottage"));
+        assert!(!place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
         assert_eq!(toasts(&mut life), ["That plot is Brann's"]);
-        assert!(!place_house(&mut life, &mut sim, "nowhere", "blueprint.cottage"));
-        assert!(!place_house(&mut life, &mut sim, "rise-1", "blueprint.villa"));
-        assert!(place_house(&mut life, &mut sim, "rise-1", "blueprint.cottage"));
+        assert!(!place_house(&mut life, sim!(p, world, 7), "nowhere", "blueprint.cottage"));
+        assert!(!place_house(&mut life, sim!(p, world, 7), "rise-1", "blueprint.villa"));
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-1", "blueprint.cottage"));
         let h = life.state.houses[0].clone();
         assert_eq!((h.plot.as_str(), h.blueprint.as_str(), h.stage, h.tax_paid_until), ("rise-1", "cottage", 0, 7.0 * DAY));
         assert_eq!(life.count("blueprint.cottage"), 0);
         assert_eq!(toasts(&mut life), ["📜 Plot claimed! Haul the foundation materials here to begin."]);
-        // The ground is cleared at once; nothing is solid yet.
-        let grid = sim.world.grid();
+        // The world is the same for everyone while they step: nothing changes in it until the step
+        // that claimed the plot is over. Then the ground is cleared, and nothing is solid yet.
+        let grid = world.grid();
         let (x, z, _) = house_pose(&h);
         let (i, j) = grid.cell_of(x, z);
         let cell = j as usize * grid.cells + i as usize;
-        assert_eq!(sim.world.clear[cell], 1);
-        assert!(sim.world.added.contains(&format!("7:{}:ground", h.id)));
-        assert_eq!((sim.world.index.decks.len(), sim.world.index.boxes.len()), (decks, boxes));
+        assert!(!world.added.contains(&format!("7:{}:ground", h.id)));
+        life.make_solid(&mut world, 7);
+        assert_eq!(world.clear[cell], 1);
+        assert!(world.added.contains(&format!("7:{}:ground", h.id)));
+        assert_eq!((world.index.decks.len(), world.index.boxes.len()), (decks, boxes));
         // One each, and none on a plot that's built on.
         life.give("blueprint.cottage", 1, true);
         toasts(&mut life);
-        assert!(!place_house(&mut life, &mut sim, "rise-3", "blueprint.cottage"));
+        assert!(!place_house(&mut life, sim!(p, world, 7), "rise-3", "blueprint.cottage"));
         assert_eq!(toasts(&mut life), ["One house per settler on Emberholm (for now)"]);
-        assert!(!place_house(&mut life, &mut sim, "rise-1", "blueprint.cottage"));
+        assert!(!place_house(&mut life, sim!(p, world, 7), "rise-1", "blueprint.cottage"));
         assert_eq!(life.count("blueprint.cottage"), 1);
         // The foundation wants stone, not lumber; the pack you offered stays on your back.
-        assert!(!haul(&mut life, &mut sim, h.id, "lumberBundle"));
+        assert!(!haul(&mut life, sim!(p, world, 7), h.id, "lumberBundle"));
         assert_eq!(toasts(&mut life), ["The foundation does not need a Lumber Bundle"]);
-        assert_ne!(sim.player.pack, 0);
-        consume_carried(&mut life, &mut sim);
-        assert!(!build_stage(&mut life, &mut sim, h.id), "nothing delivered yet");
-        assert!(haul(&mut life, &mut sim, h.id, "stoneBlock"));
+        assert_ne!(p.pack, 0);
+        consume_carried(&mut life, sim!(p, world, 7));
+        assert!(!build_stage(&mut life, sim!(p, world, 7), h.id), "nothing delivered yet");
+        assert!(haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"));
         assert_eq!(toasts(&mut life), ["Delivered 🧱 Stone Block (1/2)"]);
         assert_eq!(still_needs(&life.state.houses[0]), [Need { pack: "stoneBlock".into(), need: 2, have: 1 }]);
-        assert!(haul(&mut life, &mut sim, h.id, "stoneBlock"));
+        assert!(haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"));
         assert!(stage_ready(&life.state.houses[0]));
-        assert!(!haul(&mut life, &mut sim, h.id, "stoneBlock"), "it has all it needs");
-        consume_carried(&mut life, &mut sim);
+        assert!(!haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"), "it has all it needs");
+        consume_carried(&mut life, sim!(p, world, 7));
         toasts(&mut life);
-        // The foundation: labor spent, a floor to stand on.
-        assert!(build_stage(&mut life, &mut sim, h.id));
+        // The foundation: labor spent, and once the step is over a floor to stand on.
+        assert!(build_stage(&mut life, sim!(p, world, 7), h.id));
         let built = &life.state.houses[0];
         assert_eq!((built.stage, built.delivered.len(), life.state.labor, life.state.stats.built), (1, 0, 780.0, 1.0));
-        assert_eq!((sim.world.index.decks.len(), sim.world.index.boxes.len()), (decks + 1, boxes));
-        let floor = sim.world.index.decks[decks];
+        assert_eq!(world.index.decks.len(), decks);
+        life.make_solid(&mut world, 7);
+        assert_eq!((world.index.decks.len(), world.index.boxes.len()), (decks + 1, boxes));
+        let floor = world.index.decks[decks];
         let def = structure_def("cottage");
         assert_eq!((floor.x, floor.z, floor.hw, floor.hd), (x, z, def.w / 2.0, def.d / 2.0));
-        assert_eq!(floor.top, sim.terrain().height(x, z) + def.floor.unwrap());
+        assert_eq!(floor.top, world.terrain().height(x, z) + def.floor.unwrap());
         let events = life.drain_events();
         assert!(events.contains(&LifeEvent::Build { house: h.id, stage: 1, x, z }));
         assert!(events.contains(&LifeEvent::Toast { text: "🔨 Foundation done. Next: Frame.".into(), kind: "good".into() }));
         // Asking again adds nothing.
-        add_house_colliders(&mut sim, &life.state.houses[0].clone());
-        assert_eq!(sim.world.index.decks.len(), decks + 1);
+        add_house_colliders(&mut world, 7, &life.state.houses[0].clone());
+        life.make_solid(&mut world, 7);
+        assert_eq!(world.index.decks.len(), decks + 1);
         // Frame, walls (and their five pieces), roof.
         for pack in ["lumberBundle", "lumberBundle"] {
-            assert!(haul(&mut life, &mut sim, h.id, pack));
+            assert!(haul(&mut life, sim!(p, world, 7), h.id, pack));
         }
-        assert!(build_stage(&mut life, &mut sim, h.id));
-        assert_eq!(sim.world.index.boxes.len(), boxes);
+        assert!(build_stage(&mut life, sim!(p, world, 7), h.id));
+        life.make_solid(&mut world, 7);
+        assert_eq!(world.index.boxes.len(), boxes);
         for pack in ["lumberBundle", "stoneBlock", "lumberBundle"] {
-            assert!(haul(&mut life, &mut sim, h.id, pack));
+            assert!(haul(&mut life, sim!(p, world, 7), h.id, pack));
         }
-        assert!(build_stage(&mut life, &mut sim, h.id));
-        assert_eq!(sim.world.index.boxes.len(), boxes + 5);
-        let ground = sim.terrain().height(x, z);
-        assert!(sim.world.index.boxes[boxes..].iter().all(|b| b.top == ground + def.h));
+        assert!(build_stage(&mut life, sim!(p, world, 7), h.id));
+        life.make_solid(&mut world, 7);
+        assert_eq!(world.index.boxes.len(), boxes + 5);
+        let ground = world.terrain().height(x, z);
+        assert!(world.index.boxes[boxes..].iter().all(|b| b.top == ground + def.h));
         for pack in ["ironCrate", "lumberBundle"] {
-            assert!(haul(&mut life, &mut sim, h.id, pack));
+            assert!(haul(&mut life, sim!(p, world, 7), h.id, pack));
         }
         toasts(&mut life);
-        assert!(build_stage(&mut life, &mut sim, h.id));
+        assert!(build_stage(&mut life, sim!(p, world, 7), h.id));
+        life.make_solid(&mut world, 7);
         assert!(is_complete(&life.state.houses[0]));
         assert_eq!(toasts(&mut life), ["🏡 Your cottage is finished. Welcome home."]);
         assert_eq!((life.state.labor, life.state.stats.built), (700.0, 4.0));
-        assert_eq!((sim.world.index.decks.len(), sim.world.index.boxes.len()), (decks + 1, boxes + 5));
-        assert!(!build_stage(&mut life, &mut sim, h.id), "nothing left to build");
+        assert_eq!((world.index.decks.len(), world.index.boxes.len()), (decks + 1, boxes + 5));
+        assert!(!build_stage(&mut life, sim!(p, world, 7), h.id), "nothing left to build");
         assert!(still_needs(&life.state.houses[0]).is_empty());
-        assert!(!haul(&mut life, &mut sim, h.id, "stoneBlock"));
+        assert!(!haul(&mut life, sim!(p, world, 7), h.id, "stoneBlock"));
         assert_eq!(toasts(&mut life), ["The house does not need a Stone Block"]);
-        assert!(!build_stage(&mut life, &mut sim, 999));
+        assert!(!build_stage(&mut life, sim!(p, world, 7), 999));
     }
 
     #[test]
@@ -365,14 +379,14 @@ mod tests {
         let (decks, boxes) = (world.index.decks.len(), world.index.boxes.len());
         mine.give("blueprint.cottage", 1, true);
         theirs.give("blueprint.cottage", 1, true);
-        assert!(place_house(&mut mine, &mut Sim { player: &mut p, world: &mut world, owner: 1 }, "rise-1", "blueprint.cottage"));
-        assert!(place_house(&mut theirs, &mut Sim { player: &mut q, world: &mut world, owner: 2 }, "rise-5", "blueprint.cottage"));
+        assert!(place_house(&mut mine, sim!(p, world, 1), "rise-1", "blueprint.cottage"));
+        assert!(place_house(&mut theirs, sim!(q, world, 2), "rise-5", "blueprint.cottage"));
         assert_eq!(mine.state.houses[0].id, theirs.state.houses[0].id);
         mine.state.houses[0].stage = 3;
         theirs.state.houses[0].stage = 3;
-        add_house_colliders(&mut Sim { player: &mut p, world: &mut world, owner: 1 }, &mine.state.houses[0]);
-        add_house_colliders(&mut Sim { player: &mut q, world: &mut world, owner: 2 }, &theirs.state.houses[0]);
-        add_house_colliders(&mut Sim { player: &mut q, world: &mut world, owner: 2 }, &theirs.state.houses[0]);
+        mine.make_solid(&mut world, 1);
+        theirs.make_solid(&mut world, 2);
+        theirs.make_solid(&mut world, 2);
         assert_eq!((world.index.decks.len(), world.index.boxes.len()), (decks + 2, boxes + 10));
     }
 

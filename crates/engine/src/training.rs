@@ -1,7 +1,7 @@
 //! What the browser plays offline that the server decides online (Phase 8): a swing's blow landing
 //! on whatever stands in front of you (with its hit pause), damage dealt to creatures and what it
 //! shows, and the training range: arrows flying, meteors falling and heals going off against
-//! whatever stands about. The numbers are the server's (crates/server/src/combat.rs); the session
+//! whatever stands about. The numbers are the server's (crate::combat); the session
 //! (crate::session) runs these in its offline steps.
 
 use serde::Serialize;
@@ -49,8 +49,9 @@ pub fn targets(actors: &Actors, terrain: Option<&WorldMap>) -> Vec<Target> {
     out
 }
 
+/// Nearest first, and of two as near, the one with the lower id: never the order they're kept in.
 fn by_distance(list: &mut [Target], x: f64, z: f64) {
-    list.sort_by(|a, b| (js_hypot(a.x - x, a.z - z) - js_hypot(b.x - x, b.z - z)).total_cmp(&0.0));
+    list.sort_by(|a, b| (js_hypot(a.x - x, a.z - z) - js_hypot(b.x - x, b.z - z)).total_cmp(&0.0).then(a.id.cmp(&b.id)));
 }
 
 /// A melee swing: everything inside the arc and within reach, nearest first, capped at `max`
@@ -81,7 +82,8 @@ pub fn circle_hits(targets: &[Target], x: f64, z: f64, radius: f64) -> Vec<Targe
     hits
 }
 
-/// A projectile at a point in flight: the first thing it touches.
+/// A projectile at a point in flight: the first thing it touches (the nearest, and of two as near,
+/// the one with the lower id).
 pub fn point_hit(targets: &[Target], x: f64, y: f64, z: f64, pad: f64) -> Option<Target> {
     let mut best: Option<Target> = None;
     let mut best_dist = f64::INFINITY;
@@ -90,7 +92,7 @@ pub fn point_hit(targets: &[Target], x: f64, y: f64, z: f64, pad: f64) -> Option
             continue;
         }
         let dist = js_hypot(t.x - x, t.z - z);
-        if dist > t.radius + pad || dist >= best_dist {
+        if dist > t.radius + pad || dist > best_dist || (dist == best_dist && best.is_some_and(|b| b.id < t.id)) {
             continue;
         }
         best = Some(*t);

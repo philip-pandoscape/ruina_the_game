@@ -54,13 +54,7 @@ const REQUIRED_SYSTEMS = [
 ];
 
 /** Where the rules live: every file here is a system's, and its page says so in `rules`. */
-const RULES = [
-  'src/content/skills.ts',
-  'src/content/build.ts',
-  ...files('crates/engine/src', '.rs'),
-  ...files('crates/server/src/play', '.rs'),
-  'crates/server/src/combat.rs',
-];
+const RULES = ['src/content/skills.ts', 'src/content/build.ts', ...files('crates/engine/src', '.rs'), ...files('crates/server/src/play', '.rs')];
 
 /** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), and the checks the tests run the rules through. */
 const PLUMBING_NAMES: Array<[RegExp, string]> = [
@@ -79,6 +73,7 @@ const PLUMBING: Record<string, string> = {
   'crates/engine/src/life/content.rs': 'reads the island’s content files for the engine',
   'crates/server/src/play/mod.rs': 'runs a channel: the rules above, fed from players’ inputs',
   'crates/server/src/play/socket.rs': 'a player’s connection to the server',
+  'crates/server/src/play/stepping.rs': 'how a channel runs its players’ steps, one after another or all at once: the same game either way',
   'crates/server/src/play/channels.rs': 'who is in which channel',
   // The developer zones, which only admins enter: no player reads about them.
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',

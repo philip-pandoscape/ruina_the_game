@@ -256,12 +256,24 @@ impl Actors {
         Some(a.id)
     }
 
+    pub fn get(&self, id: u32) -> Option<&Actor> {
+        self.list.iter().find(|a| a.id == id)
+    }
+
     pub fn get_mut(&mut self, id: u32) -> Option<&mut Actor> {
         self.list.iter_mut().find(|a| a.id == id)
     }
 
     fn index_of(&self, id: u32) -> Option<usize> {
         self.list.iter().position(|a| a.id == id)
+    }
+
+    /// Where each one is in the list, in the order of their ids: the order anything that reaches
+    /// across creatures goes in, whatever order the list is in.
+    fn by_id(&self) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..self.list.len()).collect();
+        order.sort_by_key(|&i| self.list[i].id);
+        order
     }
 
     /// One frame of every actor: its brain, its lean,
@@ -284,6 +296,12 @@ impl Actors {
     /// healing, missiles landing, growing) added to `ev` as it happens, and every slam and blow
     /// handed to `on_blow` the moment it lands, with `ev` for what that shows. Returns where missiles
     /// came down.
+    ///
+    /// The order the list is in makes no difference. Each brain steps its own creature alone,
+    /// seeing the others as they stood when the frame began (`peers`) and asking for whatever
+    /// reaches another (`Request`); everything that reaches across creatures (deaths handed on,
+    /// packs, what was asked for, coming back) is done once every brain has stepped, in the order of
+    /// their ids. The brains themselves go in the list's order, which the checks shuffle to show it.
     #[allow(clippy::too_many_arguments)]
     pub fn step_with(
         &mut self,
@@ -297,10 +315,9 @@ impl Actors {
     ) -> Vec<(f64, f64, f64)> {
         let mut landed = Vec::new();
 
-        // Whatever was killed since the last frame: a caller hands its call on, and anything
-        // that bursts does.
-        let before = self.list.len();
-        for i in 0..before {
+        // Whatever was killed since the last frame, in the order of their ids: a caller hands its
+        // call on, and anything that bursts does.
+        for i in self.by_id() {
             if self.list[i].dead_frame != 0 || self.list[i].gone {
                 continue;
             }
@@ -313,10 +330,11 @@ impl Actors {
         }
 
         // What every brain can see of the others, and how much of each creature is about.
+        let order = self.by_id();
         let mut peers: Vec<Peer> = Vec::new();
         let mut live = vec![0.0f64; ladders().len()];
         let mut budget = vec![0.0f64; ladders().len()];
-        for a in self.list.iter() {
+        for a in order.iter().map(|&i| &self.list[i]) {
             if a.ladder >= 0 && !a.transient {
                 budget[a.ladder as usize] += kind_mass(&a.home_kind);
             }
@@ -341,7 +359,7 @@ impl Actors {
 
         // Who each pack creature is after, whether it has noticed them, and then what its band
         // works out together.
-        for i in 0..self.list.len() {
+        for &i in &order {
             let a = &self.list[i];
             let Some(b) = brain_of(a) else { continue };
             let Some(p) = b.pack.as_ref() else { continue };
@@ -352,9 +370,11 @@ impl Actors {
             self.list[i].target = f.map_or(0, |f| f.id);
             self.notice(i, f.as_ref());
         }
-        step_packs(&mut self.list, foes);
+        step_packs(&mut self.list, &order, foes);
 
+        // Each brain on its own creature, in the list's order (it makes no difference which).
         let mut out: Vec<Request> = Vec::new();
+        let mut down: Vec<usize> = Vec::new();
         for i in 0..self.list.len() {
             let a = &mut self.list[i];
             a.flash_frame = (a.flash_frame + 1).min(999);
@@ -399,18 +419,8 @@ impl Actors {
                 }
             } else {
                 a.dead_frame += 1;
-                // A home actor comes back where it started, if there's room for it.
                 if !a.transient && a.respawn_frames >= 0 && a.dead_frame >= a.respawn_frames {
-                    let m = kind_mass(&a.home_kind);
-                    let room = a.ladder < 0 || live[a.ladder as usize] + m <= budget[a.ladder as usize];
-                    if room {
-                        a.revive();
-                        let seen = nearest_at(foes, a.x, a.z);
-                        start_brain(a, seen);
-                        if a.ladder >= 0 {
-                            live[a.ladder as usize] += m;
-                        }
-                    }
+                    down.push(i);
                 }
             }
             if a.lean_x != 0.0 || a.lean_z != 0.0 || a.lean_vx != 0.0 || a.lean_vz != 0.0 {
@@ -421,14 +431,27 @@ impl Actors {
             }
         }
 
-        // What the brains asked for, in the order they asked.
+        // A home actor down long enough comes back where it started, if there's room for it: in the
+        // order of their ids, as room taken by one is room another can't have.
+        down.sort_by_key(|&i| self.list[i].id);
+        for i in down {
+            let a = &mut self.list[i];
+            let m = kind_mass(&a.home_kind);
+            let room = a.ladder < 0 || live[a.ladder as usize] + m <= budget[a.ladder as usize];
+            if room {
+                a.revive();
+                let seen = nearest_at(foes, a.x, a.z);
+                start_brain(a, seen);
+                if a.ladder >= 0 {
+                    live[a.ladder as usize] += m;
+                }
+            }
+        }
+
+        // What the brains asked for, in the order of their ids (each one's in the order it asked).
+        out.sort_by_key(Request::actor);
         for r in out {
-            let id = match r {
-                Request::Call(id) | Request::Pull(id) | Request::Absorb(id) | Request::Slam(id) | Request::FuseOut(id) => id,
-                Request::Strike(id, _) | Request::Throw(id, _) | Request::Heal(id) => id,
-                Request::GatherStart(id) | Request::Broke(id) => id,
-            };
-            let Some(i) = self.index_of(id) else { continue };
+            let Some(i) = self.index_of(r.actor()) else { continue };
             if !self.list[i].is_alive() || self.list[i].gone {
                 continue;
             }
@@ -580,7 +603,8 @@ impl Actors {
         let (did, dx, dz) = (self.list[dead].id, self.list[dead].x, self.list[dead].z);
         let mut next: Option<usize> = None;
         let mut next_dist = f64::INFINITY;
-        for (j, o) in self.list.iter().enumerate() {
+        for j in self.by_id() {
+            let o = &self.list[j];
             if o.rally_to != did || !o.is_alive() || o.gone || o.gather_cd > 0 {
                 continue;
             }
@@ -696,7 +720,8 @@ impl Actors {
         let caster = self.list[ci].clone();
         let mut gained = 0.0;
         let mut healed = 0.0;
-        for o in self.list.iter_mut() {
+        for j in self.by_id() {
+            let o = &mut self.list[j];
             if !kin(&caster, o) {
                 continue;
             }
@@ -736,7 +761,7 @@ impl Actors {
             }
             return;
         }
-        let members: Vec<usize> = (0..self.list.len()).filter(|&j| self.list[j].group == group && self.list[j].is_alive() && !self.list[j].gone).collect();
+        let members: Vec<usize> = self.by_id().into_iter().filter(|&j| self.list[j].group == group && self.list[j].is_alive() && !self.list[j].gone).collect();
         if members.len() < 2 {
             for &j in &members {
                 let m = &mut self.list[j];
@@ -767,20 +792,28 @@ impl Actors {
         ev.push(Event::ActorGrow { id: c.id, kind: c.kind.clone(), x, y: ground(x, z), z });
     }
 
-    /// A melee swing: everything in the arc and in reach, nearest first, capped at `max`.
-    pub fn cone_hits(&self, x: f64, z: f64, facing: f64, reach: f64, arc_deg: f64, max: usize) -> Vec<u32> {
-        self.cone_hits_where(x, z, facing, reach, arc_deg, max, |_| true)
-    }
-
-    /// The same, among only the actors `keep` allows (on hills: those whose feet are near yours).
+    /// A melee swing from (x, z): everything in the arc and in reach, nearest first (of two as near,
+    /// the lower id), capped at `max`. Each one is judged where `place` says it stands, which for a
+    /// player's swing is where their screen showed it (crate::combat rewinds it), and passed over
+    /// where that's None (on hills, feet too far from yours). Each comes back with that place.
     #[allow(clippy::too_many_arguments)]
-    pub fn cone_hits_where(&self, x: f64, z: f64, facing: f64, reach: f64, arc_deg: f64, max: usize, keep: impl Fn(&Actor) -> bool) -> Vec<u32> {
-        let mut hits: Vec<(f64, u32)> = self
+    pub fn cone_hits_at(
+        &self,
+        x: f64,
+        z: f64,
+        facing: f64,
+        reach: f64,
+        arc_deg: f64,
+        max: usize,
+        place: impl Fn(&Actor) -> Option<(f64, f64)>,
+    ) -> Vec<(u32, f64, f64)> {
+        let mut hits: Vec<(f64, u32, f64, f64)> = self
             .list
             .iter()
-            .filter(|a| a.is_alive() && keep(a))
+            .filter(|a| a.is_alive())
             .filter_map(|a| {
-                let (dx, dz) = (a.x - x, a.z - z);
+                let (ax, az) = place(a)?;
+                let (dx, dz) = (ax - x, az - z);
                 let dist = len(dx, dz);
                 if dist > reach + a.radius {
                     return None;
@@ -789,20 +822,23 @@ impl Actors {
                 if !in_cone && dist > a.radius + 0.3 {
                     return None;
                 }
-                Some((dist, a.id))
+                Some((dist, a.id, ax, az))
             })
             .collect();
-        hits.sort_by(|p, q| p.0.total_cmp(&q.0));
+        hits.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
         hits.truncate(max.max(1));
-        hits.into_iter().map(|(_, id)| id).collect()
+        hits.into_iter().map(|(_, id, ax, az)| (id, ax, az)).collect()
     }
 
-    /// A blast: everything whose body overlaps the circle.
+    /// A blast: everything whose body overlaps the circle, in the order of their ids.
     pub fn circle_hits(&self, x: f64, z: f64, radius: f64) -> Vec<u32> {
-        self.list.iter().filter(|a| a.is_alive() && len(a.x - x, a.z - z) <= radius + a.radius).map(|a| a.id).collect()
+        let mut hits: Vec<u32> = self.list.iter().filter(|a| a.is_alive() && len(a.x - x, a.z - z) <= radius + a.radius).map(|a| a.id).collect();
+        hits.sort_unstable();
+        hits
     }
 
-    /// A projectile at a point in flight: the first thing it touches.
+    /// A projectile at a point in flight: the first thing it touches (the nearest, and of two as
+    /// near, the one with the lower id).
     pub fn point_hit(&self, x: f64, y: f64, z: f64, pad: f64) -> Option<u32> {
         let mut best: Option<(f64, u32)> = None;
         for a in self.list.iter().filter(|a| a.is_alive()) {
@@ -813,7 +849,7 @@ impl Actors {
             if dist > a.radius + pad {
                 continue;
             }
-            if best.is_none_or(|(d, _)| dist < d) {
+            if best.is_none_or(|(d, id)| dist < d || (dist == d && a.id < id)) {
                 best = Some((dist, a.id));
             }
         }

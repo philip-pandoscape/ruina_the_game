@@ -10,8 +10,8 @@ use super::state::{Plant, Scarecrow};
 use super::weather::raining;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::{js_hypot, js_max, js_min};
-use crate::open::Sim;
 use crate::open::zone::{Obstacle, ObstacleKind, surface, to_local, to_world};
+use crate::open::{OpenWorld, Sim};
 
 /// Half the plot's side (TS HALF).
 fn half() -> f64 {
@@ -245,30 +245,29 @@ pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<
     None
 }
 
-/// Puts a scarecrow down (the item is already paid for). Its post blocks like any other. Returns
-/// its id.
-pub fn add_scarecrow(life: &mut Life, sim: &mut Sim, x: f64, z: f64, rot: f64) -> i64 {
+/// Puts a scarecrow down (the item is already paid for). Its post blocks like any other, once the
+/// step that put it down is over (Life::make_solid). Returns its id.
+pub fn add_scarecrow(life: &mut Life, _sim: &mut Sim, x: f64, z: f64, rot: f64) -> i64 {
     let n = farm().scarecrow_cells.max(0) as usize;
     let id = life.next_id();
     life.state.scarecrows.push(Scarecrow { id, x, z, rot, cells: vec![None; n * n] });
-    let last = life.state.scarecrows.len() - 1;
-    add_scarecrow_collider(sim, &life.state.scarecrows[last]);
     life.revision += 1;
     id
 }
 
 /// Makes a scarecrow's post solid and its ground tilled (once per owner and scarecrow: a channel's
-/// players share one world, and scarecrow ids are only unique per character).
-pub fn add_scarecrow_collider(sim: &mut Sim, sc: &Scarecrow) {
-    if !sim.world.added.insert(format!("{}:sc{}", sim.owner, sc.id)) {
+/// players share one world, and scarecrow ids are only unique per character, so it is remembered
+/// under `owner`'s id).
+pub fn add_scarecrow_collider(world: &mut OpenWorld, owner: i64, sc: &Scarecrow) {
+    if !world.added.insert(format!("{owner}:sc{}", sc.id)) {
         return;
     }
     let (px, pz) = scarecrow_post(sc.x, sc.z, sc.rot);
-    sim.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Post, x: px, z: pz, r: 0.25, scale: 1.0, rot: sc.rot });
+    world.index.add_obstacle(Obstacle { kind: ObstacleKind::Post, x: px, z: pz, r: 0.25, scale: 1.0, rot: sc.rot });
     // Tilled ground: no grass, no new trees.
-    let grid = sim.world.grid();
+    let grid = world.grid();
     let half = half();
-    let clear = &mut sim.world.clear;
+    let clear = &mut world.clear;
     let mut a = -half - 1.0;
     while a <= half + 1.0 {
         let mut b = -half - 1.0;
@@ -518,24 +517,27 @@ pub(crate) mod tests {
     fn a_scarecrow_post_is_solid_and_its_ground_tilled_once_per_owner() {
         let (mut life, mut world, mut p) = island();
         let before = world.index.obstacles.len();
-        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
-        assert_eq!(plot_problem(&life, &sim, -208.0, -240.0, 0.0), None);
-        let id = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
+        assert_eq!(plot_problem(&life, &Sim { player: &mut p, world: &world, owner: 1 }, -208.0, -240.0, 0.0), None);
+        let id = add_scarecrow(&mut life, &mut Sim { player: &mut p, world: &world, owner: 1 }, -208.0, -240.0, 0.0);
         assert_eq!((id, life.state.scarecrows[0].cells.len()), (1, 16));
         assert_eq!(scarecrow_post(-208.0, -240.0, 0.0), (-203.4, -235.4));
-        assert_eq!(sim.world.index.obstacles.len(), before + 1);
-        let post = sim.world.index.obstacles[before];
+        // The world is the same for everyone while they step: the post is solid once the step that
+        // put it down is over.
+        assert_eq!(world.index.obstacles.len(), before);
+        life.make_solid(&mut world, 1);
+        assert_eq!(world.index.obstacles.len(), before + 1);
+        let post = world.index.obstacles[before];
         assert!(post.kind == ObstacleKind::Post && post.r == 0.25 && (post.x, post.z) == (-203.4, -235.4));
         // Tilled: no second plot goes on top of it.
+        let sim = Sim { player: &mut p, world: &world, owner: 1 };
         assert_eq!(plot_problem(&life, &sim, -208.0, -240.0, 0.0).as_deref(), Some("Too close to a road or building"));
         // Everyone in a channel shares the world: the same post isn't added twice, but another
         // character's scarecrow with the same id is a post of its own.
         let sc = life.state.scarecrows[0].clone();
-        add_scarecrow_collider(&mut sim, &sc);
-        assert_eq!(sim.world.index.obstacles.len(), before + 1);
-        sim.owner = 2;
-        add_scarecrow_collider(&mut sim, &sc);
-        assert_eq!(sim.world.index.obstacles.len(), before + 2);
+        add_scarecrow_collider(&mut world, 1, &sc);
+        assert_eq!(world.index.obstacles.len(), before + 1);
+        add_scarecrow_collider(&mut world, 2, &sc);
+        assert_eq!(world.index.obstacles.len(), before + 2);
     }
 
     #[test]
