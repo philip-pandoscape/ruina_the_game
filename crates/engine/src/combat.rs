@@ -18,8 +18,19 @@
 //! Lag compensation: each input says which server tick the player was looking at. When a melee
 //! swing is checked, the other players and the creatures are rewound to where that player saw
 //! them, so a hit on your screen is a hit on the server.
+//!
+//! Across a border (crate::border) a simulation also holds ghosts: players another simulation owns,
+//! each in their slot ([`Players::ghost`]), seen, swung at and healed like anyone here but never
+//! stepped. A phase can be taken in its parts so simulations can trade what crosses between them:
+//! worked out ([`Players::work_out`], [`Players::fly_effects`]), landed ([`Players::land`]: what
+//! lands on a ghost, or on a creature this simulation only sees, is handed back for its owner, and
+//! what its owner landed here comes in), and told ([`Players::settle`]: the numbers shown and the
+//! hits credited, in the order the blows landed wherever they landed). Stepped whole, a phase does
+//! the same in one go.
 
 use std::collections::{BTreeMap, VecDeque};
+
+use serde::{Deserialize, Serialize};
 
 use crate::actors::{Actors, FoeHit, Slam};
 use crate::ai::Foe;
@@ -102,13 +113,37 @@ struct Slot {
     /// What happened this tick to this player or because of them: damage and healing that only
     /// they are told about.
     told: Vec<Effect>,
+    /// A ghost: a player another simulation owns, seen here across a border, with their vehicles
+    /// as they stand (crate::border). Never stepped here.
+    away: Option<Vec<Vehicle>>,
 }
 
 impl Slot {
     fn new(client_id: EntityId, player: Player, owner: i64, life: Option<Box<Life>>) -> Slot {
-        Slot { client_id, player, last_seq: 0, build_seq: 0, queue: VecDeque::new(), owner, life, commands: VecDeque::new(), budget: 0.0, told: Vec::new() }
+        Slot {
+            client_id,
+            player,
+            last_seq: 0,
+            build_seq: 0,
+            queue: VecDeque::new(),
+            owner,
+            life,
+            commands: VecDeque::new(),
+            budget: 0.0,
+            told: Vec::new(),
+            away: None,
+        }
+    }
+
+    /// One of this simulation's own players, not a ghost.
+    fn own(&self) -> bool {
+        self.away.is_none()
     }
 }
+
+/// Where something that can be hit stood at the end of each of the last ticks, oldest first, as
+/// (tick, x, y, z): what a ghost's owner sends with it (crate::border), for swings rewound to it.
+pub type History = Vec<(u64, f64, f64, f64)>;
 
 /// Remembers something that happened *to a player or because of them*, for a floating number in
 /// their browser. Capped per tick so one meteor into a crowd can't flood a snapshot; the browser
@@ -181,6 +216,7 @@ pub struct Arrow {
     owner_client: EntityId, // and who was in it, so what it does is credited to them and nobody else
     weapon: u8,             // which weapon fired it (it trains that one)
     cause: u16,             // and for the icon on the damage number
+    loosed: Loosed,         // when and by whom: the order arrows land their blows in
     pub team: u8,
     pub x: f64,
     pub y: f64,
@@ -195,12 +231,20 @@ pub struct Arrow {
     hit: Vec<u32>,      // who it already hit: 1 << 30 | actor id, or 1 << 31 | player slot
 }
 
+impl Arrow {
+    /// When it was loosed and by whom: the same in every simulation, where its id is its own.
+    pub fn loosed(&self) -> Loosed {
+        self.loosed
+    }
+}
+
 /// A meteor on its way down.
 pub struct Meteor {
     pub id: u16,
     owner_slot: usize,      // who called it down, for "you hit X" events
     owner_client: EntityId, // and who was in that slot, for what it finishes off
     cause: u16,             // the ability that called it, for the icon on the damage number
+    loosed: Loosed,         // when and by whom: the order meteors land their blows in
     pub team: u8,
     pub x: f64,
     pub z: f64,
@@ -211,37 +255,172 @@ pub struct Meteor {
     knock: f64,
 }
 
+impl Meteor {
+    /// When it was called down and by whom.
+    pub fn loosed(&self) -> Loosed {
+        self.loosed
+    }
+}
+
 /// Whom a blow lands on: a creature (by its id) or a player (by their slot). Creatures come first.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Target {
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+pub enum Target {
     Creature(u32),
     Player(usize),
 }
 
-/// A blow, an arrow or a blast that reached someone, applied once everything that could have
-/// dealt one this phase has gone: by whom it lands on, then by `source` (the slot that swung, or
-/// the arrow's or meteor's place in the phase), then in the order it was dealt.
-struct Blow {
-    target: Target,
-    source: usize,
-    /// Who is credited with it, and told about it: their slot and who was in it.
-    by_slot: usize,
-    by_client: EntityId,
-    /// The weapon it trains, if a weapon dealt it (a blast trains nothing: its cast already did).
-    weapon: Option<u8>,
-    cause: u16,
-    damage: f64,
-    nx: f64,
-    nz: f64,
-    knock: f64,
+/// When something in flight was loosed and by whom: the tick, the slot, and how many that player
+/// had loosed before it that tick. Arrows are kept in this order as they fly, and so are meteors.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Serialize, Deserialize)]
+pub struct Loosed {
+    pub tick: u64,
+    pub slot: usize,
+    pub n: u32,
 }
 
-/// One player a Healing Circle reached, applied once everyone has stepped (by whom, then who).
-struct HealHit {
-    healer: usize,
-    target: usize,
-    amount: f64,
-    cause: u16,
+/// Where a blow came from, which orders the blows landing on one target: a player's swing (by their
+/// slot); what's in flight, arrows before meteors, each by when and by whom it was loosed.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+pub enum Source {
+    Swing(usize),
+    Arrow(Loosed),
+    Meteor(Loosed),
+}
+
+/// A blow, an arrow or a blast that reached someone, applied once everything that could have
+/// dealt one this phase has gone: by whom it lands on, then by `source`, then in the order its
+/// source dealt them (`seq`). Across a border it goes to whoever owns its target (crate::border).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Blow {
+    pub target: Target,
+    pub source: Source,
+    pub seq: u32,
+    /// Who is credited with it, and told about it: their slot and who was in it.
+    pub by_slot: usize,
+    pub by_client: EntityId,
+    /// The weapon it trains, if a weapon dealt it (a blast trains nothing: its cast already did).
+    pub weapon: Option<u8>,
+    pub cause: u16,
+    pub damage: f64,
+    pub nx: f64,
+    pub nz: f64,
+    pub knock: f64,
+}
+
+impl Blow {
+    fn key(&self) -> (Target, Source, u32) {
+        (self.target, self.source, self.seq)
+    }
+}
+
+/// One player a Healing Circle reached, applied once everyone has stepped (by whom it reaches, then
+/// whom from, then in the order they cast).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HealHit {
+    pub healer: usize,
+    pub target: usize,
+    pub seq: u32,
+    pub amount: f64,
+    pub cause: u16,
+}
+
+impl HealHit {
+    fn key(&self) -> (usize, usize, u32) {
+        (self.target, self.healer, self.seq)
+    }
+}
+
+/// When a told thing happens among a phase's: blows' before heals', each in the order they landed,
+/// and for one blow what its dealer is told, then what its target is, then the dealer's credit.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+pub struct TellKey {
+    pub heal: bool,
+    pub target: Target,
+    pub source: Source,
+    pub seq: u32,
+    pub role: u8,
+}
+
+/// What a landed blow or heal means for a player who dealt or took it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Tell {
+    /// A number shown to them alone: its kind and cause (the wire's), where, and how much.
+    Note { kind: u16, cause: u16, x: f64, y: f64, z: f64, amount: f64 },
+    /// A hit to credit them with: the weapon it trains, and the kind of creature it finished off.
+    Credit { weapon: Option<u8>, died: Option<u8> },
+}
+
+/// Something to tell the player in `slot` (if it's still `client`; None: whoever is there), once
+/// every blow of the phase has landed, wherever it landed ([`Players::settle`]).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Told {
+    pub key: TellKey,
+    pub slot: usize,
+    pub client: Option<EntityId>,
+    pub tell: Tell,
+}
+
+/// What a phase does to what another simulation holds, across a border (crate::border): blows and
+/// heals on its players and creatures, and what its players are to be told of blows that landed
+/// here.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Across {
+    pub blows: Vec<Blow>,
+    pub heals: Vec<HealHit>,
+    pub told: Vec<Told>,
+}
+
+impl Across {
+    pub fn is_empty(&self) -> bool {
+        self.blows.is_empty() && self.heals.is_empty() && self.told.is_empty()
+    }
+
+    pub fn extend(&mut self, other: Across) {
+        self.blows.extend(other.blows);
+        self.heals.extend(other.heals);
+        self.told.extend(other.told);
+    }
+}
+
+/// A phase worked out and waiting to land ([`Players::land`]), then to be told ([`Players::settle`]).
+#[derive(Default)]
+pub struct Landing {
+    blows: Vec<Blow>,
+    heals: Vec<HealHit>,
+    told: Vec<Told>,
+    /// Slots whose island something was built on this phase.
+    built: Vec<usize>,
+    /// What lands on or is told to what another simulation holds, for its owner.
+    pub away: Across,
+}
+
+impl Landing {
+    /// What blows that landed in another simulation mean for players here, to be told with the
+    /// rest ([`Players::settle`]).
+    pub fn tell(&mut self, told: Vec<Told>) {
+        self.told.extend(told);
+    }
+}
+
+/// A player handed from one simulation to another across a border ([`Players::depart`],
+/// [`Players::arrive`]): everything their slot holds, so the step they take next is the one they
+/// would have taken where they were.
+pub struct Departing {
+    pub slot: usize,
+    pub client: EntityId,
+    pub owner: i64,
+    pub player: Player,
+    pub life: Option<Box<Life>>,
+    /// The last input run, and the last build applied.
+    pub last_seq: u32,
+    pub build_seq: u32,
+    /// Inputs given and not yet run (seq, view tick, actions), and commands given with them.
+    pub queue: Vec<(u32, f64, Actions)>,
+    pub commands: Vec<(u32, Command)>,
+    /// Inputs they may still run before the next refill.
+    pub budget: f64,
+    /// Where they stood at the end of each of the last ticks.
+    pub history: History,
 }
 
 /// Something that happened, for effects in browsers: its kind (the wire's numbers above), where, and
@@ -379,7 +558,8 @@ impl Before<'_> {
             used += 1;
             if let Some(swing) = slot.player.active_swing() {
                 if swing.projectile_speed > 0.0 {
-                    out.arrows.push(arrow(s, slot.client_id, &slot.player, &swing));
+                    let loosed = Loosed { tick: self.tick, slot: s, n: out.arrows.len() as u32 };
+                    out.arrows.push(arrow(s, slot.client_id, &slot.player, &swing, loosed));
                     slot.player.attack_hit = true;
                 } else {
                     let latest = self.tick.saturating_sub(1) as f64;
@@ -397,7 +577,10 @@ impl Before<'_> {
                 for i in 0..ability(a).effects.len() {
                     match ability(a).effects[i].kind.as_str() {
                         "healArea" => self.heal_area(s, a, i, slot, out),
-                        "delayedArea" => out.meteors.push(self.meteor(s, slot.client_id, a, i, &slot.player)),
+                        "delayedArea" => {
+                            let loosed = Loosed { tick: self.tick, slot: s, n: out.meteors.len() as u32 };
+                            out.meteors.push(self.meteor(s, slot.client_id, a, i, &slot.player, loosed));
+                        }
                         other => debug_assert!(false, "unknown effect kind: {other}"),
                     }
                 }
@@ -460,7 +643,8 @@ impl Before<'_> {
             let Some((nx, nz)) = check(x, y, z) else { continue };
             out.blows.push(Blow {
                 target: Target::Player(o.slot),
-                source: s,
+                source: Source::Swing(s),
+                seq: out.blows.len() as u32,
                 by_slot: s,
                 by_client: client,
                 weapon: Some(a.weapon),
@@ -497,7 +681,8 @@ impl Before<'_> {
             let d = (dx * dx + dz * dz).sqrt().max(0.0001);
             out.blows.push(Blow {
                 target: Target::Creature(id),
-                source: s,
+                source: Source::Swing(s),
+                seq: out.blows.len() as u32,
                 by_slot: s,
                 by_client: client,
                 weapon: Some(p.weapon),
@@ -527,7 +712,7 @@ impl Before<'_> {
         for o in self.seen.iter().filter(|o| o.slot != s) {
             let (dx, dz) = (o.x - healer.pos.x, o.z - healer.pos.z);
             if o.team == healer.team && dx * dx + dz * dz <= radius * radius {
-                out.heals.push(HealHit { healer: s, target: o.slot, amount, cause: ability_cause(a) });
+                out.heals.push(HealHit { healer: s, target: o.slot, seq: out.heals.len() as u32, amount, cause: ability_cause(a) });
             }
         }
         out.shown.push(Effect { kind: EVENT_HEAL, x: healer.pos.x, y: healer.pos.y, z: healer.pos.z, size: (radius * 10.0) as u8 });
@@ -535,7 +720,7 @@ impl Before<'_> {
     }
 
     /// delayedArea: something starts falling on the target spot and blasts it after a delay.
-    fn meteor(&self, caster_slot: usize, caster_client: EntityId, a: u8, fx: usize, caster: &Player) -> Meteor {
+    fn meteor(&self, caster_slot: usize, caster_client: EntityId, a: u8, fx: usize, caster: &Player, loosed: Loosed) -> Meteor {
         let e = &ability(a).effects[fx];
         let fall_ticks = ((e.delay_frames as f64 / 60.0 * 1000.0 / self.tick_ms).round() as u32).max(1);
         Meteor {
@@ -543,6 +728,7 @@ impl Before<'_> {
             owner_slot: caster_slot,
             owner_client: caster_client,
             cause: ability_cause(a),
+            loosed,
             team: caster.team,
             x: caster.cast_target_x,
             z: caster.cast_target_z,
@@ -556,7 +742,7 @@ impl Before<'_> {
 }
 
 /// An arrow loosed by the player in `owner_slot` (its id is given once everyone has stepped).
-fn arrow(owner_slot: usize, owner_client: EntityId, shooter: &Player, shot: &AttackStep) -> Arrow {
+fn arrow(owner_slot: usize, owner_client: EntityId, shooter: &Player, shot: &AttackStep, loosed: Loosed) -> Arrow {
     let (dx, dz) = (shooter.facing.js_sin(), shooter.facing.js_cos());
     Arrow {
         id: 0,
@@ -565,6 +751,7 @@ fn arrow(owner_slot: usize, owner_client: EntityId, shooter: &Player, shot: &Att
         owner_client,
         weapon: shooter.weapon,
         cause: weapon_cause(shooter.weapon),
+        loosed,
         team: shooter.team,
         x: shooter.pos.x + dx * 0.6,
         y: shooter.pos.y + ARROW_HEIGHT,
@@ -721,6 +908,149 @@ impl Players {
         Some((slot.player, slot.life))
     }
 
+    // ---- Across a border (crate::border) ----
+
+    /// Open worlds: a character arrives in a slot of the caller's choosing (theirs in every
+    /// simulation of a world split between several, which all order by slot), as `player`,
+    /// carrying their island. False if they're here already or the slot is taken.
+    pub fn join_open_at(&mut self, slot: usize, client_id: EntityId, owner: i64, player: Player, life: Box<Life>) -> bool {
+        if self.by_client.contains_key(&client_id) || self.slots.get(slot).is_none_or(Option::is_some) {
+            return false;
+        }
+        self.by_client.insert(client_id, slot);
+        self.slots[slot] = Some(Slot::new(client_id, player, owner, Some(life)));
+        self.tracks[slot] = Track::default();
+        true
+    }
+
+    /// Another simulation's player seen here across a border, or seen again as they stand now: in
+    /// their `slot`, for everyone here to see, swing at and heal, with their vehicles solid. Never
+    /// stepped here, and whatever lands on them is handed back for their owner ([`Players::land`]).
+    /// A ghost new here has no history until it's given one ([`Players::set_history`]). False where
+    /// one of this simulation's own players sits.
+    pub fn ghost(&mut self, slot: usize, client: EntityId, owner: i64, player: Player, vehicles: Vec<Vehicle>) -> bool {
+        match self.slots.get_mut(slot) {
+            Some(Some(s)) if s.own() => false,
+            Some(Some(s)) => {
+                s.client_id = client;
+                s.owner = owner;
+                s.player = player;
+                s.away = Some(vehicles);
+                true
+            }
+            Some(cell) => {
+                let mut s = Slot::new(client, player, owner, None);
+                s.away = Some(vehicles);
+                *cell = Some(s);
+                self.tracks[slot] = Track::default();
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// A ghost seen here no longer (out of sight across the border, or about to be this
+    /// simulation's own). False if `slot` holds no ghost.
+    pub fn unghost(&mut self, slot: usize) -> bool {
+        if !self.is_ghost(slot) {
+            return false;
+        }
+        self.slots[slot] = None;
+        self.tracks[slot] = Track::default();
+        true
+    }
+
+    /// Whether `slot` holds a ghost.
+    pub fn is_ghost(&self, slot: usize) -> bool {
+        matches!(self.slots.get(slot), Some(Some(s)) if !s.own())
+    }
+
+    /// Whether `slot` holds one of this simulation's own players.
+    pub fn is_own(&self, slot: usize) -> bool {
+        matches!(self.slots.get(slot), Some(Some(s)) if s.own())
+    }
+
+    /// The character in `slot`, one of this simulation's or a ghost.
+    pub fn owner_of_slot(&self, slot: usize) -> Option<i64> {
+        self.slots.get(slot)?.as_ref().map(|s| s.owner)
+    }
+
+    /// The slot a character is in, one of this simulation's or a ghost.
+    pub fn slot_of_owner(&self, owner: i64) -> Option<usize> {
+        self.slots.iter().position(|s| s.as_ref().is_some_and(|s| s.owner == owner))
+    }
+
+    /// Every ghost here, by slot.
+    pub fn ghosts(&self) -> impl Iterator<Item = usize> + '_ {
+        self.slots.iter().enumerate().filter(|(_, s)| s.as_ref().is_some_and(|s| !s.own())).map(|(i, _)| i)
+    }
+
+    /// Where the player in `slot` stood at the end of each of the last ticks, oldest first.
+    pub fn history(&self, slot: usize) -> History {
+        self.tracks.get(slot).map(|t| t.0.iter().copied().collect()).unwrap_or_default()
+    }
+
+    /// Where a ghost stood, as its owner kept it, for swings rewound to where their swinger saw it.
+    pub fn set_history(&mut self, slot: usize, history: &[(u64, f64, f64, f64)]) {
+        if let Some(t) = self.tracks.get_mut(slot) {
+            *t = Track(history.iter().copied().collect());
+        }
+    }
+
+    /// Where the creature `id` stood at the end of each of the last ticks, oldest first.
+    pub fn creature_history(&self, id: u32) -> History {
+        self.creature_tracks.get(&id).map(|t| t.0.iter().copied().collect()).unwrap_or_default()
+    }
+
+    /// Where a creature seen across a border stood, as its owner kept it.
+    pub fn set_creature_history(&mut self, id: u32, history: &[(u64, f64, f64, f64)]) {
+        self.creature_tracks.insert(id, Track(history.iter().copied().collect()));
+    }
+
+    /// One of this simulation's players handed to another across a border: their slot taken out
+    /// whole (what they'd given and not yet run, their island, where they stood). None if `slot`
+    /// holds none of its own.
+    pub fn depart(&mut self, slot: usize) -> Option<Departing> {
+        if !self.is_own(slot) {
+            return None;
+        }
+        let s = self.slots[slot].take()?;
+        self.by_client.remove(&s.client_id);
+        let history = std::mem::take(&mut self.tracks[slot]).0.into_iter().collect();
+        Some(Departing {
+            slot,
+            client: s.client_id,
+            owner: s.owner,
+            player: s.player,
+            life: s.life,
+            last_seq: s.last_seq,
+            build_seq: s.build_seq,
+            queue: s.queue.into_iter().collect(),
+            commands: s.commands.into_iter().collect(),
+            budget: s.budget,
+            history,
+        })
+    }
+
+    /// A player handed over from another simulation takes their slot here, in place of their
+    /// ghost, as they left the other. False if they're here already or one of this simulation's
+    /// own players sits there.
+    pub fn arrive(&mut self, d: Departing) -> bool {
+        if self.by_client.contains_key(&d.client) || d.slot >= MAX_PLAYERS || self.is_own(d.slot) {
+            return false;
+        }
+        let mut s = Slot::new(d.client, d.player, d.owner, d.life);
+        s.last_seq = d.last_seq;
+        s.build_seq = d.build_seq;
+        s.queue = d.queue.into_iter().collect();
+        s.commands = d.commands.into_iter().collect();
+        s.budget = d.budget;
+        self.slots[d.slot] = Some(s);
+        self.by_client.insert(d.client, d.slot);
+        self.tracks[d.slot] = Track(d.history.into_iter().collect());
+        true
+    }
+
     /// Open worlds: inputs as (seq, view tick, actions). The view tick is the (fractional) tick the
     /// player saw everyone else at, so a swing at another player, a bot or a creature is checked
     /// against where they were then (their `Track`); `f64::INFINITY` sees the present (bots, tests).
@@ -768,9 +1098,10 @@ impl Players {
         Some((&mut slot.player, slot.life.as_deref_mut()))
     }
 
-    /// Open worlds: everyone here, as (client id, character, player, island).
+    /// Open worlds: everyone here, as (client id, character, player, island); not the ghosts of
+    /// those across a border.
     pub fn each_open(&self) -> impl Iterator<Item = (EntityId, i64, &Player, Option<&Life>)> {
-        self.slots.iter().flatten().map(|s| (s.client_id, s.owner, &s.player, s.life.as_deref()))
+        self.slots.iter().flatten().filter(|s| s.own()).map(|s| (s.client_id, s.owner, &s.player, s.life.as_deref()))
     }
 
     /// Open worlds: everyone's island, to change between steps (who holds which plot).
@@ -856,11 +1187,29 @@ impl Players {
         open: Option<&mut OpenWorld>,
         drive: impl FnOnce(&mut [Job], &(dyn Fn(&mut Job) + Sync)),
     ) {
+        let mut landing = self.work_out(actors, world, tick, open.as_deref(), drive);
+        self.land(&mut landing, actors, Across::default());
+        self.settle(landing, Vec::new(), open);
+    }
+
+    /// The first part of [`Players::step_by`]: every player's waiting inputs run (not the ghosts'),
+    /// each reading the others, the creatures and the world as they were when the tick began. What
+    /// they did to anyone, to land ([`Players::land`]).
+    pub fn work_out(
+        &mut self,
+        actors: &Actors,
+        world: &World,
+        tick: u64,
+        open: Option<&OpenWorld>,
+        drive: impl FnOnce(&mut [Job], &(dyn Fn(&mut Job) + Sync)),
+    ) -> Landing {
         self.events.clear();
         let seen = self.seen();
         let mut jobs: Vec<Job> = Vec::with_capacity(seen.len());
         for (index, cell) in self.slots.iter_mut().enumerate() {
-            if let Some(mut slot) = cell.take() {
+            if cell.as_ref().is_some_and(Slot::own)
+                && let Some(mut slot) = cell.take()
+            {
                 slot.told.clear();
                 jobs.push(Job { index, slot, out: Outbox::default() });
             }
@@ -872,7 +1221,7 @@ impl Players {
                 creature_tracks: &self.creature_tracks,
                 actors,
                 world,
-                open: open.as_deref(),
+                open,
                 floor: self.floor,
                 ground: self.ground,
                 tick,
@@ -883,11 +1232,11 @@ impl Players {
         }
         // Everyone back in their slot, and what each did gathered in the order of the slots.
         jobs.sort_by_key(|j| j.index);
-        let (mut blows, mut heals, mut built) = (Vec::new(), Vec::new(), Vec::new());
+        let mut landing = Landing::default();
         for Job { index, slot, out } in jobs {
             self.slots[index] = Some(slot);
             if out.built {
-                built.push(index);
+                landing.built.push(index);
             }
             self.saved_by_rewind += out.saved;
             for r in out.rewinds {
@@ -904,33 +1253,143 @@ impl Players {
                 m.id = self.next_id();
                 self.meteors.push(m);
             }
-            blows.extend(out.blows);
-            heals.extend(out.heals);
+            landing.blows.extend(out.blows);
+            landing.heals.extend(out.heals);
         }
-        self.land(blows, actors);
-        // Heals, by whom they reach, then by whom they came from.
-        heals.sort_by_key(|h| (h.target, h.healer));
+        landing
+    }
+
+    /// Across a border (crate::border), before a phase lands: its blows and heals on what this
+    /// simulation doesn't own (a ghost, a creature it only sees) moved to `landing.away`, for their
+    /// owners to land among their own.
+    pub fn send_away(&self, landing: &mut Landing, actors: &Actors) {
+        let blows = std::mem::take(&mut landing.blows);
+        let (away, here): (Vec<Blow>, Vec<Blow>) = blows.into_iter().partition(|b| match b.target {
+            Target::Creature(id) => actors.get(id).is_none() && actors.ghost(id).is_some(),
+            Target::Player(v) => self.is_ghost(v),
+        });
+        landing.blows = here;
+        landing.away.blows.extend(away);
+        let heals = std::mem::take(&mut landing.heals);
+        let (away, here): (Vec<HealHit>, Vec<HealHit>) = heals.into_iter().partition(|h| self.is_ghost(h.target));
+        landing.heals = here;
+        landing.away.heals.extend(away);
+    }
+
+    /// Lands a phase's blows, by whom each lands on, then whom from, then in the order its source
+    /// dealt them; then its heals, by whom each reaches, then whom from. A blow on a creature already
+    /// dead, or a player already down, does nothing: someone else finished them off first this tick.
+    /// What each means for whoever dealt and took it is kept to be told ([`Players::settle`]).
+    ///
+    /// Across a border (crate::border): `from` is what other simulations dealt this one's players and
+    /// creatures, landing here among this one's own in that order. What lands on a ghost, or on a
+    /// creature only seen here, and what's to be told to a player held elsewhere, is left in
+    /// `landing.away` for their owners.
+    pub fn land(&mut self, landing: &mut Landing, actors: &mut Actors, from: Across) {
+        let mut blows = std::mem::take(&mut landing.blows);
+        blows.extend(from.blows);
+        blows.sort_by_key(Blow::key);
+        let mut told = std::mem::take(&mut landing.told);
+        told.extend(from.told);
+        for b in blows {
+            let key = TellKey { heal: false, target: b.target, source: b.source, seq: b.seq, role: 0 };
+            let dealt = |role: u8, tell: Tell| Told { key: TellKey { role, ..key }, slot: b.by_slot, client: Some(b.by_client), tell };
+            match b.target {
+                Target::Creature(id) => {
+                    let Some(a) = actors.get(id) else {
+                        if actors.ghost(id).is_some() {
+                            landing.away.blows.push(b);
+                        }
+                        continue;
+                    };
+                    if !a.is_alive() {
+                        continue;
+                    }
+                    let ground = self.ground_at(a.x, a.z);
+                    let (x, y, z) = (a.x, a.y + a.hit_height + ground, a.z);
+                    let died = actors.damage(id, b.damage, b.nx, b.nz, b.knock).map(|d| d.kind_index);
+                    told.push(dealt(0, Tell::Note { kind: EVENT_YOU_HIT, cause: b.cause, x, y, z, amount: b.damage }));
+                    // A hit with the weapon that dealt it, and maybe a creature finished off.
+                    told.push(dealt(2, Tell::Credit { weapon: b.weapon, died }));
+                }
+                Target::Player(v) => {
+                    if self.is_ghost(v) {
+                        landing.away.blows.push(b);
+                        continue;
+                    }
+                    let Some(Some(slot)) = self.slots.get_mut(v) else { continue };
+                    let p = &mut slot.player;
+                    if p.down_frame >= 0 {
+                        continue;
+                    }
+                    p.take_hit(b.damage, b.nx, b.nz, b.knock);
+                    let (x, y, z) = (p.pos.x, p.pos.y + MARKER_HEIGHT, p.pos.z);
+                    self.pvp_hits += 1;
+                    told.push(dealt(0, Tell::Note { kind: EVENT_YOU_HIT, cause: b.cause, x, y, z, amount: b.damage }));
+                    let hurt = Tell::Note { kind: EVENT_YOU_HURT, cause: b.cause, x, y, z, amount: b.damage };
+                    told.push(Told { key: TellKey { role: 1, ..key }, slot: v, client: None, tell: hurt });
+                    told.push(dealt(2, Tell::Credit { weapon: b.weapon, died: None }));
+                }
+            }
+        }
+        let mut heals = std::mem::take(&mut landing.heals);
+        heals.extend(from.heals);
+        heals.sort_by_key(HealHit::key);
         let max_hp = tuning().combat.max_hp;
-        for HealHit { healer, target, amount, cause } in heals {
-            let healed = match &mut self.slots[target] {
+        for h in heals {
+            if self.is_ghost(h.target) {
+                landing.away.heals.push(h);
+                continue;
+            }
+            let healed = match &mut self.slots[h.target] {
                 Some(t) if t.player.down_frame < 0 => {
                     let before = t.player.hp;
-                    t.player.hp = (t.player.hp + amount).min(max_hp);
+                    t.player.hp = (t.player.hp + h.amount).min(max_hp);
                     Some((t.player.pos.x, t.player.pos.y, t.player.pos.z, t.player.hp - before))
                 }
                 _ => None,
             };
             // Only what the heal actually restored: topping up someone at full health shows nothing.
             if let Some((x, y, z, gained)) = healed {
-                self.note_for(healer, None, EVENT_YOU_HEAL, cause, x, y + MARKER_HEIGHT, z, gained);
-                if healer != target {
-                    self.note_for(target, None, EVENT_YOU_HEAL, cause, x, y + MARKER_HEIGHT, z, gained);
+                let key = TellKey { heal: true, target: Target::Player(h.target), source: Source::Swing(h.healer), seq: h.seq, role: 0 };
+                let tell = Tell::Note { kind: EVENT_YOU_HEAL, cause: h.cause, x, y: y + MARKER_HEIGHT, z, amount: gained };
+                told.push(Told { key, slot: h.healer, client: None, tell: tell.clone() });
+                if h.healer != h.target {
+                    told.push(Told { key: TellKey { role: 1, ..key }, slot: h.target, client: None, tell });
+                }
+            }
+        }
+        // Whoever is held elsewhere is told there.
+        for t in told {
+            if self.is_own(t.slot) {
+                landing.told.push(t);
+            } else {
+                landing.away.told.push(t);
+            }
+        }
+    }
+
+    /// What a phase's blows and heals mean for the players who dealt and took them, in the order
+    /// they landed: the numbers each is shown, and the hits each is credited with (practice for the
+    /// weapon, a defeat for the quests). With `from`, what blows that landed in other simulations mean
+    /// for players here (crate::border). Then what anyone built is made solid.
+    pub fn settle(&mut self, landing: Landing, from: Vec<Told>, open: Option<&mut OpenWorld>) {
+        let mut told = landing.told;
+        told.extend(from);
+        told.sort_by_key(|t| t.key);
+        for t in told {
+            match t.tell {
+                Tell::Note { kind, cause, x, y, z, amount } => self.note_for(t.slot, t.client, kind, cause, x, y, z, amount),
+                Tell::Credit { weapon, died } => {
+                    if let Some(client) = t.client {
+                        self.credit_owner(t.slot, client, weapon, &[died.and_then(kind_of)]);
+                    }
                 }
             }
         }
         // What anyone built this tick, solid now that everyone has stepped past it.
         if let Some(world) = open {
-            for i in built {
+            for i in landing.built {
                 if let Some(Some(slot)) = self.slots.get(i)
                     && let Some(life) = slot.life.as_deref()
                 {
@@ -940,87 +1399,64 @@ impl Players {
         }
     }
 
-    /// Lands every blow of a phase, by whom it lands on and then by whom it came from (a stable
-    /// sort, so one source's blows on one target stay in the order it dealt them). A blow on a
-    /// creature already dead, or a player already down, does nothing: someone else finished them
-    /// off first this tick.
-    fn land(&mut self, mut blows: Vec<Blow>, actors: &mut Actors) {
-        blows.sort_by_key(|b| (b.target, b.source));
-        for b in blows {
-            match b.target {
-                Target::Creature(id) => {
-                    let Some(a) = actors.get(id).filter(|a| a.is_alive()) else { continue };
-                    let ground = self.ground_at(a.x, a.z);
-                    let (x, y, z) = (a.x, a.y + a.hit_height + ground, a.z);
-                    let died = actors.damage(id, b.damage, b.nx, b.nz, b.knock).and_then(|d| kind_of(d.kind_index));
-                    self.note_for(b.by_slot, Some(b.by_client), EVENT_YOU_HIT, b.cause, x, y, z, b.damage);
-                    // A hit with the weapon that dealt it, and maybe a creature finished off.
-                    self.credit_owner(b.by_slot, b.by_client, b.weapon, &[died]);
-                }
-                Target::Player(v) => {
-                    let Some(Some(slot)) = self.slots.get_mut(v) else { continue };
-                    let p = &mut slot.player;
-                    if p.down_frame >= 0 {
-                        continue;
-                    }
-                    p.take_hit(b.damage, b.nx, b.nz, b.knock);
-                    let (x, y, z) = (p.pos.x, p.pos.y + MARKER_HEIGHT, p.pos.z);
-                    self.pvp_hits += 1;
-                    self.note_for(b.by_slot, Some(b.by_client), EVENT_YOU_HIT, b.cause, x, y, z, b.damage);
-                    self.note_for(v, None, EVENT_YOU_HURT, b.cause, x, y, z, b.damage);
-                    self.credit_owner(b.by_slot, b.by_client, b.weapon, &[None]);
-                }
-            }
-        }
-    }
-
     /// Moves arrows and lands meteors. Runs once per tick, after everyone has moved: each arrow and
     /// meteor against everyone as they stand when it begins, what they reach landing once all of
     /// them have gone.
     pub fn step_effects(&mut self, actors: &mut Actors) {
+        let mut landing = self.fly_effects(actors);
+        self.land(&mut landing, actors, Across::default());
+        self.settle(landing, Vec::new(), None);
+    }
+
+    /// The first part of [`Players::step_effects`]: arrows moved and meteors come down, each
+    /// against everyone as they stand. What they reached, to land ([`Players::land`]).
+    pub fn fly_effects(&mut self, actors: &Actors) -> Landing {
         let dt = self.tick_ms / 1000.0;
         let seen = self.seen();
         let mut blows = Vec::new();
         let mut flying = Vec::with_capacity(self.arrows.len());
-        let arrows = std::mem::take(&mut self.arrows);
-        let count = arrows.len();
-        for (k, mut a) in arrows.into_iter().enumerate() {
-            if self.fly(&mut a, k, actors, &seen, dt, &mut blows) {
+        for mut a in std::mem::take(&mut self.arrows) {
+            if self.fly(&mut a, actors, &seen, dt, &mut blows) {
                 flying.push(a);
             }
         }
         self.arrows = flying;
 
         let mut falling = Vec::with_capacity(self.meteors.len());
-        for (k, mut m) in std::mem::take(&mut self.meteors).into_iter().enumerate() {
+        for mut m in std::mem::take(&mut self.meteors) {
             m.ticks_left = m.ticks_left.saturating_sub(1);
             if m.ticks_left > 0 {
                 falling.push(m);
             } else {
-                self.explode(&m, count + k, actors, &seen, &mut blows);
+                self.explode(&m, actors, &seen, &mut blows);
             }
         }
         self.meteors = falling;
-        self.land(blows, actors);
+        Landing { blows, ..Landing::default() }
     }
 
-    // Moves one arrow for one tick in short hops, hitting the first enemies in its path (the
-    // `source`-th thing in flight). Returns false once it has run out of range or targets to pierce.
-    fn fly(&mut self, a: &mut Arrow, source: usize, actors: &Actors, seen: &[Seen], dt: f64, blows: &mut Vec<Blow>) -> bool {
+    // Moves one arrow for one tick in short hops, hitting the first enemies in its path. Returns
+    // false once it has run out of range or targets to pierce.
+    fn fly(&mut self, a: &mut Arrow, actors: &Actors, seen: &[Seen], dt: f64, blows: &mut Vec<Blow>) -> bool {
         let travel = (a.speed * dt).min(a.left);
         let hops = ((travel / 0.5).ceil() as usize).max(1);
         let hop = travel / hops as f64;
-        let blow = |target: Target, a: &Arrow| Blow {
-            target,
-            source,
-            by_slot: a.owner_slot,
-            by_client: a.owner_client,
-            weapon: Some(a.weapon),
-            cause: a.cause,
-            damage: a.damage,
-            nx: a.dx,
-            nz: a.dz,
-            knock: a.knock,
+        let mut seq = 0;
+        let mut blow = |target: Target, a: &Arrow| {
+            seq += 1;
+            Blow {
+                target,
+                source: Source::Arrow(a.loosed),
+                seq: seq - 1,
+                by_slot: a.owner_slot,
+                by_client: a.owner_client,
+                weapon: Some(a.weapon),
+                cause: a.cause,
+                damage: a.damage,
+                nx: a.dx,
+                nz: a.dz,
+                knock: a.knock,
+            }
         };
         for _ in 0..hops {
             a.x += a.dx * hop;
@@ -1060,20 +1496,25 @@ impl Players {
         a.left > 0.0
     }
 
-    // A meteor lands (the `source`-th thing in flight): everyone on the other team inside the blast
-    // is hurt and thrown outward, and every creature in it.
-    fn explode(&mut self, m: &Meteor, source: usize, actors: &Actors, seen: &[Seen], blows: &mut Vec<Blow>) {
-        let blow = |target: Target, nx: f64, nz: f64| Blow {
-            target,
-            source,
-            by_slot: m.owner_slot,
-            by_client: m.owner_client,
-            weapon: None,
-            cause: m.cause,
-            damage: m.damage,
-            nx,
-            nz,
-            knock: m.knock,
+    // A meteor lands: everyone on the other team inside the blast is hurt and thrown outward, and
+    // every creature in it.
+    fn explode(&mut self, m: &Meteor, actors: &Actors, seen: &[Seen], blows: &mut Vec<Blow>) {
+        let mut seq = 0;
+        let mut blow = |target: Target, nx: f64, nz: f64| {
+            seq += 1;
+            Blow {
+                target,
+                source: Source::Meteor(m.loosed),
+                seq: seq - 1,
+                by_slot: m.owner_slot,
+                by_client: m.owner_client,
+                weapon: None,
+                cause: m.cause,
+                damage: m.damage,
+                nx,
+                nz,
+                knock: m.knock,
+            }
         };
         for p in seen {
             if p.team == m.team || p.down {
@@ -1088,7 +1529,7 @@ impl Players {
             blows.push(blow(Target::Player(p.slot), nx, nz));
         }
         for id in actors.circle_hits(m.x, m.z, m.radius) {
-            let Some(a) = actors.get(id) else { continue };
+            let Some(a) = actors.any(id) else { continue };
             let (dx, dz) = (a.x - m.x, a.z - m.z);
             let d = (dx * dx + dz * dz).sqrt().max(1e-3);
             blows.push(blow(Target::Creature(id), dx / d, dz / d));
@@ -1104,7 +1545,8 @@ impl Players {
         let body = tuning().movement.player_radius;
         let (floor, terrain) = (self.floor, self.ground);
         for s in slams {
-            for slot in self.slots.iter_mut().flatten() {
+            // A ghost is slammed where its owner is (crate::border hands it the slam).
+            for slot in self.slots.iter_mut().flatten().filter(|s| s.own()) {
                 let p = &mut slot.player;
                 let ground = ground_under(floor, terrain, p.pos.x, p.pos.z);
                 if p.down_frame >= 0 || p.pos.y - ground > SLAM_LIFT {
@@ -1127,11 +1569,15 @@ impl Players {
     }
 
     /// Creatures' blows and missiles that reached a player: the same dodge and guard rules as any
-    /// other blow. A foe id is a slot index plus one.
+    /// other blow. A foe id is a slot index plus one. One on a ghost lands where its owner is
+    /// (crate::border hands it over).
     pub fn apply_foe_hits(&mut self, hits: &[FoeHit]) {
         for h in hits {
             let Some(i) = (h.foe as usize).checked_sub(1) else { continue };
             let Some(Some(slot)) = self.slots.get_mut(i) else { continue };
+            if !slot.own() {
+                continue;
+            }
             let p = &mut slot.player;
             let before = p.hp;
             p.take_hit(h.damage, h.nx, h.nz, h.knock);
@@ -1154,8 +1600,9 @@ impl Players {
             .collect()
     }
 
-    /// Where everyone stood as tick `tick` ends, players and creatures, for swings checked against
-    /// what their swinger saw. A creature no longer about is forgotten.
+    /// Where everyone stood as tick `tick` ends, players and creatures (and the ghosts of those
+    /// across a border), for swings checked against what their swinger saw. A creature no longer
+    /// about is forgotten.
     pub fn record_history(&mut self, tick: u64, actors: &Actors) {
         for (i, slot) in self.slots.iter().enumerate() {
             if let Some(s) = slot {
@@ -1164,33 +1611,40 @@ impl Players {
             }
         }
         let mut kept = std::mem::take(&mut self.creature_tracks);
-        for a in &actors.list {
+        for a in actors.list.iter().chain(&actors.ghosts) {
             let mut t = kept.remove(&a.id).unwrap_or_default();
             t.push(tick, a.x, a.y, a.z);
             self.creature_tracks.insert(a.id, t);
         }
     }
 
+    /// The vehicles of the player in a slot: their island's, or a ghost's as its owner sent them.
+    fn vehicles(s: &Slot) -> &[Vehicle] {
+        match (&s.away, s.life.as_deref()) {
+            (Some(vs), _) => vs,
+            (None, Some(l)) => &l.land.vehicles,
+            (None, None) => &[],
+        }
+    }
+
     /// Open worlds: everyone's vehicles, solid to everyone but their owner, as they stand when the
-    /// tick begins (OpenWorld::movers), in the order of the slots.
+    /// tick begins (OpenWorld::movers), in the order of the slots: the ghosts' too.
     pub fn gather_movers(&self, world: &mut OpenWorld) {
         let mut movers = std::mem::take(&mut world.movers);
         movers.clear();
         for s in self.slots.iter().flatten() {
-            if let Some(l) = s.life.as_deref() {
-                for v in &l.land.vehicles {
-                    movers.extend(vehicles::bodies(s.owner, v));
-                }
+            for v in Players::vehicles(s) {
+                movers.extend(vehicles::bodies(s.owner, v));
             }
         }
         world.movers = movers;
     }
 
-    /// A vehicle of the character `host`'s as it is now, if they're here and it's out.
+    /// A vehicle of the character `host`'s as it is now, if they're here (or seen here across a
+    /// border) and it's out.
     pub fn vehicle_of(&self, host: i64, vehicle: i64) -> Option<Vehicle> {
         let s = self.slots.iter().flatten().find(|s| s.owner == host)?;
-        let life = s.life.as_deref()?;
-        vehicles::vehicle_index(life, vehicle).map(|i| life.land.vehicles[i].clone())
+        Players::vehicles(s).iter().find(|v| v.id == vehicle).cloned()
     }
 
     /// Open worlds: climbs `client_id`'s player into the free seat of the character `host`'s
@@ -1271,7 +1725,8 @@ impl Players {
             .iter()
             .enumerate()
             .filter_map(|(i, s)| {
-                let p = &s.as_ref()?.player;
+                let s = s.as_ref().filter(|s| s.own())?;
+                let p = &s.player;
                 (p.mode == Mode::Ride && p.host != 0).then_some((i, p.host, p.vehicle, p.seat as usize))
             })
             .collect();

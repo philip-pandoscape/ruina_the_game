@@ -37,76 +37,87 @@ use crate::tuning::{NO_ABILITY, tuning};
 use crate::world::{Spawn, World};
 
 /// Ticks a second, as the server runs them, and steps (inputs) a tick.
-const TICK_HZ: u32 = 20;
-const STEPS: u32 = 60 / TICK_HZ;
+pub(crate) const TICK_HZ: u32 = 20;
+pub(crate) const STEPS: u32 = 60 / TICK_HZ;
 
 #[derive(Deserialize)]
-struct Fighter {
-    x: f64,
-    z: f64,
+pub(crate) struct Fighter {
+    pub(crate) x: f64,
+    pub(crate) z: f64,
     #[serde(default)]
-    facing: f64,
+    pub(crate) facing: f64,
     #[serde(default)]
-    team: u8,
+    pub(crate) team: u8,
     /// The brain that fills its inputs ("skirmisher", "wanderer"); with none it stands still,
     /// unless it drives.
     #[serde(default)]
-    brain: Option<String>,
+    pub(crate) brain: Option<String>,
     #[serde(default)]
-    seed: u32,
+    pub(crate) seed: u32,
     /// Its build: skills by id, weapon by place, the ability in its first slot by id.
     #[serde(default)]
-    skills: Vec<String>,
+    pub(crate) skills: Vec<String>,
     #[serde(default)]
-    weapon: u8,
+    pub(crate) weapon: u8,
     #[serde(default)]
-    ability: Option<String>,
+    pub(crate) ability: Option<String>,
     /// Every this many ticks it casts that ability (0 never).
     #[serde(default)]
-    cast: u64,
+    pub(crate) cast: u64,
     /// A vehicle it drives up the road.
     #[serde(default)]
-    drives: Option<Drive>,
+    pub(crate) drives: Option<Drive>,
     /// Rides along in the vehicle of the fighter at this place in the list.
     #[serde(default)]
-    rides: Option<usize>,
+    pub(crate) rides: Option<usize>,
+    /// The way it walks the whole time, as the stick turned into the world (x, z); none: it stands,
+    /// or its brain or its vehicle moves it.
+    #[serde(default)]
+    pub(crate) walks: Option<[f64; 2]>,
 }
 
 #[derive(Deserialize)]
-struct Drive {
+pub(crate) struct Drive {
     /// The deed it summons the vehicle with.
-    deed: String,
+    pub(crate) deed: String,
     /// How far over it holds the stick, the whole way.
-    stick: f64,
+    pub(crate) stick: f64,
 }
 
 #[derive(Deserialize)]
-struct Creature {
-    kind: String,
-    x: f64,
-    z: f64,
-    seed: u32,
+pub(crate) struct Creature {
+    pub(crate) kind: String,
+    pub(crate) x: f64,
+    pub(crate) z: f64,
+    pub(crate) seed: u32,
     /// The war-band it fights in, 0 for none.
     #[serde(default)]
-    band: u32,
+    pub(crate) band: u32,
 }
 
 #[derive(Deserialize)]
-struct Scenario {
-    fighters: Vec<Fighter>,
+pub(crate) struct Scenario {
+    pub(crate) fighters: Vec<Fighter>,
     #[serde(default)]
-    creatures: Vec<Creature>,
-    ticks: u64,
+    pub(crate) creatures: Vec<Creature>,
+    pub(crate) ticks: u64,
     /// How many ticks behind everyone sees the others (the view tick their inputs carry).
     #[serde(default)]
-    lag: f64,
+    pub(crate) lag: f64,
     /// A seed to step everything in an order of its own; none steps it in order.
     #[serde(default)]
-    order: Option<u32>,
+    pub(crate) order: Option<u32>,
+}
+
+/// What a fighter presses each tick before its brain or its cast: a driver's stick, a walker's
+/// way, nothing for the rest.
+pub(crate) fn pressing(f: &Fighter) -> Actions {
+    let [move_x, move_z] = f.walks.unwrap_or([0.0, 0.0]);
+    Actions { stick_y: f.drives.as_ref().map_or(0.0, |_| 1.0), stick_x: f.drives.as_ref().map_or(0.0, |d| d.stick), move_x, move_z, ..Actions::default() }
 }
 
 /// FNV-1a, 64 bits, over a text, carried on from `h`.
-fn fnv(mut h: u64, text: &str) -> u64 {
+pub(crate) fn fnv(mut h: u64, text: &str) -> u64 {
     for b in text.bytes() {
         h ^= u64::from(b);
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
@@ -114,11 +125,11 @@ fn fnv(mut h: u64, text: &str) -> u64 {
     h
 }
 
-fn effects(list: &[Effect]) -> Vec<[f64; 5]> {
+pub(crate) fn effects(list: &[Effect]) -> Vec<[f64; 5]> {
     list.iter().map(|e| [f64::from(e.kind), e.x, e.y, e.z, f64::from(e.size)]).collect()
 }
 
-fn build_of(f: &Fighter) -> Build {
+pub(crate) fn build_of(f: &Fighter) -> Build {
     let ids: Vec<&str> = f.skills.iter().map(String::as_str).collect();
     let mut b = Build { skills: skills_from(&ids), weapon: f.weapon, ..Build::default() };
     if let Some(a) = &f.ability {
@@ -132,7 +143,7 @@ fn build_of(f: &Fighter) -> Build {
 /// Everything there is at the end of a tick, as JSON: the players (by character), what each was
 /// told, their vehicles; the creatures, missiles, arrows and meteors; the slams and blows that
 /// landed; the fight's numbers.
-fn tick_json(players: &Players, actors: &Actors, done: &StepOut) -> Value {
+pub(crate) fn tick_json(players: &Players, actors: &Actors, done: &StepOut) -> Value {
     let list: Vec<Value> = players
         .each_open()
         .map(|(client, owner, p, life)| {
@@ -246,11 +257,7 @@ fn play(s: &Scenario) -> (Players, Actors, Vec<String>) {
             looked.pop_front();
         }
         let everyone = &looked[0];
-        let mut pressed: Vec<Actions> = s
-            .fighters
-            .iter()
-            .map(|f| Actions { stick_y: f.drives.as_ref().map_or(0.0, |_| 1.0), stick_x: f.drives.as_ref().map_or(0.0, |d| d.stick), ..Actions::default() })
-            .collect();
+        let mut pressed: Vec<Actions> = s.fighters.iter().map(pressing).collect();
         if let Some(rng) = shuffle.as_mut() {
             rng.shuffle(&mut bots);
         }

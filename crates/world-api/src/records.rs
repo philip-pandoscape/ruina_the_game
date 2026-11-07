@@ -360,13 +360,17 @@ impl LifeView {
 }
 
 /// How a simulation is running, once a second, for admins (the gate adds the update's size).
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Stats {
     pub tick: Tick,
     pub players: usize,
     pub bots: usize,
     pub tick_ms: f64,
+    /// Every tick since the last stats: its rules and its publishing, ms each (the load harness
+    /// reads them: crates/tools/src/bin/loadtest.rs).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ticks: Vec<[f32; 2]>,
     pub pvp_hits: u64,
     pub saved_by_rewind: u64,
     pub rewind_ms: f64,

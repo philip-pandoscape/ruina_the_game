@@ -144,7 +144,7 @@ pub struct ShipBuild {
 /// The ids a holding gives what it places, from `next` up to (not including) `end`. Offline and in
 /// tests they are its own, counted up from one past the highest it has; online the server hands out
 /// runs of them from the database's sequence, so no two pieces in the world share one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ids {
     pub next: i64,
     pub end: i64,

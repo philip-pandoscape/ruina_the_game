@@ -10,8 +10,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
+use ruina_engine::life::land::{Ids, Land};
+use ruina_engine::life::market::Market;
 use ruina_engine::life::progress::sync_levels;
-use ruina_engine::life::state::LifeState;
+use ruina_engine::life::state::{LifeState, Weather};
 use ruina_engine::life::{Command, Life, Placement};
 use ruina_engine::open::map::world_map;
 use ruina_engine::player::{Build, Player};
@@ -222,6 +224,17 @@ struct CarriedForm {
     player: crate::records::PlayerState,
     region: String,
     state: LifeState,
+    /// Its land, lent to it, and the run of ids it places from.
+    #[serde(default)]
+    land: Land,
+    #[serde(default)]
+    ids: Ids,
+    #[serde(default)]
+    market: Market,
+    #[serde(default = "Weather::initial")]
+    weather: Weather,
+    #[serde(default)]
+    claims_wait: bool,
     placing: Option<Placement>,
     resting: bool,
     revision: u64,
@@ -236,6 +249,11 @@ impl Serialize for Carried {
             player: crate::records::PlayerState::of(&self.player),
             region: l.zone.recipe.id.clone(),
             state: l.state.clone(),
+            land: l.land.clone(),
+            ids: l.land.ids,
+            market: l.market.clone(),
+            weather: l.weather.clone(),
+            claims_wait: l.claims_wait,
             placing: l.placing.clone(),
             resting: l.resting,
             revision: l.revision,
@@ -253,6 +271,11 @@ impl<'de> Deserialize<'de> for Carried {
         let region = map.region(&f.region).ok_or_else(|| serde::de::Error::custom(format!("no region {:?} in this world", f.region)))?;
         let mut life = Box::new(Life::new(map.zone(region), None, None));
         life.state = f.state;
+        life.land = f.land;
+        life.land.ids = f.ids;
+        life.market = f.market;
+        life.weather = f.weather;
+        life.claims_wait = f.claims_wait;
         life.placing = f.placing;
         life.resting = f.resting;
         life.revision = f.revision;

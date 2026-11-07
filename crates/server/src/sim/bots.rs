@@ -4,6 +4,7 @@
 //! (Command::Bots); the battlefield's developer zone will bring its own.
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 
@@ -34,12 +35,20 @@ pub struct BotSlot {
 pub const FIRST_BOT: i64 = -1_000_000;
 /// The most bots one channel holds, so a slip of the panel can't fill it.
 pub const MAX_BOTS: usize = 64;
+/// The limit in force: MAX_BOTS, unless the server was started with another for a load test
+/// (`--max-bots`, crates/tools/src/bin/loadtest.rs).
+static BOT_LIMIT: AtomicUsize = AtomicUsize::new(MAX_BOTS);
+
+/// The most bots each game holds from now on (`--max-bots`: load tests go past the panel's limit).
+pub fn set_bot_limit(n: usize) {
+    BOT_LIMIT.store(n, Ordering::Relaxed);
+}
 
 impl Game {
     /// Up to `n` bots with `brain` in a ring round (x, z), on `team`. How many joined: the channel
     /// may be full, or at its bots' limit.
     pub fn spawn_bots(&mut self, n: u32, brain: Brain, x: f64, z: f64, team: u8) -> u32 {
-        self.spawn_bots_up_to(n, brain, x, z, team, MAX_BOTS)
+        self.spawn_bots_up_to(n, brain, x, z, team, BOT_LIMIT.load(Ordering::Relaxed))
     }
 
     /// The same, up to `cap` bots in all (the tick-time bench goes past the panel's limit).
@@ -256,11 +265,14 @@ mod tests {
         let mut ch = battlefield();
         ch.join(super::super::tests::arrival(1, 1, "Admin", true, None));
         let groups = n.div_ceil(16);
+        // Eight groups to a row, the rows 6 m apart, up to 1024 bots (as R10.18 measured them);
+        // past that, sixteen to a row and the rows closer, to stay on the arena's floor.
+        let (per_row, across, apart) = if groups <= 64 { (8, 12.5, 6.0) } else { (16, 6.0, 42.0 / f64::from(groups.div_ceil(16).max(2) - 1)) };
         for team in 0..2u8 {
             for g in 0..groups {
-                let (row, col) = (g / 8, g % 8);
-                let x = -44.0 + f64::from(col) * 12.5;
-                let z = if team == 0 { -1.0 } else { 1.0 } * (10.0 + f64::from(row) * 6.0);
+                let (row, col) = (g / per_row, g % per_row);
+                let x = -44.0 + f64::from(col) * across;
+                let z = if team == 0 { -1.0 } else { 1.0 } * (10.0 + f64::from(row) * apart);
                 ch.spawn_bots_up_to(8, Brain::Skirmisher, x, z, team, n as usize);
             }
         }
@@ -270,7 +282,9 @@ mod tests {
     #[test]
     #[ignore = "a measurement, run by hand: cargo test --release -p ruina-server tick_time -- --ignored --nocapture"]
     fn tick_time_in_the_battlefield() {
-        for n in [64u32, 256, 1024] {
+        // RUINA_TICK_BENCH=64,4000 measures other sizes (a game holds 4096).
+        let sizes: Vec<u32> = std::env::var("RUINA_TICK_BENCH").map_or(vec![64, 256, 1024], |v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect());
+        for n in sizes {
             for (how, stepping) in [("one after another", Stepping::InOrder), ("all at once", Stepping::Parallel)] {
                 let mut ch = crowded_battlefield(n);
                 ch.stepping = stepping;

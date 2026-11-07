@@ -50,6 +50,7 @@ use crate::world::{Spawn, World};
 
 /// Bots: players without a socket, their inputs decided by their brains.
 mod bots;
+pub use bots::set_bot_limit;
 /// The channels' residents: everyone's estates and who holds which plot.
 pub mod channels;
 /// The world's clock: ticks numbered from the world's epoch.
@@ -200,6 +201,9 @@ pub struct Game {
     bot_count: u32,
     /// How long a tick takes to run (ms, smoothed), for the admins' stats.
     step_ms: f64,
+    /// Each tick since the last stats: its rules and its publishing, ms (the stats carry them, for
+    /// load tests: crates/tools/src/bin/loadtest.rs).
+    timed: Vec<[f32; 2]>,
     /// How its players are stepped each tick (the server's `--parallel`).
     pub stepping: stepping::Stepping,
     /// The trading posts' demand as this game has it: every life here reads it, and every sale here
@@ -283,6 +287,7 @@ impl Game {
             bots: Vec::new(),
             bot_count: 0,
             step_ms: 0.0,
+            timed: Vec::new(),
             stepping: stepping::Stepping::chosen(),
             market: Market::default(),
         }
@@ -850,9 +855,14 @@ impl Game {
             self.tick = at - 1;
         }
         self.play_tick(elapsed, world);
+        let ruled = Instant::now();
         let out = self.publish(now);
         let took = now.elapsed().as_secs_f64() * 1000.0;
         self.step_ms = if self.step_ms == 0.0 { took } else { self.step_ms * 0.9 + took * 0.1 };
+        if self.timed.len() < 4 * STATS_EVERY as usize {
+            let rules = (ruled - now).as_secs_f64() * 1000.0;
+            self.timed.push([rules as f32, (took - rules) as f32]);
+        }
         out
     }
 
