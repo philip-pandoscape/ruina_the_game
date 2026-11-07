@@ -6,7 +6,7 @@ import type { SimRead } from '../shapes';
 
 // Your island as the rules keep it between visits: money, bag, farms, house, vehicles, quests, and
 // where you were standing. The server keeps players' islands, and takes one up again with the time
-// you were away (load_island, crates/server/src/play/mod.rs); this browser keeps one only for automated
+// you were away (load_island, crates/server/src/sim/mod.rs); this browser keeps one only for automated
 // tests and bug-report replays (src/app/save.ts), which the engine takes up the same way.
 
 /** The island as the server keeps it. */

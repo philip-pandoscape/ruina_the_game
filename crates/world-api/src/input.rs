@@ -1,20 +1,26 @@
-//! Combat on the wire. The rules of players fighting together are the engine's
-//! (crates/engine/src/combat.rs, reached here as `crate::combat::Players`): this is the server's
-//! side of them, what a browser's input bytes mean and the arrows, meteors and effects a browser is
-//! sent.
+//! What a browser's input bytes mean: one frame of what a player pressed, as the gate reads it off
+//! the wire (src/net/netPlayer.ts quantize, src/net/worldLink.ts sendInput) and the simulation
+//! turns it into the rules' `Actions`. The browser applies the same rounding to its own prediction.
 
-use serde_json::{Value, json};
+use serde::{Deserialize, Serialize};
 
-use crate::jsmath::JsMath;
-use crate::player::Actions;
-use crate::tuning::HOTBAR_SLOTS;
+use ruina_engine::jsmath::JsMath;
+use ruina_engine::player::Actions;
+use ruina_engine::tuning::HOTBAR_SLOTS;
 
-pub use ruina_engine::combat::Players;
+/// Bytes per input in an open world: 8 for the player, then the raw stick (vehicles steer with it).
+pub const OPEN_INPUT: usize = 10;
 
-/// Arrows, meteors and effects within this distance of a player are sent to them.
-const EFFECT_RADIUS: f64 = 90.0;
+/// One frame of what a player pressed: its sequence number, the tick (in sixteenths, the low 32
+/// bits) at which the browser drew everyone else (lag compensation), and its bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct Input {
+    pub seq: u32,
+    pub view: u32,
+    pub raw: [u8; OPEN_INPUT],
+}
 
-// Inputs travel as small integers; the browser applies the same rounding to its own prediction.
+// Inputs travel as small integers.
 fn input_axis(v: i8) -> f64 {
     v as f64 / 127.0
 }
@@ -63,46 +69,12 @@ pub fn actions_from(raw: [u8; 8]) -> Actions {
     }
 }
 
-/// Open worlds: the 10 bytes a browser packs per input: actions_from's 8, plus the raw stick
-/// (vehicles steer with it).
+/// Open worlds: the 10 bytes a browser packs per input: actions_from's 8, plus the raw stick.
 pub fn open_actions_from(raw: [u8; OPEN_INPUT]) -> Actions {
     let mut a = actions_from([raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7]]);
     a.stick_x = input_axis(raw[8] as i8);
     a.stick_y = input_axis(raw[9] as i8);
     a
-}
-
-/// Bytes per input in an open world's input message.
-pub const OPEN_INPUT: usize = 10;
-
-/// Open worlds: the arrows in flight, meteors falling and effects near (vx, vz), plus the effects
-/// addressed to the player in `viewer`, as JSON in the shapes the browser reads (ArrowRecord,
-/// MeteorRecord and EffectEvent in src/net/worldFeed.ts).
-pub fn effects_json(players: &Players, viewer: Option<usize>, vx: f64, vz: f64) -> (Value, Value, Value) {
-    let near = |x: f64, z: f64| (x - vx) * (x - vx) + (z - vz) * (z - vz) <= EFFECT_RADIUS * EFFECT_RADIUS;
-    let r2 = |v: f64| (v * 100.0).round() / 100.0;
-    let arrows: Vec<_> = players
-        .arrows()
-        .iter()
-        .filter(|a| near(a.x, a.z))
-        .take(64)
-        .map(|a| json!({ "id": a.id, "owner": a.owner, "x": r2(a.x), "y": r2(a.y), "z": r2(a.z), "vx": r2(a.dx * a.speed), "vz": r2(a.dz * a.speed), "team": a.team }))
-        .collect();
-    let meteors: Vec<_> = players
-        .meteors()
-        .iter()
-        .filter(|m| near(m.x, m.z))
-        .take(16)
-        .map(
-            |m| json!({ "id": m.id, "x": r2(m.x), "z": r2(m.z), "ticksLeft": m.ticks_left, "fallTicks": m.fall_ticks, "team": m.team, "radius": r2(m.radius) }),
-        )
-        .collect();
-    let event = |e: &ruina_engine::combat::Effect| json!({ "kind": e.kind, "x": r2(e.x), "y": r2(e.y), "z": r2(e.z), "size": e.size });
-    let mut events: Vec<_> = players.shown().iter().filter(|e| near(e.x, e.z)).take(48).map(event).collect();
-    if let Some(s) = viewer {
-        events.extend(players.told(s).iter().map(event));
-    }
-    (Value::Array(arrows), Value::Array(meteors), Value::Array(events))
 }
 
 #[cfg(test)]

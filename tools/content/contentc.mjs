@@ -267,7 +267,7 @@ const HASH = 'hash.json';
  * shared/hash.json: a hash of every file under shared/ but itself, the bundles as built and the rest
  * (the skill tree, the order builds were once kept in) as they are there. The server and the page
  * each take it in as they are built; the server says its own in the world's welcome, and a page with
- * another reloads into the new build, as for another protocol (crates/server/src/play/socket.rs,
+ * another reloads into the new build, as for another protocol (crates/server/src/gate/socket.rs,
  * src/net/worldLink.ts): built from other content, the two would read a place in a bundle's list on
  * the wire as different things.
  */
@@ -279,7 +279,7 @@ function hashOf(bundles) {
   for (const p of [...files.keys()].sort()) hash.update(`${p}\0${files.get(p)}\0`);
   return {
     comment:
-      "Written by tools/content/contentc.mjs (npm run content): a hash of every file in shared/ but this one. The server sends it in the world's welcome, and a page built from other content reloads into the new build (crates/server/src/play/socket.rs, src/net/worldLink.ts).",
+      "Written by tools/content/contentc.mjs (npm run content): a hash of every file in shared/ but this one. The server sends it in the world's welcome, and a page built from other content reloads into the new build (crates/server/src/gate/socket.rs, src/net/worldLink.ts).",
     content: hash.digest('hex').slice(0, 16),
   };
 }

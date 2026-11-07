@@ -13,7 +13,7 @@
 //! last two for the browser's board views through the engine's WebAssembly
 //! (crates/engine-wasm/src/minigames.rs). A game goes on the wire as its place in the bundle (its
 //! folder's _order.json), as a creature's kind does. The money and the players themselves are the
-//! channel's (crates/server/src/play/tables.rs), which settles the pot when a table says its game
+//! channel's (crates/server/src/sim/tables.rs), which settles the pot when a table says its game
 //! is over.
 
 use std::collections::BTreeMap;
