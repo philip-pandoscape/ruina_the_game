@@ -15,10 +15,18 @@ use tokio::sync::watch;
 
 use crate::frame::{Frame, FrameReader};
 
+/// How many times the proxy has been cut, and whether it's cut now: a connection made before the
+/// latest cut is dropped, however soon the proxy was restored.
+#[derive(Clone, Copy, Default)]
+struct Cuts {
+    cuts: u64,
+    held: bool,
+}
+
 struct Inner {
     upstream: String,
     framed: bool,
-    cut: watch::Sender<bool>,
+    cut: watch::Sender<Cuts>,
     stop: watch::Sender<bool>,
     /// Write every n-th message twice (0: none).
     every: AtomicU64,
@@ -42,7 +50,7 @@ impl Proxy {
         let inner = Arc::new(Inner {
             upstream: upstream.to_string(),
             framed,
-            cut: watch::channel(false).0,
+            cut: watch::channel(Cuts::default()).0,
             stop: watch::channel(false).0,
             every: AtomicU64::new(0),
             messages: AtomicU64::new(0),
@@ -59,11 +67,14 @@ impl Proxy {
 
     /// Drops every connection through it now, and refuses new ones until `restore`.
     pub fn cut(&self) {
-        self.inner.cut.send_replace(true);
+        self.inner.cut.send_modify(|c| {
+            c.cuts += 1;
+            c.held = true;
+        });
     }
 
     pub fn restore(&self) {
-        self.inner.cut.send_replace(false);
+        self.inner.cut.send_modify(|c| c.held = false);
     }
 
     /// Writes every `n`-th message on its way to the listener twice (0: none). Framed proxies only.
@@ -99,14 +110,15 @@ async fn accept(inner: Arc<Inner>, listener: TcpListener) {
             _ = crate::until(&mut stop, |s| *s) => return,
         };
         // Cut: taken and dropped at once, as a dead network would.
-        if *inner.cut.borrow() {
+        let Cuts { cuts, held } = *inner.cut.borrow();
+        if held {
             continue;
         }
-        tokio::spawn(pass(inner.clone(), down));
+        tokio::spawn(pass(inner.clone(), down, cuts));
     }
 }
 
-async fn pass(inner: Arc<Inner>, down: TcpStream) {
+async fn pass(inner: Arc<Inner>, down: TcpStream, cuts: u64) {
     let Ok(up) = TcpStream::connect(&inner.upstream).await else { return };
     inner.connections.fetch_add(1, Ordering::Relaxed);
     let _ = (down.set_nodelay(true), up.set_nodelay(true));
@@ -119,7 +131,7 @@ async fn pass(inner: Arc<Inner>, down: TcpStream) {
     tokio::select! {
         _ = toward => {}
         _ = back => {}
-        _ = crate::until(&mut cut, |c| *c) => {}
+        _ = crate::until(&mut cut, |c| c.cuts != cuts) => {}
         _ = crate::until(&mut stop, |s| *s) => {}
     }
 }
