@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Engine } from '../engine/engine';
 import { ON_FOOT, type Actions, type GameEvent, type PlayerState } from '../engine/rules';
 import { emptySkills } from '../content/skills';
-import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../content/tuning';
+import { DEFAULT_BUILD, HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../content/tuning';
 import type { RawInput, WorldFeed } from './worldFeed';
 import { TAU } from '../util/math';
 
@@ -196,7 +196,7 @@ export function blankState(): PlayerState {
     stun: 0,
     downFrame: -1,
     team: 0,
-    weapon: 0,
+    weapon: DEFAULT_BUILD.weapon,
     skills: emptySkills(),
     comboVariants: 0,
     abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY),

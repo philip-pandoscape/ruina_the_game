@@ -78,6 +78,50 @@ export interface VillagerLook {
   free?: Array<'l' | 'r'>;
 }
 
+/** A colour as its red, green and blue parts (0 to 1), as the light is worked out in. */
+type Rgb = [number, number, number];
+
+/** A lamp a cave's colours are baked from: its colour, how bright, and how far it reaches. */
+export interface CaveLamp {
+  colour: Rgb;
+  power: number;
+  reach: number;
+}
+
+/**
+ * How a cave is dressed (an instance drawn as one: src/render/open/dungeonView.ts), round its origin.
+ * Its rock lines a hall, and the tunnel off the hall's north wall if it has one, along the faces of
+ * the walls it names (boxes of its own, so the rock stands where the walls are solid); the back of a
+ * waterfall closes the hall's south end if it has one, the way out through it. Drawing only: the
+ * rules never read it.
+ */
+export interface CaveDressing {
+  /** The boxes that are the hall's walls, each bounding it with its face toward it, and how high its ceiling is. */
+  hall: { west: string; east: string; south: string; north: string; ceiling: number };
+  /** A tunnel north out of the hall: the boxes that are its walls, the one that ends it, and its ceiling. */
+  tunnel?: { west: string; east: string; end: string; ceiling: number };
+  /** The back of a waterfall across the hall's south end, and how many lights the daylight through it makes. */
+  falls?: { lights: number };
+  /** How many stalactites hang from the hall's ceiling, and how many rocks lie at the foot of the walls. */
+  stalactites?: number;
+  rubble?: number;
+  /** Torches on the walls: where each stands, and its turn about the vertical (radians). */
+  torches?: Array<{ at: [number, number, number]; turn: number }>;
+  /**
+   * What stands on its pieces: a body by name (src/render/open/dungeonView.ts PROPS), on the box or
+   * deck whose id `on` is, fitted to it and turned `turn` from it.
+   */
+  props?: Array<{ body: string; on: string; seed: number; turn?: number }>;
+  /** Catch nets: where each hangs, its turn, its width and height. */
+  nets?: Array<{ at: [number, number, number]; turn: number; size: [number, number] }>;
+  /** Piles of stolen goods (dungeonView.ts PILES: barrels, boxes, bales), each from its corner at `at` (x, z). */
+  loot?: Array<{ pile: string; at: [number, number]; count: number; seed?: number }>;
+  /** Pictures daubed on the walls: where, their turn, their width and height. */
+  drawings?: Array<{ at: [number, number, number]; turn: number; size: [number, number]; seed: number }>;
+  /** The light its colours are baked from: a fill everywhere, the way out's lamp, each torch's and the falls'. */
+  light: { fill: Rgb; exit: CaveLamp; torch?: CaveLamp; falls?: CaveLamp };
+}
+
 /**
  * A creature's look besides its species (an actor kind's `species`, `palette`, `scale`, `clips`
  * and `cycles` are the rest of it).

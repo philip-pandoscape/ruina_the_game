@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { traceSwing } from '../../../render/character';
-import { HERO_BOW, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../../../render/creatures/heroBody';
+import { HERO_BOW, HERO_TRAIL_EDGES } from '../../../render/creatures/heroBody';
+import { weaponId, weaponIndex } from '../../../content/tuning';
 import { gliderGrip } from '../../../render/models/gliders';
 import { SCENARIOS, scenario } from '../../../render/detail/scenarios';
 import { Film } from '../subjects/film';
@@ -16,7 +17,7 @@ export const list = () => SCENARIOS.map((s) => ({ id: s.id, group: s.group, labe
 
 /** Root-space position of every joint of the hero on a frame of a film. */
 export function joints(id: string, frame: number, weaponOverride?: number) {
-  const t = new Film(scenario(id), weaponOverride ?? 0);
+  const t = new Film(scenario(id), weaponOverride);
   t.seek(frame);
   const rig = t.hero.detail;
   t.hero.root.updateMatrixWorld(true);
@@ -51,7 +52,7 @@ export interface TrackRow {
  * point in a joint's own space: 'footL@0,-0.08,0.17' is the ball of the left foot.
  */
 export function track(id: string, names: string[], weaponOverride?: number): TrackRow[] {
-  const t = new Film(scenario(id), weaponOverride ?? 0);
+  const t = new Film(scenario(id), weaponOverride);
   const rig = t.hero.detail;
   const out: TrackRow[] = [];
   const inv = new THREE.Matrix4();
@@ -90,7 +91,7 @@ export function track(id: string, names: string[], weaponOverride?: number): Tra
  * above the ground, and the frame it happened on.
  */
 export function lowest(id: string, weaponOverride?: number) {
-  const t = new Film(scenario(id), weaponOverride ?? 0);
+  const t = new Film(scenario(id), weaponOverride);
   const rig = t.hero.detail;
   const out = { body: { low: Infinity, frame: -1 }, weapon: { low: Infinity, frame: -1 } };
   const box = new THREE.Box3();
@@ -139,7 +140,7 @@ export function lowest(id: string, weaponOverride?: number) {
 
 /** Every frame's knee and elbow hinge angles: knees fold +, elbows fold -. */
 export function hinges(id: string) {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   const b = t.hero.detail;
   const out = { knee: [Infinity, -Infinity], elbow: [Infinity, -Infinity] };
   for (let f = 0; f < t.s.frames; f++) {
@@ -159,7 +160,7 @@ export function hinges(id: string) {
 
 /** How far the trail's leading edge is from the blade's tip, at worst, while a trail shows. */
 export function trailGap(id: string) {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   const rig = t.hero.detail;
   let worst = 0;
   let shown = 0;
@@ -170,7 +171,7 @@ export function trailGap(id: string) {
     const i = t.input;
     if (!tr || !i.step || tr.head >= 1) continue;
     const edges = traceSwing(i);
-    const edge = HERO_TRAIL_EDGES[HERO_WEAPONS[i.weapon] ?? ''];
+    const edge = HERO_TRAIL_EDGES[weaponId(i.weapon)];
     if (!edges || !edge) continue;
     t.hero.root.updateMatrixWorld(true);
     inv.copy(t.hero.root.matrixWorld).invert();
@@ -187,7 +188,7 @@ export function trailGap(id: string) {
 
 /** On a frame of a bow shot: how far the string's nock is from the drawing hand, and the draw. */
 export function nockGap(id: string, frame: number) {
-  const t = new Film(scenario(id), 3);
+  const t = new Film(scenario(id), weaponIndex('bow'));
   t.seek(frame);
   const rig = t.hero.detail;
   t.hero.root.updateMatrixWorld(true);
@@ -223,7 +224,7 @@ export function jumps(id: string, names: string[]) {
 
 /** Debugging the foot hold: per frame, each foot's plant weight, held offset and ball on the floor. */
 export function feet(id: string, from: number, to: number): string {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   const rig = t.hero.detail;
   const rows: string[] = [];
   const v = new THREE.Vector3();
@@ -245,7 +246,7 @@ export function feet(id: string, from: number, to: number): string {
 
 /** Gliding: how far each hand is from its grip on the control bar, at worst, over the film. */
 export function glideGap(id = 'glide'): number {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   const rig = t.hero.detail;
   let worst = 0;
   const inv = new THREE.Matrix4();
@@ -274,7 +275,7 @@ export function glideGap(id = 'glide'): number {
  * the footrest (null when the vehicle has none).
  */
 export function holdGap(id: string) {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   const rig = t.hero.detail;
   let hands = 0;
   let feetGap: number | null = null;
@@ -309,7 +310,7 @@ export function holdGap(id: string) {
  * the vehicle's own frame, and how far each hand is from it.
  */
 export function holdTrack(id: string) {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   const rig = t.hero.detail;
   const out: Array<{ frame: number; holds: number[][]; gaps: number[] }> = [];
   const a = new THREE.Vector3();
@@ -345,7 +346,7 @@ export function holdTrack(id: string) {
  * 1 is straight at them; null when the vehicle has no wheel.
  */
 export function wheelFacing(id: string): number | null {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   let worst: number | null = null;
   const at = new THREE.Vector3();
   const to = new THREE.Vector3();
@@ -370,10 +371,10 @@ export function wheelFacing(id: string): number | null {
  * world, the stow on that frame, whether the weapon hangs from a hand and whether it's drawn at
  * all: for drawing and sheathing, which must never make it jump, and for when it's out of sight.
  */
-export function weaponTrack(id: string, weapon = 0) {
+export function weaponTrack(id: string, weapon?: number) {
   const t = new Film(scenario(id), weapon);
   const rig = t.hero.detail;
-  const name = HERO_WEAPONS[weapon];
+  const name = weaponId(t.s.weapon ?? t.weapon);
   const far: Record<string, [number, number, number]> = { sword: [0, -1.1, 0], club: [0, -0.6, 0], staff: [0, -1.2, 0], bow: [0, 0.275, 0.476] };
   const g = rig.attachment(name);
   const out: Array<{ frame: number; stow: number; inHand: boolean; shown: boolean; attack: number; tip: number[] }> = [];
@@ -396,7 +397,7 @@ export function weaponTrack(id: string, weapon = 0) {
 
 /** What posing one hero costs, microseconds a frame, once it's built and warmed up. */
 export function cost(id: string, frames = 600): number {
-  const t = new Film(scenario(id), 0);
+  const t = new Film(scenario(id));
   for (let i = 0; i < 60; i++) t.step();
   const t0 = performance.now();
   for (let i = 0; i < frames; i++) t.step();

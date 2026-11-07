@@ -39,6 +39,7 @@ const FOLDER: Record<string, string> = {
   behaviour: 'behaviours',
   creature: 'creatures',
   instance: 'instances',
+  dungeon: 'instances',
 };
 
 /** Kinds with no template, and why: a new one of them needs code today. */

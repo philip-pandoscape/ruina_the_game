@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { Hero, type WeaponAt } from '../../../render/character';
 import { pose, type PoseFeedback, type PoseInput } from '../../../content/pose';
-import { HERO_RIG, HERO_WEAPONS } from '../../../render/creatures/heroBody';
+import { HERO_RIG } from '../../../render/creatures/heroBody';
 import { SCENARIOS, scenario, type Moment, type Scenario } from '../../../render/detail/scenarios';
 import { madeHero, madeHeroNow } from '../../../render/detail/madeHero';
 import { HERO_MOVES, HERO_MOVE_SETS } from '../../../render/detail/moves';
-import { ABILITIES, MOVEMENT_SKILLS, MOVE, WEAPONS } from '../../../content/tuning';
+import { ABILITIES, DEFAULT_BUILD, MOVEMENT_SKILLS, MOVE, WEAPONS, weaponId } from '../../../content/tuning';
 import { NodeTrack, readBones, readJoint, sideOf, writeBones, writeJoint } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 import { Film } from './film';
@@ -51,9 +51,7 @@ function heroBones(hero: Hero): Bone[] {
     minor: MINOR.test(j.name),
   }));
   // What it carries: shown where its hand (or the body, put away) has it, turned and moved by the grip.
-  for (const name of [...HERO_WEAPONS, 'arrow']) {
-    const a = HERO_RIG.attachments?.[name];
-    if (!a) continue;
+  for (const [name, a] of Object.entries(HERO_RIG.attachments ?? {})) {
     bones.push({ name: `@${name}`, object: rig.attachment(name), parent: a.joint, side: 'C', minor: true });
   }
   return bones;
@@ -76,7 +74,7 @@ class HeroGhost implements Posable {
   apply(s: Snapshot): void {
     const x = s.extra ?? {};
     const h = inside(this.hero);
-    const weapon = typeof x.weapon === 'number' ? x.weapon : 0;
+    const weapon = typeof x.weapon === 'number' ? x.weapon : DEFAULT_BUILD.weapon;
     if (h.weaponShown !== weapon) this.hero.setWeapon(weapon);
     const at = (x.at as WeaponAt | undefined) ?? 'hand';
     if (h.weaponAt !== at) h.place(at);
@@ -343,6 +341,8 @@ function classify(i: PoseInput, m: Moment): [string, string] {
 
 const params = new URLSearchParams(location.search);
 const setOf = (w: string): string => params.get(`${w}Moves`) ?? HERO_MOVE_SETS[w] ?? 'keyed';
+/** The weapon picked (its place in WEAPONS) until another is: the one a hero starts with. */
+const FIRST_WEAPON = String(DEFAULT_BUILD.weapon);
 
 export const heroSubject: Subject = {
   id: 'hero',
@@ -353,7 +353,7 @@ export const heroSubject: Subject = {
     {
       id: 'weapon',
       label: 'Weapon',
-      value: '0',
+      value: FIRST_WEAPON,
       choices: WEAPONS.map((w, i) => ({ value: String(i), label: w.title })),
     },
   ],
@@ -372,10 +372,11 @@ export const heroSubject: Subject = {
     await (madeHeroNow() ? Promise.resolve() : madeHero()?.catch(() => null));
   },
   take(animId: string, opts: Options): Take {
-    return new HeroTake(scenario(animId), Number(opts.weapon ?? 0));
+    return new HeroTake(scenario(animId), Number(opts.weapon ?? FIRST_WEAPON));
   },
   // A film with a weapon of its own (the sword combo) plays it whatever the picker says.
-  optionsFor: (animId: string, opts: Options): Options => (SCENARIOS.find((s) => s.id === animId)?.weapon !== undefined ? {} : { weapon: opts.weapon ?? '0' }),
+  optionsFor: (animId: string, opts: Options): Options =>
+    SCENARIOS.find((s) => s.id === animId)?.weapon !== undefined ? {} : { weapon: opts.weapon ?? FIRST_WEAPON },
   source(): Source {
     const made = !!madeHeroNow();
     const sets = (['sword', 'club'] as const).map((w) => `${w}: ${setOf(w)}`).join(', ');
@@ -424,17 +425,17 @@ export const heroSubject: Subject = {
   },
   animSource(animId: string, opts: Options): string {
     const s = scenario(animId);
-    const w = s.weapon ?? Number(opts.weapon ?? 0);
+    const w = s.weapon ?? Number(opts.weapon ?? FIRST_WEAPON);
     const bits = [`film '${animId}' in src/render/detail/scenarios.ts (${s.frames} frames)`];
     const fights = s.group === 'Fighting';
     if (fights) {
-      const name = HERO_WEAPONS[w];
+      const name = weaponId(w);
       const set = setOf(name);
       const clipNote =
         madeHeroNow() && HERO_MOVES[name]?.[set]
           ? `; on the made body the ${name} combo plays clip set '${set}' (moves.ts)`
           : `; ${name} swings are keyframes in swings.ts`;
-      bits.push(`weapon ${WEAPONS[w]?.name ?? name}${clipNote}`);
+      bits.push(`weapon ${name}${clipNote}`);
     }
     return bits.join(', ');
   },

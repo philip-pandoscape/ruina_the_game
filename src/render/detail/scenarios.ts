@@ -1,4 +1,4 @@
-import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../content/tuning';
+import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, weaponIndex, type AttackStep } from '../../content/tuning';
 import type { PoseInput } from '../../content/pose';
 import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
@@ -32,6 +32,7 @@ export interface Scenario {
   label: string;
   /** Loop length in sim frames (60 a second). */
   frames: number;
+  /** The weapon it holds whatever is picked, by its place in WEAPONS. */
   weapon?: number;
   /** A model to show with it: what is ridden, flown or sat in. */
   prop?: 'glider' | 'horse' | 'cart' | 'roadster' | 'hauler' | 'rowboat' | 'sloop';
@@ -44,6 +45,11 @@ const HZ = 60;
 const RUN = MOVE.runSpeed;
 const WALK = MOVE.walkSpeed;
 const DEG = Math.PI / 180;
+/** The weapons the films hold, by id: where each stands in the list is the content's to say. */
+const SWORD = weaponIndex('sword');
+const CLUB = weaponIndex('club');
+const STAFF = weaponIndex('staff');
+const BOW = weaponIndex('bow');
 
 /** A run of segments, each lasting `frames`, played back to back. */
 interface Segment {
@@ -265,7 +271,7 @@ function knocked(pushDeg: number, knock = 3): Segment {
  * fall eases while the swing strikes (ATTACK.airGravityScale), and a swing still going when the
  * feet touch down carries on to its end on the ground.
  */
-function jumpAttack(at: number, settle = 24, weapon = 0, index = 0): Segment {
+function jumpAttack(at: number, settle = 24, weapon = SWORD, index = 0): Segment {
   const combo = comboShape(weapon, 0);
   const step = combo[index];
   const total = step.startup + step.active + step.recovery;
@@ -422,9 +428,9 @@ export const SCENARIOS: Scenario[] = [
     label: 'Turning on the spot',
     ...sequence([standFacing(30, 0), pivot(0, 90, 3), standFacing(45, 90), pivot(90, -90, 5), standFacing(45, -90), pivot(-90, 0, 3), standFacing(45, 0)]),
   },
-  { id: 'bowRun', group: 'Moving', label: 'Run with a bow', weapon: 3, ...sequence([stand(60, { weapon: 3 }), move(180, RUN, { weapon: 3 })]) },
-  { id: 'staffRun', group: 'Moving', label: 'Run with a staff', weapon: 2, ...sequence([stand(60, { weapon: 2 }), move(180, RUN, { weapon: 2 })]) },
-  { id: 'clubRun', group: 'Moving', label: 'Run with a club', weapon: 1, ...sequence([stand(60, { weapon: 1 }), move(180, RUN, { weapon: 1 })]) },
+  { id: 'bowRun', group: 'Moving', label: 'Run with a bow', weapon: BOW, ...sequence([stand(60, { weapon: BOW }), move(180, RUN, { weapon: BOW })]) },
+  { id: 'staffRun', group: 'Moving', label: 'Run with a staff', weapon: STAFF, ...sequence([stand(60, { weapon: STAFF }), move(180, RUN, { weapon: STAFF })]) },
+  { id: 'clubRun', group: 'Moving', label: 'Run with a club', weapon: CLUB, ...sequence([stand(60, { weapon: CLUB }), move(180, RUN, { weapon: CLUB })]) },
 
   // ---- Strafing: facing a fight, moving every other way ----
   { id: 'strafeL', group: 'Strafing', label: 'Strafe left', ...sequence([move(240, RUN * MOVE.strafeSpeed, { heading: Math.PI / 2 })]) },
@@ -464,43 +470,43 @@ export const SCENARIOS: Scenario[] = [
   { id: 'doubleJump', group: 'In the air', label: 'Double jump (flip)', ...sequence([move(30, RUN), jump(RUN, 22), move(30, RUN)]) },
 
   // ---- Fighting ----
-  { id: 'sword', group: 'Fighting', label: 'Sword combo', weapon: 0, ...sequence([stand(30), ...combo(0), stand(40)]) },
+  { id: 'sword', group: 'Fighting', label: 'Sword combo', weapon: SWORD, ...sequence([stand(30), ...combo(SWORD), stand(40)]) },
   {
     id: 'swordSlow',
     group: 'Fighting',
     label: 'Sword, each swing to the end',
-    weapon: 0,
-    ...sequence([stand(20), swing(0, 0, false), stand(12), swing(0, 1, false), stand(12), swing(0, 2, false), stand(30)]),
+    weapon: SWORD,
+    ...sequence([stand(20), swing(SWORD, 0, false), stand(12), swing(SWORD, 1, false), stand(12), swing(SWORD, 2, false), stand(30)]),
   },
-  { id: 'whirlwind', group: 'Fighting', label: 'Whirlwind', weapon: 0, ...sequence([stand(30), ...combo(0, 1), stand(40)]) },
-  { id: 'club', group: 'Fighting', label: 'Club combo', weapon: 1, ...sequence([stand(30, { weapon: 1 }), ...combo(1), stand(40, { weapon: 1 })]) },
+  { id: 'whirlwind', group: 'Fighting', label: 'Whirlwind', weapon: SWORD, ...sequence([stand(30), ...combo(SWORD, 1), stand(40)]) },
+  { id: 'club', group: 'Fighting', label: 'Club combo', weapon: CLUB, ...sequence([stand(30, { weapon: CLUB }), ...combo(CLUB), stand(40, { weapon: CLUB })]) },
   {
     id: 'staff',
     group: 'Fighting',
     label: 'Staff swing',
-    weapon: 2,
-    ...sequence([stand(30, { weapon: 2 }), swing(2, 0, false), stand(20, { weapon: 2 }), swing(2, 0, false), stand(30, { weapon: 2 })]),
+    weapon: STAFF,
+    ...sequence([stand(30, { weapon: STAFF }), swing(STAFF, 0, false), stand(20, { weapon: STAFF }), swing(STAFF, 0, false), stand(30, { weapon: STAFF })]),
   },
   {
     id: 'bow',
     group: 'Fighting',
     label: 'Bow shots',
-    weapon: 3,
-    ...sequence([stand(30, { weapon: 3 }), swing(3, 0, false), swing(3, 0, false), swing(3, 0, false), stand(40, { weapon: 3 })]),
+    weapon: BOW,
+    ...sequence([stand(30, { weapon: BOW }), swing(BOW, 0, false), swing(BOW, 0, false), swing(BOW, 0, false), stand(40, { weapon: BOW })]),
   },
   {
     id: 'heal',
     group: 'Fighting',
     label: 'Cast: Healing Circle',
-    weapon: 2,
-    ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: 2 })]),
+    weapon: STAFF,
+    ...sequence([stand(30, { weapon: STAFF }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: STAFF })]),
   },
   {
     id: 'meteor',
     group: 'Fighting',
     label: 'Cast: Meteor',
-    weapon: 2,
-    ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: 2 })]),
+    weapon: STAFF,
+    ...sequence([stand(30, { weapon: STAFF }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: STAFF })]),
   },
   { id: 'block', group: 'Fighting', label: 'Block', ...sequence([stand(30), action('block'), stand(40)]) },
   { id: 'sheathe', group: 'Fighting', label: 'Put away and draw', ...sequence([stand(30), stowing(0, 1), stand(40, { stow: 1 }), stowing(1, 0), stand(30)]) },
@@ -508,7 +514,7 @@ export const SCENARIOS: Scenario[] = [
     id: 'carrySwing',
     group: 'Fighting',
     label: 'A swing with a pack on',
-    ...sequence([stand(40, { carry: true, stow: 1 }), packed(swing(0, 0, false)), stand(50, { carry: true, stow: 1 })]),
+    ...sequence([stand(40, { carry: true, stow: 1 }), packed(swing(SWORD, 0, false)), stand(50, { carry: true, stow: 1 })]),
   },
   {
     id: 'sheatheRun',
@@ -519,8 +525,8 @@ export const SCENARIOS: Scenario[] = [
   { id: 'roll', group: 'Fighting', label: 'Dodge roll', ...sequence([move(30, RUN), action('dodgeRoll', RUN), move(40, RUN)]) },
   { id: 'backstep', group: 'Fighting', label: 'Backstep', ...sequence([stand(30), action('backstep'), stand(40)]) },
   { id: 'slide', group: 'Fighting', label: 'Slide', ...sequence([move(40, RUN), action('slide', RUN), move(40, RUN)]) },
-  { id: 'airSlash', group: 'Fighting', label: 'Jump attack: overhead chop', weapon: 0, ...sequence([stand(20), jumpAttack(14, 30), stand(20)]) },
-  { id: 'airSlashLand', group: 'Fighting', label: 'Jump attack, landing mid-swing', weapon: 0, ...sequence([stand(20), jumpAttack(30, 20), stand(20)]) },
+  { id: 'airSlash', group: 'Fighting', label: 'Jump attack: overhead chop', weapon: SWORD, ...sequence([stand(20), jumpAttack(14, 30), stand(20)]) },
+  { id: 'airSlashLand', group: 'Fighting', label: 'Jump attack, landing mid-swing', weapon: SWORD, ...sequence([stand(20), jumpAttack(30, 20), stand(20)]) },
 
   // ---- Hurt ----
   { id: 'hit', group: 'Hurt', label: 'Hit', ...sequence([stand(30), knocked(180), stand(40)]) },

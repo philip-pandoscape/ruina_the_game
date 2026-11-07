@@ -189,9 +189,9 @@ export interface WaterfallInfo {
   shelf: { s0: number; s1: number; top: number };
   /** The hood over it: from s0 to s1, solid on top at `top`. */
   roof: { s0: number; s1: number; top: number };
-  /** The landing stage (a deck) and the totem (a box). */
-  landing: { s0: number; s1: number; half: number; top: number };
-  totem: { s: number; t: number; top: number };
+  /** The landing stage (a deck) and the totem (a box), where the fall has them. */
+  landing?: { s0: number; s1: number; half: number; top: number };
+  totem?: { s: number; t: number; top: number };
   /** The slot floor's height at the ledge's front and at the foot. */
   floor: [number, number];
   /** The pools' water surfaces. */

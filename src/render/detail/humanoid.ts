@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, WEAPONS, comboShape, type AttackStep } from '../../content/tuning';
+import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, weaponId, type AttackStep } from '../../content/tuning';
 import type { DetailRig } from './rig';
 import type { PoseFeedback, PoseInput } from '../../content/pose';
 import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, smooth, span, type Side } from './body';
@@ -174,8 +174,12 @@ export function settle(rig: DetailRig, p: PoseInput): void {
   keepBladeUp(b, p.weapon, p.attackIndex >= 0 ? -0.1 : 0.02);
 }
 
-/** How far a held weapon reaches past the hand, metres (its tip, down the hand's -Y). */
-const REACH = [1.1, 0.65, 0, 0];
+/**
+ * How far a held weapon reaches past the hand, metres (its tip, down the hand's -Y), by the weapon's
+ * id. The poses know each weapon by its id (weaponId: a PoseInput has its place in WEAPONS), as each
+ * is held, swung and put away in a way of its own.
+ */
+const REACH: Record<string, number> = { sword: 1.1, club: 0.65 };
 const _tip = new THREE.Vector3();
 
 /**
@@ -183,7 +187,7 @@ const _tip = new THREE.Vector3();
  * it up just enough. Swings allow a little bite into the ground (a smash); held weapons none.
  */
 function keepBladeUp(b: Body, weapon: number, floor: number): void {
-  const reach = REACH[weapon] ?? 0;
+  const reach = REACH[weaponId(weapon)] ?? 0;
   if (!reach) return;
   const hand = b.positionOf(b.arm.R.end, _b);
   const along = b.toModel(b.arm.R.end, _tip.set(0, -1, 0), _tip).sub(hand);
@@ -423,7 +427,7 @@ const _qTurn = new THREE.Quaternion();
 function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
   const u = clamp01(p.stow);
   if (u <= 0) return holdArmed(b, p, g);
-  const name = WEAPONS[p.weapon]?.name ?? 'sword';
+  const name = weaponId(p.weapon) || 'sword';
   const st = stowedFor(b.rig.def)[name];
   const s = DRAWING_HAND[name] ?? 'R';
   const free = b.save(b.buf(6));
@@ -462,7 +466,8 @@ function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
 function holdArmed(b: Body, p: PoseInput, g: Gait): void {
   const move = g.moving;
   const t = p.time;
-  if (p.weapon === 0 && b.stride.made) {
+  const w = weaponId(p.weapon);
+  if (w === 'sword' && b.stride.made) {
     // A made body holds a sword as a person does, the blade square to the forearm across the fist:
     // hanging at the side, point down and a little forward, at rest; on the move the arm swinging
     // half as far as the free one and the blade trailing back and down past the leg; up in front on
@@ -484,7 +489,7 @@ function holdArmed(b: Body, p: PoseInput, g: Gait): void {
     const az = lerp(lerp(-0.12, -(Math.PI - 0.3), at), 0.32, guard);
     const el = lerp(lerp(-0.85, -0.62, at), 0.62, guard) + 0.02 * Math.sin(t * 2.2);
     b.aimHand('R', torsoDir(b, dir(az, el, _a)));
-  } else if (p.weapon === 0) {
+  } else if (w === 'sword') {
     // Sword: low and forward at rest; running ahead, carried ready - elbow bent, hand at the waist,
     // the blade up and forward, bobbing with the stride; held up in front on guard while strafing
     // or backing off.
@@ -496,15 +501,15 @@ function holdArmed(b: Body, p: PoseInput, g: Gait): void {
     const az = lerp(lerp(0.38, -0.3, at), 0.3, guard);
     const el = lerp(lerp(-0.45, 0.62 + 0.05 * swing, at), 0.25, guard) + 0.02 * Math.sin(t * 2.2);
     b.aimHand('R', torsoDir(b, dir(az, el, _a)));
-  } else if (p.weapon === 1) {
+  } else if (w === 'club') {
     // Club: carried on the shoulder.
     b.handTo('R', torsoPoint(b, -0.23, 0.35 + 0.01 * Math.sin(TAU * 2 * g.cycle) * move, 0.2, _a), torsoDir(b, _pole.set(-0.5, -0.8, 0.1)));
     b.aimHand('R', torsoDir(b, dir(-2.75, 0.55, _b)));
-  } else if (p.weapon === 2) {
+  } else if (w === 'staff') {
     // Staff: planted upright at the side when still, slanted forward like a lance at a run.
     b.handTo('R', torsoPoint(b, lerp(-0.36, -0.33, move), lerp(0.1, 0.2, move), lerp(0.1, 0.22, move), _a), torsoDir(b, _pole.set(-0.6, -0.3, -0.7)));
     b.aimHand('R', torsoDir(b, dir(lerp(0.04, 0.18, move), lerp(1.36, 0.6, move * g.run), _b)));
-  } else if (p.weapon === 3) {
+  } else if (w === 'bow') {
     // Bow: held low in the left hand, upright, the arm swinging less.
     const swing = Math.cos(TAU * (g.cycle + 0.5));
     b.setArmOut('L', 0.16, lerp(-0.25, -0.35 * swing * move - 0.1, move), 0, -0.55);
@@ -782,7 +787,7 @@ function reachArm(b: Body, az: number, el: number, straight: number): void {
 
 function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   const step = p.step!;
-  if (p.weapon === 3) return bowShot(b, p, step, out);
+  if (weaponId(p.weapon) === 'bow') return bowShot(b, p, step, out);
   const move = p.airSwing || step.pose ? undefined : moveFor(b, p.weapon, Math.max(0, p.attackIndex));
   if (move) return clipAttack(b, p, step, move, out);
   const def = swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose, p.airSwing);
@@ -849,7 +854,7 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
 
 /** A made body's clip for a combo hit, if its weapon plays one. */
 function moveFor(b: Body, weapon: number, index: number): Move | undefined {
-  return b.stride.made ? motionOf(b.rig.def)?.moves?.get(`${weapon}:${index}`) : undefined;
+  return b.stride.made ? motionOf(b.rig.def)?.moves?.get(`${weaponId(weapon)}:${index}`) : undefined;
 }
 
 /**
@@ -874,7 +879,7 @@ function trail(out: PoseFeedback, weapon: number, index: number, spin: 'spin' | 
   const head = clamp01((f - S) / A);
   const fade = clamp01((f - S - A) / 7);
   if (fade >= 1) return;
-  const set = spin ?? (weapon === 1 ? 'club' : weapon === 2 ? 'staff' : 'sword');
+  const set = spin ?? weaponId(weapon);
   out.trail = { set, index, head, tail: lerp(Math.max(0, head - 0.6), 1, fade), alpha: 1 - fade * 0.6 };
 }
 
@@ -1106,14 +1111,15 @@ function block(b: Body, p: PoseInput, S: number, A: number, R: number): void {
   _feet.R.yaw = -0.6;
   for (const s of SIDES) _feet[s].lift = _feet[s].pitch = 0;
   plant(b, _feet, 0.2);
-  if (p.weapon === 3) {
+  const w = weaponId(p.weapon);
+  if (w === 'bow') {
     // Bow up in front like a shield.
     b.handTo('L', torsoPoint(b, 0.08, 0.5, 0.36, _a), torsoDir(b, _pole.set(0.7, -0.6, 0)));
     b.frameHand('L', torsoDir(b, _a.set(0, 0.1, 1)), torsoDir(b, _b.set(0.2, 1, 0)));
     b.setArmOut('R', 0.2, -1.2, 0, -1.7);
   } else {
     // Weapon held across, high; the left palm on the flat of it.
-    const staff = p.weapon === 2;
+    const staff = w === 'staff';
     b.handTo('R', torsoPoint(b, -0.2, staff ? 0.38 : 0.44, 0.3, _a), torsoDir(b, _pole.set(-0.7, -0.6, -0.1)));
     b.aimHand('R', torsoDir(b, dir(staff ? 1.5 : 1.15, staff ? 0.12 : 0.6, _b)));
     const brace = b.toModel(b.arm.R.end, _c.set(0, staff ? -0.42 : -0.38, 0.04), _c);
@@ -1175,7 +1181,7 @@ function hurt(b: Body, p: PoseInput): void {
   const aft = Math.max(0, -Math.cos(h)); // shoved back: hit from the front
   const side = Math.sin(h); // + shoved to the left: hit from the right
   const pose = b.save(b.buf(2));
-  const held = p.weapon !== 3 && REACH[p.weapon] && p.stow < 0.5 ? bladeDir(b, _held) : null;
+  const held = REACH[weaponId(p.weapon)] && p.stow < 0.5 ? bladeDir(b, _held) : null;
   b.torso.rotation.x += 0.45 * fore - 0.5 * aft;
   b.torso.rotation.y += 0.35 * side;
   b.torso.rotation.z -= 0.4 * side;

@@ -40,7 +40,8 @@ How to add each kind of thing, as files alone: `docs/content.md`.
 contentc also checks every reference (an item a vendor sells, a quest's giver and the places its
 markers point at, a recipe's workbench, a person's place and bench, an item's category, a
 creature's brain, what marks out an empty house plot: `REFS` in contentc.mjs says which keys name
-which kinds), and that every made model a look names has its files in `src/render/assets/models/`.
+which kinds), that every made model a look names has its files in `src/render/assets/models/`, and
+that a cave's dressing names its own walls and pieces (`docs/zones.md`, Dressing a Cave).
 
 ## Order, the Wire and Saves
 
@@ -50,7 +51,8 @@ which kinds), and that every made model a look names has its files in `src/rende
   (`shared/hash.json`); the server says its own when a page connects, and a page built from other
   content reloads into the new build, as for a new protocol (`crates/server/src/play/socket.rs`,
   `src/net/worldLink.ts`). So an order can change, as long as the server is built again with it
-  (`npm run up`).
+  (`npm run up`). Not yet the weapons', abilities' and movement skills' alone: the skill tree names
+  them by place too (`docs/content.md`, Not Yet Data).
 - **What's kept names things by id**: a character's build (the server's `characters.build`) and the
   browser's own (`crates/engine/src/skills.rs` and `src/content/build.ts`: weapon, skill nodes,
   hotbar and movement slots), and the island, so a kept thing means the same in any order. Builds kept

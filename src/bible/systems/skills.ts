@@ -17,7 +17,7 @@ import {
   STATS,
   TREES,
 } from '../../content/skills';
-import { ABILITIES, DEFAULT_BUILD, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, WEAPONS } from '../../content/tuning';
+import { ABILITIES, DEFAULT_BUILD, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, WEAPONS, weaponIndex } from '../../content/tuning';
 import { change, count, num, pct } from '../format';
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
@@ -103,7 +103,7 @@ export const skills = system({
     const known = NODES.filter((_, i) => hasSkill(DEFAULT_BUILD.skills, i));
 
     // The worked examples: real nodes, real numbers.
-    const sword = WEAPONS[0];
+    const sword = WEAPONS[weaponIndex('sword')];
     const keen = modOf('sw-3-17', 'attack.damage');
     const storm = modOf('sw-7-27', 'attack.damage');
     const hit = sword.combo[0];

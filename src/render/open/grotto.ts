@@ -7,8 +7,9 @@ import { merge, mesh, PAL, rod, tint, xf } from '../models/kit';
 // rock over it, the goblins' landing stage of planks on barrels jutting out over the drop, catch
 // nets slung along the walls, their totem, two lanterns whose glow shows through the falling water,
 // pictures daubed round the portal, and the portal itself, a dark swirl in a rock arch, into
-// Goblin's Dread. Drawing only: the rules know the ledge, the hood and stage (decks), the totem (a
-// box) and the portal (the door in emberholm.json).
+// Goblin's Dread. The landing stage and the totem are drawn only where the fall has them. Drawing
+// only: the rules know the ledge, the hood and stage (decks), the totem (a box) and the portal (the
+// region's door).
 
 export class GrottoView {
   readonly group = new THREE.Group();
@@ -74,17 +75,20 @@ export class GrottoView {
       l.position.set(x, roofUp - 1.95, wallZ + 1.2);
       g.add(l);
     }
-    // The landing stage: planks on barrels, jutting out over the drop.
-    const stageDepth = f.landing.s1 - f.landing.s0;
-    const stage = plankDeck(f.landing.half * 2, stageDepth, 31, f.landing.top - f.shelf.top);
-    mesh(g, xf(stage, [0, f.landing.top - f.shelf.top, (f.landing.s0 + f.landing.s1) / 2 - f.shelf.s0]), { name: 'landing-stage' });
-    // Struts under its front, where it hangs out past the ledge, down to the ledge's face.
-    const struts: THREE.BufferGeometry[] = [];
-    const lip = depth - 1.4;
-    for (const x of [-f.landing.half * 0.66, f.landing.half * 0.66])
-      struts.push(tint(rod([x, -2.2, lip], [x, 0.3, f.landing.s1 - f.shelf.s0 - 0.3], 0.09, 6), PAL.woodDark));
-    struts.push(tint(rod([-f.landing.half * 0.66, -1.0, lip + 0.45], [f.landing.half * 0.66, -1.0, lip + 0.45], 0.06, 5), PAL.woodDark));
-    mesh(g, merge(struts), { name: 'landing-struts' });
+    // The landing stage, where the fall has one: planks on barrels, jutting out over the drop.
+    const landing = f.landing;
+    if (landing) {
+      const stageDepth = landing.s1 - landing.s0;
+      const stage = plankDeck(landing.half * 2, stageDepth, 31, landing.top - f.shelf.top);
+      mesh(g, xf(stage, [0, landing.top - f.shelf.top, (landing.s0 + landing.s1) / 2 - f.shelf.s0]), { name: 'landing-stage' });
+      // Struts under its front, where it hangs out past the ledge, down to the ledge's face.
+      const struts: THREE.BufferGeometry[] = [];
+      const lip = depth - 1.4;
+      for (const x of [-landing.half * 0.66, landing.half * 0.66])
+        struts.push(tint(rod([x, -2.2, lip], [x, 0.3, landing.s1 - f.shelf.s0 - 0.3], 0.09, 6), PAL.woodDark));
+      struts.push(tint(rod([-landing.half * 0.66, -1.0, lip + 0.45], [landing.half * 0.66, -1.0, lip + 0.45], 0.06, 5), PAL.woodDark));
+      mesh(g, merge(struts), { name: 'landing-struts' });
+    }
     // Catch nets along both walls, for anyone who comes in too fast, bellying in over the ledge.
     for (const side of [-1, 1]) {
       const n = net(depth - 1.2, roofUp - 1.6, 0.42, 0.35);
@@ -92,16 +96,20 @@ export class GrottoView {
       m.position.set(side * (f.width / 2 - 0.95), 0.5, depth / 2 + 0.4);
       m.rotation.y = -side * (Math.PI / 2);
     }
-    // The totem, where its post stands in the rules.
-    const t = totem(this.flickers, f.totem.top - f.shelf.top, 3);
-    t.position.set(-f.totem.t, 0, f.totem.s - f.shelf.s0);
-    t.rotation.y = f.totem.t > 0 ? 0.6 : -0.6;
-    g.add(t);
-    // Stolen barrels in the far corner.
+    // The totem, where the fall has one, where its post stands in the rules.
+    if (f.totem) {
+      const t = totem(this.flickers, f.totem.top - f.shelf.top, 3);
+      t.position.set(-f.totem.t, 0, f.totem.s - f.shelf.s0);
+      t.rotation.y = f.totem.t > 0 ? 0.6 : -0.6;
+      g.add(t);
+    }
+    // Stolen barrels in the far corner: across the ledge from the totem, or as far in from the wall
+    // without one.
+    const corner = f.totem ? f.totem.t : f.width / 2 - 1.7;
     const loot: THREE.BufferGeometry[] = [];
-    loot.push(xf(barrel(0.9, 3), [f.totem.t - 0.2, 0, 1.8]));
-    loot.push(xf(barrel(0.9, 4), [f.totem.t - 0.9, 0, 2.3]));
-    loot.push(xf(barrel(0.9, 5), [f.totem.t - 0.5, 0, 3.0], [0, 0, Math.PI / 2]));
+    loot.push(xf(barrel(0.9, 3), [corner - 0.2, 0, 1.8]));
+    loot.push(xf(barrel(0.9, 4), [corner - 0.9, 0, 2.3]));
+    loot.push(xf(barrel(0.9, 5), [corner - 0.5, 0, 3.0], [0, 0, Math.PI / 2]));
     mesh(g, merge(loot), { name: 'grotto-loot' });
   }
 

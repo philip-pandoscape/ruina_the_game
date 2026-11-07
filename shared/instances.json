@@ -2,7 +2,7 @@
   "comment": "Built from content/instances.json by tools/content/contentc.mjs (npm run content): edit there, not here. The world's instances, its dungeons and developer zones (docs/zones.md), a file each in content/instances/: each a space of its own, its floors and walls round its own origin over nothing, played only in a copy of it, where you come in and its way out, and what a copy brings (creatures, bots). Read by src/engine/world/dungeons.ts and crates/engine/src/open/dungeon.rs; a dungeon's door in the world is in its region's (content/regions/<id>/doors.json), a developer zone's in its own file (door).",
   "instances": [
     {
-      "comment": "Goblin's Dread, the goblin lair inside the Windspire: an instanced dungeon. Each party plays its own copy (crates/server/src/play/spaces.rs); a copy lives on for 30 minutes after the last player leaves it. Its portal stands on a ledge hidden behind the Windspire's waterfall (emberholm.json dungeons). Inside is a space of its own: everything is placed round its own origin, over nothing, and its boxes and decks are all that's solid there (src/engine/world/dungeons.ts, crates/engine/src/open/dungeon.rs). Boxes are solid below their top (floors and walls); decks are floors you can walk under. `arrive` is where you come in, `exit` the portal back out (F within r), `fall`: below it you are back at `arrive`. Heights (top) are above its origin. Map convention as Emberholm's: north is +Z, east is -X; facing 0 looks north.",
+      "comment": "Goblin's Dread, the goblin lair inside the Windspire: an instanced dungeon. Each party plays its own copy (crates/server/src/play/spaces.rs); a copy lives on for 30 minutes after the last player leaves it. Its portal stands on a ledge hidden behind the Windspire's waterfall (its door in content/regions/emberholm/doors.json). Inside is a space of its own: everything is placed round its own origin, over nothing, and its boxes and decks are all that's solid there (src/engine/world/dungeons.ts, crates/engine/src/open/dungeon.rs). Boxes are solid below their top (floors and walls); decks are floors you can walk under. `arrive` is where you come in, `exit` the portal back out (F within r), `fall`: below it you are back at `arrive`. Heights (top) are above its origin. Map convention as Emberholm's: north is +Z, east is -X; facing 0 looks north. What it looks like inside is its dressing (docs/zones.md, Dressing a Cave): the hall and tunnel its walls bound, the back of the falls, its torches, props, nets, loot and pictures, and the light the cave's colours are baked from.",
       "id": "goblinsDread",
       "name": "Goblin's Dread",
       "maxPlayers": 5,
@@ -137,7 +137,246 @@
           "rot": 0,
           "top": 0.5
         }
-      ]
+      ],
+      "dressing": {
+        "hall": {
+          "west": "westWall",
+          "east": "eastWall",
+          "south": "curtain",
+          "north": "northWallWest",
+          "ceiling": 13
+        },
+        "tunnel": {
+          "west": "tunnelWest",
+          "east": "tunnelEast",
+          "end": "tunnelEnd",
+          "ceiling": 7.2
+        },
+        "falls": {
+          "lights": 6
+        },
+        "stalactites": 26,
+        "rubble": 30,
+        "torches": [
+          {
+            "at": [
+              13.9,
+              3.2,
+              4
+            ],
+            "turn": -1.5707963267948966
+          },
+          {
+            "at": [
+              -13.9,
+              3.2,
+              4
+            ],
+            "turn": 1.5707963267948966
+          },
+          {
+            "at": [
+              13.9,
+              3.2,
+              17
+            ],
+            "turn": -1.5707963267948966
+          },
+          {
+            "at": [
+              -13.9,
+              3.2,
+              17
+            ],
+            "turn": 1.5707963267948966
+          },
+          {
+            "at": [
+              13.9,
+              3.2,
+              26
+            ],
+            "turn": -1.5707963267948966
+          },
+          {
+            "at": [
+              -13.9,
+              3.2,
+              26
+            ],
+            "turn": 1.5707963267948966
+          },
+          {
+            "at": [
+              2.9,
+              2.6,
+              33
+            ],
+            "turn": -1.5707963267948966
+          },
+          {
+            "at": [
+              -2.9,
+              2.6,
+              38
+            ],
+            "turn": 1.5707963267948966
+          }
+        ],
+        "props": [
+          {
+            "body": "stage",
+            "on": "landing",
+            "seed": 61
+          },
+          {
+            "body": "lookout",
+            "on": "lookout",
+            "seed": 5,
+            "turn": 3.141592653589793
+          },
+          {
+            "body": "totem",
+            "on": "totem",
+            "seed": 9,
+            "turn": -0.5
+          },
+          {
+            "body": "barricade",
+            "on": "barricade",
+            "seed": 13,
+            "turn": 3.141592653589793
+          }
+        ],
+        "nets": [
+          {
+            "at": [
+              -12.9,
+              0.4,
+              4
+            ],
+            "turn": 1.5707963267948966,
+            "size": [
+              8,
+              5.5
+            ]
+          },
+          {
+            "at": [
+              12.9,
+              0.4,
+              4
+            ],
+            "turn": -1.5707963267948966,
+            "size": [
+              8,
+              5.5
+            ]
+          }
+        ],
+        "loot": [
+          {
+            "pile": "barrels",
+            "at": [
+              12.4,
+              27.6
+            ],
+            "count": 6,
+            "seed": 3
+          },
+          {
+            "pile": "boxes",
+            "at": [
+              -12.6,
+              27.5
+            ],
+            "count": 5
+          },
+          {
+            "pile": "bales",
+            "at": [
+              -12.2,
+              14
+            ],
+            "count": 3
+          }
+        ],
+        "drawings": [
+          {
+            "at": [
+              13.75,
+              2.6,
+              10.5
+            ],
+            "turn": -1.5707963267948966,
+            "size": [
+              4.4,
+              2.2
+            ],
+            "seed": 3
+          },
+          {
+            "at": [
+              -13.75,
+              2.6,
+              21.5
+            ],
+            "turn": 1.5707963267948966,
+            "size": [
+              4.4,
+              2.2
+            ],
+            "seed": 7
+          },
+          {
+            "at": [
+              2.8,
+              2.6,
+              35.5
+            ],
+            "turn": -1.5707963267948966,
+            "size": [
+              4.4,
+              2.2
+            ],
+            "seed": 11
+          }
+        ],
+        "light": {
+          "fill": [
+            0.045,
+            0.055,
+            0.065
+          ],
+          "torch": {
+            "colour": [
+              1,
+              0.66,
+              0.4
+            ],
+            "power": 2.6,
+            "reach": 3.2
+          },
+          "falls": {
+            "colour": [
+              0.55,
+              0.8,
+              0.86
+            ],
+            "power": 1.15,
+            "reach": 4.2
+          },
+          "exit": {
+            "colour": [
+              0.35,
+              0.75,
+              0.8
+            ],
+            "power": 1.3,
+            "reach": 2.6
+          }
+        }
+      }
     },
     {
       "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/play/spaces.rs enter_zone). An open arena in a space of its own (content/instances/goblinsDread.json says how: everything round its own origin, played only in a copy). The training dummy and a few slimes live in it (spawns), and bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. `door` is where its way out lets you out in the world. Heights (top) are above its origin.",

@@ -7,7 +7,7 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
 |---|---|
 | `look.ts` | The look, its palette, and how much of it each quality draws (`GRAPHICS`: `high`, `medium`, `low`; `?quality=`). |
 | `scene.ts`, `camera.ts` | The stage (renderer, scene, light) and the camera that follows you. |
-| `open/` | The open world: terrain and ground (`ground.ts`), water, sky, foliage, the stage (`stage.ts`), screen effects (`post.ts`), the island's life drawn (`life.ts`), everyone else drawn (`peersView.ts`), dungeons and zones (`dungeonView.ts`, `arenaView.ts`), mini-game tables (`gameTables.ts`, each game's board on them `gameBoards/<id>.ts`, found by the game's id). |
+| `open/` | The open world: terrain and ground (`ground.ts`), water, sky, foliage, the stage (`stage.ts`), screen effects (`post.ts`), the island's life drawn (`life.ts`), everyone else drawn (`peersView.ts`), dungeons and zones (`dungeonView.ts`, a cave as its file dresses it; `arenaView.ts`), mini-game tables (`gameTables.ts`, each game's board on them `gameBoards/<id>.ts`, found by the game's id). |
 | `village/` | Buildings you can walk into, from Quaternius' village kit: assembled from their plans, cut open above your storey, doors and lamps. |
 | `character.ts`, `detail/` | The hero up close: poses as a pure function of `PoseInput` (`detail/humanoid.ts`), feet and hands (`body.ts`, `gait.ts`), swings, the made body fitted to our rig (`fit.ts`, `madeHero.ts`), retargeted clips (`retarget.ts`, `moves.ts`). |
 | `creatures/` | Creature bodies for the crowd renderer: the species format, its registry, baked clips, jelly, the goblin and bodies with folders of their own. |
@@ -28,10 +28,15 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
   (a builder in `models/`, found by that name) and the made model fitted over it, so the rules,
   colliders and server never see them (root `AGENTS.md`, Art and assets). A thing that names no
   look gets its kind's plain body.
+- **Weapons by id**: a pose has the weapon's place in the list (`PoseInput.weapon`), and the hero's
+  stances, swings, trails, attachments and stow places know it by its id (`weaponId`,
+  `src/content/tuning.ts`), never by that place, so the list's order can change
+  (`tests/unit/weaponOrder.test.ts`).
 
 ## Tests
 
 The look at each quality: `tests/stress/look.spec.ts` (a real GPU). The hero's films measured without
-drawing: `tests/unit/animation.test.ts`. The content library's specs show every model, body and
-building: `library.spec.ts`, `models.spec.ts`, `buildings.spec.ts`, `creatures.spec.ts`,
-`species.spec.ts`, `retarget.spec.ts`.
+drawing: `tests/unit/animation.test.ts`; with the weapons in another order:
+`tests/unit/weaponOrder.test.ts`. The content library's specs show every model, body and building:
+`library.spec.ts`, `models.spec.ts`, `buildings.spec.ts`, `creatures.spec.ts`, `species.spec.ts`,
+`retarget.spec.ts`.

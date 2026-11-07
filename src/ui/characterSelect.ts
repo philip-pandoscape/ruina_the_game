@@ -1,6 +1,6 @@
 import { adminCard } from './admin/adminMenu';
 import { HeroPreview } from '../render/heroPreview';
-import { WEAPONS } from '../content/tuning';
+import { DEFAULT_BUILD, weaponIndex } from '../content/tuning';
 import { WEAPON_ICONS, WEAPON_NAMES } from './icons';
 import { iconHtml, money } from './theme/icons';
 import { card, el, frontLayer, type Account } from './signIn';
@@ -24,12 +24,14 @@ export interface CharacterInfo {
   weapon: string;
 }
 
-/** Where a character's weapon is among the weapons, for its icon, its name and the hero holding it. */
-const weaponOf = (c: CharacterInfo): number =>
-  Math.max(
-    0,
-    WEAPONS.findIndex((w) => w.name === c.weapon),
-  );
+/**
+ * Where a character's weapon is among the weapons, for its icon, its name and the hero holding it
+ * (one the content no longer has: the weapon a hero starts with).
+ */
+const weaponOf = (c: CharacterInfo): number => {
+  const i = weaponIndex(c.weapon);
+  return i >= 0 ? i : DEFAULT_BUILD.weapon;
+};
 
 /** What the screen asks of the account API. The app hands it the API (src/net/account.ts), which the screen doesn't import. */
 export interface CharactersApi {

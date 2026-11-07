@@ -52,7 +52,8 @@ export function contentIds(root = '.') {
     creature: [...ids(bundle('actors.json').kinds), ...creatures.flatMap((c) => ids(c.kinds))],
     brain: [...ids(bundle('behaviours.json').behaviours), ...creatures.flatMap((c) => ids(c.behaviours))],
     instance: ids(bundle('instances.json').instances),
-    weapon: ids(tuning.weapons),
+    // A weapon's id is its name.
+    weapon: tuning.weapons.map((w) => w.name),
     ability: ids(tuning.abilities),
     'movement skill': ids(tuning.movementSkills),
     'mini-game': ids(bundle('minigames.json').games),

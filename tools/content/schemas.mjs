@@ -1,6 +1,7 @@
 // Writes content/_schemas/<kind>.schema.json for each kind of thing (each folder a bundle takes
 // things from), from the things there now: the fields they have, which every one has, and the
-// types each takes; and of a thing's look (src/content/looks.ts), the fields looks have and their types. contentc holds every thing to its kind's schema (no unknown field, none
+// types each takes; and of a thing's look and a cave's dressing (src/content/looks.ts), the fields
+// they have and their types. contentc holds every thing to its kind's schema (no unknown field, none
 // missing, the right types), and an editor can too (content/AGENTS.md says how). Run it again after
 // adding a field on purpose, and look at what changed before committing.
 //
@@ -31,7 +32,7 @@ const part = (v, root) => (v && typeof v === 'object' && typeof v.$file === 'str
 const withParts = (thing, root) => Object.fromEntries(Object.entries(thing).map(([k, v]) => [k, part(v, root)]));
 
 /** Fields with fields of their own, held to the schema as a thing's are (none of theirs required). */
-const NESTED = ['look'];
+const NESTED = ['look', 'dressing'];
 /** Fields a thing may always leave out, though every one there is has it: without a look, a thing is drawn with its kind's plain body. */
 const OPTIONAL = ['look'];
 

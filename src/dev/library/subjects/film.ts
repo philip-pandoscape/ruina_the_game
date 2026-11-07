@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import { Hero } from '../../../render/character';
 import { pose, type PoseFeedback, type PoseInput } from '../../../content/pose';
+import { DEFAULT_BUILD } from '../../../content/tuning';
 import { GLIDERS, MOUNTS, VEHICLES } from '../../../content/vehicles';
 import { buildGlider, buildMount, buildVehicle } from '../../../render/models';
 import type { Holds } from '../../../render/models/vehicles';
@@ -87,7 +88,8 @@ export class Film {
 
   constructor(
     readonly s: Scenario,
-    readonly weapon: number,
+    /** The weapon in hand (by its place in WEAPONS) where the film has none of its own: the one a hero starts with, unless told. */
+    readonly weapon: number = DEFAULT_BUILD.weapon,
   ) {
     this.prop = makeProp(s.prop, this.hero);
   }

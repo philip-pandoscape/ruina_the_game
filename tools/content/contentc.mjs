@@ -11,7 +11,8 @@
 // It checks what a person editing content gets wrong: a thing missing from its folder's _order.json
 // or listed there with no file, a file named other than its thing's id, the same id twice, a
 // reference to something that doesn't exist (REFS below), a file in content/ no bundle takes, a
-// made model a look names whose file isn't there. And it writes shared/hash.json, a hash of all of
+// made model a look names whose file isn't there, a cave without its dressing or one naming walls it
+// hasn't got. And it writes shared/hash.json, a hash of all of
 // shared/, which the world's connection compares (hashOf).
 //
 //   node tools/content/contentc.mjs           builds shared/
@@ -124,7 +125,7 @@ export function build(root = CONTENT) {
   }
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
-  errors.push(...references(bundles), ...madeModels(bundles));
+  errors.push(...references(bundles), ...madeModels(bundles), ...dressings(bundles));
   errors.push(...world(bundles), ...spawns(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   bundles.set(HASH, hashOf(bundles));
@@ -404,6 +405,48 @@ function madeModel(m, where) {
   else for (const f of m.files) if (!existsSync(join(MODELS, `${f}.glb`))) out.push(`${where}: there's no ${MODELS}/${f}.glb`);
   if (Array.isArray(m.tints) && m.tints.length !== m.files?.length) out.push(`${where}: a tint for each of its files`);
   return out;
+}
+
+// ---------- A cave's dressing ----------
+
+/**
+ * What's wrong with the instances' dressings (src/content/looks.ts CaveDressing, docs/zones.md): a
+ * cave without one or an arena with one (an arena isn't dressed), walls or a piece to stand on that
+ * aren't the instance's own, no light for its torches or the falls.
+ */
+function dressings(bundles) {
+  const errors = [];
+  for (const d of bundles.get('instances.json')?.instances ?? []) {
+    const where = `content/instances/${d.id}.json`;
+    const dress = d.dressing;
+    if ((d.style ?? 'cave') !== 'cave') {
+      if (dress !== undefined) errors.push(`${where}: an ${d.style} isn't dressed: only a cave is drawn from its dressing`);
+      continue;
+    }
+    if (typeOf(dress) !== 'object') {
+      errors.push(`${where}: a cave has its dressing, what it looks like inside (docs/zones.md, Dressing a Cave)`);
+      continue;
+    }
+    const boxes = new Set((d.boxes ?? []).map((b) => b.id));
+    const pieces = new Set([...boxes, ...(d.decks ?? []).map((p) => p.id)]);
+    const walls = (part, sides) => {
+      if (typeOf(dress[part]) !== 'object') return errors.push(`${where}: its dressing has no ${part}`);
+      for (const side of sides)
+        if (!boxes.has(dress[part][side]))
+          errors.push(`${where}: dressing.${part}.${side} is ${JSON.stringify(dress[part][side])}, which isn't one of its boxes`);
+    };
+    walls('hall', ['west', 'east', 'south', 'north']);
+    if (dress.tunnel !== undefined) walls('tunnel', ['west', 'east', 'end']);
+    for (const [i, p] of (dress.props ?? []).entries())
+      if (!pieces.has(p?.on)) errors.push(`${where}: dressing.props[${i}] stands on ${JSON.stringify(p?.on)}, which isn't one of its boxes or decks`);
+    const light = dress.light;
+    if (typeOf(light) !== 'object' || !light.fill || !light.exit) errors.push(`${where}: its dressing's light has a fill and the way out's lamp (exit)`);
+    else {
+      if (dress.torches?.length && !light.torch) errors.push(`${where}: its dressing has torches, but no light for them (light.torch)`);
+      if (dress.falls !== undefined && !light.falls) errors.push(`${where}: its dressing has falls, but no light for them (light.falls)`);
+    }
+  }
+  return errors;
 }
 
 // ---------- Writing ----------

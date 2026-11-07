@@ -240,9 +240,10 @@ has, and every one the game has to something that wears it.
   (`content/regions/emberholm.json`): a circle (`r`) or a rectangle (`w`, `d`) levelled to `h` (or to
   the ground's own height there, `"auto"`) and blended out over `fall`, its `surface` painted. It's
   kept clear of trees, rocks and scarecrows unless it has `keepClear: false` (the fields, farmed).
-- **A dungeon or a developer zone**: `content/instances/<id>.json` (template `instance.json`), as
+- **A dungeon or a developer zone**: `content/instances/<id>.json` (template `dungeon.json` for a
+  dungeon, a cave with its `dressing`; `instance.json` for a developer zone, an arena), as
   `docs/zones.md` says; a dungeon's door, an entry named for it in the `doors.json` of the region
-  it's entered from. A dungeon's dressing is still code (the refactor's R9.8).
+  it's entered from.
 - **A region**: its recipe, `content/regions/<id>.json`, a folder of what it places beside it
   (`content/regions/<id>/`, the lists above), and its chunks in `content/world.json`, whose comment
   says what its grid must be. Every id in it is one thing in the whole world (contentc). Adding one
@@ -282,7 +283,11 @@ game; the rules are tested in Rust beside them.
 A new one of these needs code today, each named for the refactor's task that makes it data:
 
 - **Weapons, abilities and movement skills** (R9.5): their moves, models, icons and where they are
-  put away are code, which knows the weapons by their places in the list.
+  put away are code, which knows each weapon by its id (`weaponId` in `src/content/tuning.ts`) or
+  by its data (a weapon that shoots). The skill tree still names them by their places in the lists
+  (its grants and modifiers in `shared/skilltree.json`, the levels in `content/tuning.json`), and
+  the engine's default build holds the first weapon, so reordering `content/weapons/_order.json`
+  needs those changed with it; the browser needs nothing (`tests/unit/weaponOrder.test.ts`).
 - **Stats** in the skill tree are numbers the rules read by name; nodes are written by
   `tools/skilltree/gen.mjs`.
 
@@ -297,5 +302,7 @@ A new one of these needs code today, each named for the refactor's task that mak
   the bundles they build in place of its own (`useContent`, `src/engine/wasm.ts`).
 - `tests/unit/contentIds.test.ts`: no content id in code, but for the reasons it lists
   (`node tools/content/ids.mjs` lists them).
+- `tests/unit/weaponOrder.test.ts`: the weapons built in another order, and the browser holding,
+  swinging, drawing, aiming and describing each one as before.
 - `tests/unit/looks.test.ts`: every look names a body, outfit and inside the game has.
 - `tests/unit/bible.test.ts`: every thing has its entry in the bible, and an explanation.

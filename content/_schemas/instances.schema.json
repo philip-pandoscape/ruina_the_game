@@ -50,6 +50,45 @@
     },
     "spawns": {
       "type": "array"
+    },
+    "dressing": {
+      "type": "object",
+      "properties": {
+        "hall": {
+          "type": "object"
+        },
+        "tunnel": {
+          "type": "object"
+        },
+        "falls": {
+          "type": "object"
+        },
+        "stalactites": {
+          "type": "number"
+        },
+        "rubble": {
+          "type": "number"
+        },
+        "torches": {
+          "type": "array"
+        },
+        "props": {
+          "type": "array"
+        },
+        "nets": {
+          "type": "array"
+        },
+        "loot": {
+          "type": "array"
+        },
+        "drawings": {
+          "type": "array"
+        },
+        "light": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [
