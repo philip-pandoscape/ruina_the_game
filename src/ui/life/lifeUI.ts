@@ -9,7 +9,7 @@ import { DockedWindow, type View } from '../components/window';
 import { closeMenu, menuPress } from '../theme/contextMenu';
 import { uiRoot } from '../theme/scale';
 import { addTipSource, wireTips } from '../theme/tooltip';
-import type { LifeContext, Panel } from './context';
+import type { FullKeyboardHook, LifeContext, Panel } from './context';
 import { Banner, Prompt } from './hud/banner';
 import { ClockHud } from './hud/clock';
 import { Compass } from './hud/compass';
@@ -496,6 +496,7 @@ export class LifeUI {
       s.contracts?.offered.length,
       s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(),
       Math.round(this.vit?.hp ?? 0),
+      this.fullKeyboard?.on,
     ].join('|');
   }
 
@@ -592,6 +593,8 @@ export class LifeUI {
   onReset: (() => void) | null = null;
   /** Set by the app online: leave the world for the character select screen (Settings offers it). */
   onExitToSelect: (() => void) | null = null;
+  /** Set by the app: Full Keyboard, full screen with every key the game's (Settings turns it on and off, as F11 does). */
+  fullKeyboard: FullKeyboardHook | null = null;
   /** Whether the developer panel and the Admin window open: online, for admins only (the server says, in its welcome); offline, always. */
   devTools = true;
   /**

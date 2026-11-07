@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ruina</title>
     <meta name="description" content="Ruina: build a life among the ruins. A browser MMORPG." />
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="/icons/ruina-192.png" />
+    <!-- Installable as an app (public/manifest.webmanifest): in a window of its own Chrome and Edge
+         give the game every key, Ctrl+W among them (src/input/browserKeys.ts). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#2b1a0e" />
     <script>
       // The title screen, from the very first frame: src/ui/splash.ts takes it over once the game's
       // code arrives. It is for people only: the offline modes (?test for the tests, ?offline) start

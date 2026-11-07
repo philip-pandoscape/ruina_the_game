@@ -3,7 +3,8 @@ import { crouchKeySlides, Input } from '../../src/input/input';
 
 // The keyboard's mapping, run in Node against stand-ins for the page's window and canvas: no
 // browser, no drawing. C crouches while held (and flares the glider), a press of it on the run
-// slides as well, K always slides, and nothing is on Ctrl: a key pressed with it is the browser's.
+// slides as well, K always slides, and nothing is on Ctrl: a key pressed with it is that key (what
+// the browser hears of it is browserKeys.test.ts's).
 
 type Mods = { ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean };
 
@@ -67,41 +68,39 @@ test('C crouches while held, and a press of it slides only on the run', () => {
   key('keyup', 'KeyK');
 });
 
-test('nothing is on Ctrl: Ctrl crouches nothing, and Ctrl or Cmd with a key is left to the browser', () => {
+test('nothing is on Ctrl: a key pressed with it is that key, and Cmd keeps out of the game', () => {
   const input = keyboard(() => true);
-  // Ctrl on its own is no game key.
+  // Ctrl on its own is no game key: it crouches nothing.
   key('keydown', 'ControlLeft', { ctrlKey: true });
   expect(input.pollActions(0).crouchHeld).toBe(false);
-  // Ctrl+W, Ctrl+R, Ctrl+F, Ctrl+1 and Cmd+Space do what the browser does with them, and nothing in
-  // the game: no walk, no mount called, nothing to interact with, no hotbar slot, no jump.
-  const shortcuts = [
-    key('keydown', 'KeyW', { ctrlKey: true }),
-    key('keydown', 'KeyR', { ctrlKey: true }),
-    key('keydown', 'KeyF', { ctrlKey: true }),
-    key('keydown', 'Digit1', { ctrlKey: true }),
-  ];
-  key('keyup', 'ControlLeft');
-  shortcuts.push(key('keydown', 'Space', { metaKey: true }));
-  expect(shortcuts.map((e) => e.defaultPrevented)).toEqual([false, false, false, false, false]);
+  // With Ctrl held, W still walks (fighting, gliding: in Full Keyboard Ctrl+W reaches the game), R
+  // calls the mount, F interacts and 1 is the first slot.
+  key('keydown', 'KeyW', { ctrlKey: true });
+  key('keydown', 'KeyR', { ctrlKey: true });
+  key('keydown', 'KeyF', { ctrlKey: true });
+  key('keydown', 'Digit1', { ctrlKey: true });
   const a = input.pollActions(0);
-  expect({ moveX: a.moveX, moveZ: a.moveZ, jump: a.jumpPressed, slot: a.abilitySlot }).toEqual({ moveX: 0, moveZ: 0, jump: false, slot: 0 });
-  expect(input.pollLife()).toEqual([]);
-  for (const c of ['KeyW', 'KeyR', 'KeyF', 'Digit1', 'Space']) key('keyup', c);
-  // Leaving the page never asks first, whatever is held.
-  key('keydown', 'KeyC');
-  key('keydown', 'ControlLeft', { ctrlKey: true });
-  const leave = new Event('beforeunload', { cancelable: true });
-  win.dispatchEvent(leave);
-  expect(leave.defaultPrevented).toBe(false);
-  // The game's own keys still work, and still keep theirs from the browser (Space scrolls a page).
+  expect(a.moveZ).toBeCloseTo(1);
+  expect(a.abilitySlot).toBe(1);
+  expect(input.pollLife()).toEqual(['mount', 'interact']);
+  // Letting Ctrl go first changes nothing: W walks on until it comes up.
   key('keyup', 'ControlLeft');
-  key('keyup', 'KeyC');
+  expect(input.pollActions(0).moveZ).toBeCloseTo(1);
+  for (const c of ['KeyW', 'KeyR', 'KeyF', 'Digit1']) key('keyup', c);
+  expect(input.pollActions(0).moveZ).toBe(0);
+  // Cmd (a Mac's) never reaches the game: a key let go while it's held never reports coming up.
+  key('keydown', 'Space', { metaKey: true });
+  expect(input.pollActions(0).jumpPressed).toBe(false);
+  key('keyup', 'Space');
+  // The game's own keys keep theirs from the browser (Space scrolls a page).
   const space = key('keydown', 'Space');
   expect(space.defaultPrevented).toBe(true);
   expect(input.pollActions(0).jumpPressed).toBe(true);
-  // AltGr (Ctrl with Alt, on some keyboards) still reaches the game.
+  key('keyup', 'Space');
+  // AltGr (Ctrl with Alt, on some keyboards) reaches the game too.
   key('keydown', 'KeyW', { ctrlKey: true, altKey: true });
   expect(input.pollActions(0).moveZ).toBeCloseTo(1);
+  key('keyup', 'KeyW');
 });
 
 test('the crouch key slides on the ground on the move, never standing, in the air, swimming or riding', () => {
