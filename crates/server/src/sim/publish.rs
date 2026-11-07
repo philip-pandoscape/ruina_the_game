@@ -107,7 +107,7 @@ impl Game {
         for s in saves {
             self.writes.push((vec![s], Then::Nothing));
         }
-        TickOut { sim: self.sim, space: Some(self.at.clone()), tick: self.tick, cells: cells.into_values().collect(), private, stats }
+        TickOut { sim: self.sim, lease: self.lease, space: Some(self.at.clone()), tick: self.tick, cells: cells.into_values().collect(), private, stats }
     }
 }
 

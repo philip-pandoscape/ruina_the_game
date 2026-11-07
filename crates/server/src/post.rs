@@ -22,9 +22,12 @@ use ruina_world_api::social::ToSocial;
 use ruina_world_api::store::ToStore;
 use ruina_world_api::{Address, GateId, Message, SimId, Transport};
 
-/// Every mailbox in this process.
+/// Every mailbox in this process, and the way to the rest of the world.
 #[derive(Default)]
 pub struct Post {
+    /// Where mail for an address this process doesn't hold goes (another process's tiers, over a
+    /// transport between processes: crates/link). None in one process alone.
+    remote: RwLock<Option<Arc<dyn Transport>>>,
     sims: RwLock<HashMap<SimId, std_mpsc::Sender<ToSim>>>,
     gates: RwLock<HashMap<GateId, mpsc::UnboundedSender<ToGate>>>,
     store: RwLock<Option<mpsc::UnboundedSender<ToStore>>>,
@@ -80,6 +83,21 @@ impl Post {
         rx
     }
 
+    /// Mail for addresses not held here goes through `remote` from now on.
+    pub fn set_remote(&self, remote: Arc<dyn Transport>) {
+        *write(&self.remote) = Some(remote);
+    }
+
+    /// Mail this process has no mailbox for: to the rest of the world, if there's a way there.
+    #[allow(clippy::result_large_err)]
+    fn elsewhere(&self, to: Address, msg: Message) -> Result<(), Message> {
+        let remote = read(&self.remote).clone();
+        match remote {
+            Some(r) => r.send(to, msg),
+            None => Err(msg),
+        }
+    }
+
     pub fn open_directory(&self) -> mpsc::UnboundedReceiver<ToDirectory> {
         let (tx, rx) = mpsc::unbounded_channel();
         *write(&self.directory) = Some(tx);
@@ -91,25 +109,25 @@ impl Transport for Post {
     #[allow(clippy::result_large_err)]
     fn send(&self, to: Address, msg: Message) -> Result<(), Message> {
         match (to, msg) {
-            (Address::Sim(id), Message::Sim(m)) => match read(&self.sims).get(&id) {
+            (Address::Sim(id), Message::Sim(m)) => match read(&self.sims).get(&id).cloned() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Sim(e.0)),
-                None => Err(Message::Sim(m)),
+                None => self.elsewhere(to, Message::Sim(m)),
             },
-            (Address::Gate(id), Message::Gate(m)) => match read(&self.gates).get(&id) {
+            (Address::Gate(id), Message::Gate(m)) => match read(&self.gates).get(&id).cloned() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Gate(e.0)),
-                None => Err(Message::Gate(m)),
+                None => self.elsewhere(to, Message::Gate(m)),
             },
-            (Address::Store, Message::Store(m)) => match read(&self.store).as_ref() {
+            (Address::Store, Message::Store(m)) => match read(&self.store).clone() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Store(e.0)),
-                None => Err(Message::Store(m)),
+                None => self.elsewhere(to, Message::Store(m)),
             },
-            (Address::Social, Message::Social(m)) => match read(&self.social).as_ref() {
+            (Address::Social, Message::Social(m)) => match read(&self.social).clone() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Social(e.0)),
-                None => Err(Message::Social(m)),
+                None => self.elsewhere(to, Message::Social(m)),
             },
-            (Address::Directory, Message::Directory(m)) => match read(&self.directory).as_ref() {
+            (Address::Directory, Message::Directory(m)) => match read(&self.directory).clone() {
                 Some(tx) => tx.send(m).map_err(|e| Message::Directory(e.0)),
-                None => Err(Message::Directory(m)),
+                None => self.elsewhere(to, Message::Directory(m)),
             },
             // A message that doesn't fit its address.
             (_, m) => Err(m),

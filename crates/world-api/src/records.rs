@@ -23,7 +23,7 @@ use ruina_engine::player::{Mode, Player, V3};
 use ruina_engine::skills::SkillSet;
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS};
 
-use crate::ids::{CharacterId, EntityId, SimId, SpaceId, Tick};
+use crate::ids::{CharacterId, EntityId, Epoch, SimId, SpaceId, Tick};
 
 /// The side of a cell, in metres: what a client is sent is picked cell by cell.
 pub const CELL: f64 = 32.0;
@@ -47,6 +47,9 @@ pub fn cells_round(x: f64, z: f64, radius: f64) -> impl Iterator<Item = CellKey>
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TickOut {
     pub sim: SimId,
+    /// The epoch of the simulation's lease on its space: a gate takes ticks only from its space's
+    /// current holder (once several processes share the world).
+    pub lease: Epoch,
     pub space: Option<SpaceId>,
     pub tick: Tick,
     /// What others see, by cell, in the order of their keys.
