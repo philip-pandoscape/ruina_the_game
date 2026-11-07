@@ -5,7 +5,7 @@ import { SHIP_DESIGNS } from '../../content/shipyard';
 import { packDef } from '../../content/trade';
 import { GROUND, STORM } from '../../content/traversal';
 import { type BoatDef, isBoat, MOUNTS, VEHICLES, type WheeledDef } from '../../content/vehicles';
-import { sailEfficiency } from '../../engine/island';
+import { sailEfficiency } from '../../engine/life';
 import { EMBERHOLM } from '../../engine/zone';
 import { MOVE } from '../../content/tuning';
 import { coins, count, degrees, duration, listOf, metres, num, pct, slopeDegrees, speed, speedKmh, times, turnRate } from '../format';

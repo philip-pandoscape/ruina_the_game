@@ -1,7 +1,7 @@
 import '../support/engineSetup';
 import { expect, test, type Page } from '@playwright/test';
 import { SAVE_KEY } from '../../src/app/save';
-import { type Command, newLifeState, sailEfficiency } from '../../src/engine/island';
+import { type Command, newLifeState, sailEfficiency } from '../../src/engine/life';
 import { EMBERHOLM } from '../../src/engine/zone';
 import { skillsFrom } from '../../src/content/skills';
 import { LABOR } from '../../src/content/trade';

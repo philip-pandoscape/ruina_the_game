@@ -10,7 +10,7 @@ import { actorKindAt, findKind } from '../content/actors';
 import { isAlive, behaviour, stateProgress } from '../engine/creatures';
 import { type GameEvent, type PlayerState } from '../engine/rules';
 import { CIRCLE } from '../render/spells';
-import { sitIn } from '../render/open/life';
+import { sitIn } from '../render/open/land';
 import { seatedState } from '../render/open/gameTables';
 import { rideable, isBoat } from '../content/vehicles';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from '../ui/icons';

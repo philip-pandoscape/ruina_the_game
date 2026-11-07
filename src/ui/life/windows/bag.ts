@@ -1,6 +1,6 @@
 import { BAG_SLOTS, CATEGORIES, itemDef, vendorFor } from '../../../content/items';
 import { packDef } from '../../../content/trade';
-import { carried } from '../../../engine/island';
+import { carried } from '../../../engine/life';
 import { gridHtml, slotHtml } from '../../components/slot';
 import { DockedWindow, frameHtml } from '../../components/window';
 import { type MenuEntry, openMenu } from '../../theme/contextMenu';

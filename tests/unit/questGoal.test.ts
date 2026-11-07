@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { type QuestMarker, QUESTS, questDef } from '../../src/content/quests';
 import { LABOR } from '../../src/content/trade';
-import { initialWeather, type IslandRead, type LifeState, newLand, newLifeState } from '../../src/engine/island';
+import { initialWeather, type IslandRead, type LifeState, newLand, newLifeState } from '../../src/engine/life';
 import type { SimRead } from '../../src/engine/rules';
 import { makeZoneWorld, type ZoneData } from '../../src/engine/zone';
 import { questGoal } from '../../src/ui/life/hud/goal';

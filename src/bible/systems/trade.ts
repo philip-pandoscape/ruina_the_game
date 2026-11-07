@@ -3,7 +3,7 @@
 import { ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { CARRY, DEMAND, FRESHNESS, type PackDef, PACKS, placeName, ROUTES } from '../../content/trade';
 import { MOUNTS } from '../../content/vehicles';
-import { freshness } from '../../engine/island';
+import { freshness } from '../../engine/life';
 import { EMBERHOLM as Z } from '../../engine/zone';
 import { change, coins, count, duration, key, metres, num, pct, speed, times } from '../format';
 import { system, table } from '../kit';

@@ -13,7 +13,7 @@ import {
   nodeReady,
   sailEfficiency,
   stormAt,
-} from '../../engine/island';
+} from '../../engine/life';
 import { type PlayerState, angleDiff } from '../../engine/rules';
 import { toLocal, toWorld, type Heightfield } from '../../engine/zone';
 import type { Hero, SeatPose } from '../character';

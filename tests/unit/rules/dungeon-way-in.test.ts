@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 import { test, type Page } from '../../support/headless';
-import type { Command } from '../../../src/engine/island';
+import type { Command } from '../../../src/engine/life';
 import type { LifePress } from '../../../src/ui/life/lifeUI';
 import { gameReady } from '../../support/headless';
 

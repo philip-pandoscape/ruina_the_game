@@ -1,6 +1,6 @@
 import { packDef } from '../../../content/trade';
 import { glider as gliderDef, isBoat, isMount, rideable } from '../../../content/vehicles';
-import { carried, ridden, sailEfficiency, stormAt } from '../../../engine/island';
+import { carried, ridden, sailEfficiency, stormAt } from '../../../engine/life';
 import { angleDiff, heightAboveGround } from '../../../engine/rules';
 import { SURFACE } from '../../../engine/zone';
 import { iconHtml, withIcons } from '../../theme/icons';

@@ -10,7 +10,7 @@ import { migrateStorage } from '../../src/app/storage';
 import { makeStep } from '../../src/app/step';
 import { makeTestApi } from '../../src/app/testApi';
 import { Engine } from '../../src/engine/engine';
-import { skillBudget, type Command } from '../../src/engine/island';
+import { skillBudget, type Command } from '../../src/engine/life';
 import { dungeonDef } from '../../src/engine/zone';
 import { DungeonVisit } from '../../src/app/dungeonVisit';
 import { FollowCamera } from '../../src/render/camera';

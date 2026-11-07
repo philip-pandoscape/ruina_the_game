@@ -10,7 +10,7 @@ export { nodeReady, shortTime } from './life/interact';
 export type { FocusAction, Placement } from './life/interact';
 export { islandData } from './life/save';
 export type { Saved } from './life/save';
-export { IslandView } from './islandView';
+export { IslandView } from './lifeView';
 export type { Command, IslandRead, LifeEvent, OthersVehicle } from './life/life';
 export { skillBudget } from './life/progress';
 export { isReady, questsAt } from './life/quests';

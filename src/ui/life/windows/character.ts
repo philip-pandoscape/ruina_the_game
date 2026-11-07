@@ -3,7 +3,7 @@ import { LABOR, packDef } from '../../../content/trade';
 import { glider as gliderDef } from '../../../content/vehicles';
 import { pointsLeft } from '../../../content/build';
 import type { Vitals } from '../../hud';
-import { skillBudget, carried } from '../../../engine/island';
+import { skillBudget, carried } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { slotHtml } from '../../components/slot';
 import type { View } from '../../components/window';

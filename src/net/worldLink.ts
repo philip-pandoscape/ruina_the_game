@@ -1,4 +1,4 @@
-import type { Command, Land, LifeEvent, LifeState, Market, Placement, Vehicle, Weather } from '../engine/island';
+import type { Command, Land, LifeEvent, LifeState, Market, Placement, Vehicle, Weather } from '../engine/life';
 import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
 import contentHash from '../../shared/hash.json' with { type: 'json' };

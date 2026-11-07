@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { defaultBuild } from '../../src/content/build';
 import { Engine } from '../../src/engine/engine';
-import type { Command } from '../../src/engine/island';
+import type { Command } from '../../src/engine/life';
 import { type Actions, NO_ACTIONS, type PlayerState } from '../../src/engine/rules';
 import { EngineSession } from '../../src/engine/session';
 import { Prediction, quantize, stateFromServer } from '../../src/net/netPlayer';

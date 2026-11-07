@@ -1,7 +1,7 @@
 import { recipesAt, vendorFor } from '../../../content/items';
 import { questDef } from '../../../content/quests';
 import { CONTRACTS, PACKS, packDef, placeName, route } from '../../../content/trade';
-import { shortTime, questsAt, carried, demandAt, freshness, quote } from '../../../engine/island';
+import { shortTime, questsAt, carried, demandAt, freshness, quote } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { listHtml, rowHtml } from '../../components/list';

@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import type { AutoWalk } from '../../input/autoWalk';
 import { packDef } from '../../content/trade';
 import type { Vitals } from '../hud';
-import { housePose, stillNeeds, type Command, type IslandView, type LifeEvent } from '../../engine/island';
+import { housePose, stillNeeds, type Command, type IslandView, type LifeEvent } from '../../engine/life';
 import type { SimView, World } from '../../engine/rules';
 import type { WorldLayout } from '../../engine/zone';
 import { DockedWindow, type View } from '../components/window';

@@ -15,7 +15,7 @@ import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/a
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
 import { type Actions, angleDiff, resolveSkills } from './engine/rules';
 import { dungeonDef, groundAt } from './engine/zone';
-import { ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
+import { ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/life';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { SpellView } from './render/spells';
@@ -24,7 +24,7 @@ import { MissileView } from './render/missiles';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { Engine } from './engine/engine';
-import { LifeView } from './render/open/life';
+import { LifeView } from './render/open/land';
 import { LifeUI, type LifePress } from './ui/life/lifeUI';
 import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';

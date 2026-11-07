@@ -1,6 +1,6 @@
 import { blueprintDef } from '../../../content/housing';
 import { itemDef } from '../../../content/items';
-import { isComplete } from '../../../engine/island';
+import { isComplete } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { listHtml, rowHtml } from '../../components/list';

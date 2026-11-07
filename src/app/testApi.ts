@@ -10,7 +10,7 @@ import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
 import { NO_ACTIONS, type Actions } from '../engine/rules';
-import { demandAt, IslandView } from '../engine/island';
+import { demandAt, IslandView } from '../engine/life';
 import { arrivalOf, dungeonDef } from '../engine/zone';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';

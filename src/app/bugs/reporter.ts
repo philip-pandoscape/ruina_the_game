@@ -1,4 +1,4 @@
-import type { LifeEvent } from '../../engine/island';
+import type { LifeEvent } from '../../engine/life';
 import type { Actions, GameEvent } from '../../engine/rules';
 import { FrameGrabber, hudText, screenshot, type Screenshot } from './capture';
 import { errors, logs, recordError } from './logs';

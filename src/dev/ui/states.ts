@@ -3,7 +3,7 @@ import { CATEGORIES, type ItemCat, ITEMS, RECIPES, VENDORS } from '../../content
 import { CHALLENGE, MINIGAMES } from '../../content/minigames';
 import { QUESTS } from '../../content/quests';
 import type { Engine } from '../../engine/engine';
-import { DAY, housePose, type IslandView, islandData, type Land, type LifeState, newLand } from '../../engine/island';
+import { DAY, housePose, type IslandView, islandData, type Land, type LifeState, newLand } from '../../engine/life';
 import { minigameDeal } from '../../engine/minigames';
 import type { LifeUI } from '../../ui/life/lifeUI';
 import type { ChannelsUI, ChannelsView } from '../../ui/channels/channelsUI';

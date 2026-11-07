@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { QUESTS } from '../../src/content/quests';
 import { START_POINTS } from '../../src/content/skills';
-import { newLifeState, skillBudget } from '../../src/engine/island';
+import { newLifeState, skillBudget } from '../../src/engine/life';
 
 // What the page works out for itself about getting better on the island: the skill points you have,
 // counted from the quests and milestones you've finished (never stored). Points given, what trains

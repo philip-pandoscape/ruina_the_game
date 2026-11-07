@@ -2,7 +2,7 @@ import { toScene } from '../../../render/origin';
 import * as THREE from 'three';
 import { questDef } from '../../../content/quests';
 import { isBoat, isMount, rideable } from '../../../content/vehicles';
-import { questsAt, ridden } from '../../../engine/island';
+import { questsAt, ridden } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { uiIcon } from '../../theme/icons';

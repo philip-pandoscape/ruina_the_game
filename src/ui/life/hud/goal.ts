@@ -14,7 +14,7 @@ import {
   shipNeeds,
   shipOn,
   shipStageReady,
-} from '../../../engine/island';
+} from '../../../engine/life';
 import type { SimRead } from '../../../engine/rules';
 
 // Where the quest you're on leads you: the ring on both maps, the marker on the compass, and what

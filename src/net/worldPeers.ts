@@ -8,7 +8,7 @@ import {
   type ShipBuild,
   type Vehicle,
   vehicleBodies,
-} from '../engine/island';
+} from '../engine/life';
 import { angleDiff, type Mover, type PlayerState } from '../engine/rules';
 import type { ZoneData } from '../engine/zone';
 import type { Engine } from '../engine/engine';

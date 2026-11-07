@@ -1,4 +1,4 @@
-import { type IslandView, islandData, type Saved } from '../engine/island';
+import { type IslandView, islandData, type Saved } from '../engine/life';
 import type { SimView } from '../engine/rules';
 
 // Your island between visits, in this browser: only for automated tests and bug-report replays

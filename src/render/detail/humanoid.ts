@@ -1374,7 +1374,7 @@ function swim(b: Body, p: PoseInput): void {
 /** Hanging from the control bar: hands on its grips wherever the wing tilts it. */
 function glide(b: Body, p: PoseInput): void {
   const t = p.time;
-  // The wing's own tilt, as src/render/open/life.ts animates it.
+  // The wing's own tilt, as src/render/open/land.ts animates it.
   const bank = clamp(p.bank * 0.6, -0.9, 0.9);
   const pitch = clamp((p.rise * JUMP.velocity) / 12, -0.35, 0.3);
   // Hanging just behind the bar, which is out in front of the chin (gliders.ts), arms reaching to it,

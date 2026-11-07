@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../../src/content/skills';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, weaponIndex } from '../../src/content/tuning';
-import type { Command } from '../../src/engine/island';
+import type { Command } from '../../src/engine/life';
 import type { LifePress } from '../../src/ui/life/lifeUI';
 import { gameReady } from '../support/game';
 import { untitled } from '../support/labels';

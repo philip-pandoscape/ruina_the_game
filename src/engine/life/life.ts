@@ -54,7 +54,7 @@ export type LifeEvent =
 /**
  * What the helpers the page calls read of a life: its zone, its state and what's in the bag, its
  * land, the world's market and weather where you are, and the land's clock (the engine's snapshot,
- * src/engine/islandView.ts).
+ * src/engine/lifeView.ts).
  */
 export interface IslandRead {
   readonly zone: ZoneData;

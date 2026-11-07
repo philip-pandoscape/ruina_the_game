@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { defaultBuild } from '../../content/build';
 import { COMBAT, MP, STAMINA } from '../../content/tuning';
 import { Engine } from '../../engine/engine';
-import { skillBudget } from '../../engine/island';
+import { skillBudget } from '../../engine/life';
 import { startEngine } from '../../engine/load';
 import { NO_ACTIONS } from '../../engine/rules';
 import { LifeUI } from '../../ui/life/lifeUI';

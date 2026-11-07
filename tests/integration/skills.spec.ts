@@ -14,7 +14,7 @@ import {
 } from '../../src/content/tuning';
 import { LEVEL_XP, NODES, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
 import { resolveSkills } from '../../src/engine/rules';
-import type { Command } from '../../src/engine/island';
+import type { Command } from '../../src/engine/life';
 import { gameReady } from '../support/game';
 // The engine, for the numbers a build's skills make (src/engine/skills.ts), as the unit tier loads it.
 import '../support/engineSetup';

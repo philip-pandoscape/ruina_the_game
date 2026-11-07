@@ -1,6 +1,6 @@
 import type * as THREE from 'three';
 import type { Vitals } from '../hud';
-import type { Command, IslandView } from '../../engine/island';
+import type { Command, IslandView } from '../../engine/life';
 import type { SimView, World } from '../../engine/rules';
 import type { Goal } from './hud/goal';
 import type { TravelUI } from './travelUI';

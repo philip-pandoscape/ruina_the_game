@@ -1,5 +1,5 @@
 import { QUESTS, questDef } from '../../../content/quests';
-import { isReady } from '../../../engine/island';
+import { isReady } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import type { View } from '../../components/window';

@@ -56,7 +56,7 @@ import { QUESTS, questDef } from '../../src/content/quests';
 import { rideable } from '../../src/content/vehicles';
 import { isAlive } from '../../src/engine/creatures';
 import { Engine } from '../../src/engine/engine';
-import { type Command, type LifeState, questsAt, type Vehicle } from '../../src/engine/island';
+import { type Command, type LifeState, questsAt, type Vehicle } from '../../src/engine/life';
 import { type Actions, NO_ACTIONS } from '../../src/engine/rules';
 import { useContent } from '../../src/engine/wasm';
 import { toWorld, type ZoneNpc } from '../../src/engine/zone';

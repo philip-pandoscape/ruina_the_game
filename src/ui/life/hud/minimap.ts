@@ -1,4 +1,4 @@
-import { questsAt } from '../../../engine/island';
+import { questsAt } from '../../../engine/life';
 import { el } from '../../components/dom';
 import type { IslandUI } from '../context';
 import { type WorldPictures, questMark } from '../map';

@@ -14,7 +14,7 @@ import { EMBERHOLM, growRegionHere, type RegionData, worldOf } from './world/reg
 import { type WorldLayout, worldLayout } from './world/layout';
 import { WorldGround } from './world/worldGround';
 import type { BoxCollider, Deck } from './world/types';
-import { IslandView } from './islandView';
+import { IslandView } from './lifeView';
 import { EngineSession, type SessionView } from './session';
 import { RangeView, SimView } from './views';
 
@@ -24,7 +24,7 @@ import { RangeView, SimView } from './views';
 // state from outside is a call here, named for what it does: putting you somewhere, your build, a
 // copy's floors and walls, an island loaded, the server's word on you. After every step and call
 // what the page reads is read back from the session: you and the creatures (`sim`, src/engine/
-// views.ts), the island (`life`, src/engine/islandView.ts), and for drawing and the camera the
+// views.ts), the island (`life`, src/engine/lifeView.ts), and for drawing and the camera the
 // world's colliders whenever what's solid changes. Those are for reading.
 
 export interface EngineOptions {

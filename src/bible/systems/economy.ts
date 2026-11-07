@@ -6,7 +6,7 @@ import { ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { QUESTS } from '../../content/quests';
 import { SHIP_DESIGNS } from '../../content/shipyard';
 import { CLOCK, formatCoins, LABOR, PACKS, ROUTES, placeName } from '../../content/trade';
-import { BUYBACK_RANGE } from '../../engine/island';
+import { BUYBACK_RANGE } from '../../engine/life';
 import { EMBERHOLM as Z } from '../../engine/zone';
 import { coins, count, duration, key, metres, num, pct, range, speed, times } from '../format';
 import { system, table } from '../kit';

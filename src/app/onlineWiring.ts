@@ -5,7 +5,7 @@
 // stops for good if another window takes this character or the sign-in ends. It reaches the game
 // through `g`, the references src/main.ts hands it.
 import { stateFromServer } from '../net/netPlayer';
-import type { Command } from '../engine/island';
+import type { Command } from '../engine/life';
 import { leaveFor, plainUrl } from '../app/resume';
 import { signOut } from '../net/account';
 import { NetOverlay, OnlineBadge, showStopped } from '../ui/signIn';
@@ -13,7 +13,7 @@ import { splash } from '../ui/splash';
 import { loader } from '../assets/loader';
 import type { SpaceView, WorldTick, YouState } from '../net/worldLink';
 import type { GameRefs } from '../main';
-import type { FocusAction } from '../engine/island';
+import type { FocusAction } from '../engine/life';
 
 /** What F does that runs ahead online (see engine.remote): packs in and out of hands and vehicles, getting in. */
 const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);

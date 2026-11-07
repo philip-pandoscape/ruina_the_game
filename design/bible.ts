@@ -19,7 +19,7 @@ import { GROUND, STORM, SWIM } from '../src/content/traversal';
 import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, SKILLS, WEAPONS } from '../src/content/tuning';
 import { LADDERS, actorKind } from '../src/content/actors';
 import { behaviour } from '../src/engine/creatures';
-import { freshness } from '../src/engine/island';
+import { freshness } from '../src/engine/life';
 import { EMBERHOLM as Z, type ZonePlace } from '../src/engine/zone';
 import { drawIsland, growIsland, type Island, LAYER_NAMES, type Layers, toMap } from '../src/bible/map';
 import { esc } from '../src/util/html';

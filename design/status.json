@@ -169,7 +169,7 @@
       "notes": "Updraft columns lift an open glider; visible as spiralling wisps at the Windspire's foot.",
       "files": [
         "shared/regions/emberholm.json",
-        "src/render/open/life.ts"
+        "src/render/open/land.ts"
       ]
     },
     {
@@ -249,7 +249,7 @@
       "files": [
         "shared/shipyard.json",
         "src/engine/life/shipyard.ts",
-        "src/render/open/life.ts"
+        "src/render/open/land.ts"
       ]
     },
     {
@@ -267,7 +267,7 @@
       "files": [
         "crates/server/src/sim/mod.rs",
         "src/net/worldPeers.ts",
-        "src/render/open/life.ts",
+        "src/render/open/land.ts",
         "src/engine/life/vehicles.ts"
       ]
     },
@@ -686,7 +686,7 @@
         "crates/server/src/gate/socket.rs",
         "src/net/worldPeers.ts",
         "src/net/worldLink.ts",
-        "src/render/open/life.ts",
+        "src/render/open/land.ts",
         "tests/integration/online.spec.ts"
       ]
     },
@@ -706,7 +706,7 @@
       "title": "Walls-down view indoors",
       "notes": "Step inside a finished house and its walls are cut to waist height, like a dollhouse, so you can see yourself, the bed, the chest and the hearth; the camera stops pulling in.",
       "files": [
-        "src/render/open/life.ts",
+        "src/render/open/land.ts",
         "src/main.ts"
       ]
     },
@@ -737,7 +737,7 @@
       "notes": "All twelve villagers have their own model and outfit that says their trade at a glance (the elder's robe and staff, Mara's basket, Ilsa's tricorn, Pell's top hat...). They breathe and look around, turn to face you when you come close, and gesture while you talk.",
       "files": [
         "src/render/models/villagers.ts",
-        "src/render/open/life.ts"
+        "src/render/open/land.ts"
       ]
     },
     {
@@ -1214,7 +1214,7 @@
       "title": "Cottages built from the village kit, stage by stage",
       "notes": "A cottage on a Hearthside plot is the kit's too (plan \"cottage\", 6 x 8, gabled to the front): its floor, then an open timber frame, then plaster walls with their door and windows, then the tiled roof, chimney and furniture (hearth, bed, chest, a table laid). You walk in and it opens like the town's houses; other players' cottages the same.",
       "files": [
-        "src/render/open/life.ts",
+        "src/render/open/land.ts",
         "src/render/village/village.ts",
         "shared/structures.json"
       ]

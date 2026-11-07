@@ -161,3 +161,6 @@ crates/server/src/play/stepping.rs	crates/server/src/sim/stepping.rs
 crates/server/src/play/clock.rs	crates/server/src/sim/clock.rs
 crates/server/src/db.rs	crates/server/src/store/db.rs
 crates/server/src/combat.rs	crates/server/src/gate/encode.rs
+src/engine/island.ts	src/engine/life.ts
+src/engine/islandView.ts	src/engine/lifeView.ts
+src/render/open/life.ts	src/render/open/land.ts

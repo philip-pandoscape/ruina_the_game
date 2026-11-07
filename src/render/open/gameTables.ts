@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MINIGAMES, TABLE } from '../../content/minigames';
 import type { PlayerState } from '../../engine/rules';
 import { PAL, Parts, TAU, box, cyl, mesh } from '../models/kit';
-import type { Seated } from './life';
+import type { Seated } from './land';
 
 // The tables thrown down for mini-games (src/ui/minigames), as everyone in the channel sees them:
 // a round tavern table with the game's board on it and a stool either side, the two players

@@ -1,5 +1,5 @@
 import { type Actions, type World, type SimView, angleDiff } from '../engine/rules';
-import { type IslandView, ridden } from '../engine/island';
+import { type IslandView, ridden } from '../engine/life';
 import { RoadNetwork, routeNearest, routePoint, routeTight, type Route } from '../engine/zone';
 import { isBoat, isMount, isWheeled, rideable, type WheeledDef } from '../content/vehicles';
 

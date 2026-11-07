@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { Command } from '../../src/engine/island';
+import type { Command } from '../../src/engine/life';
 import { floorAt } from '../../src/engine/world/dungeons';
 import { arrivalOf, DUNGEONS, EMBERHOLM } from '../../src/engine/zone';
 import type { LifePress } from '../../src/ui/life/lifeUI';

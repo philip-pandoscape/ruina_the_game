@@ -604,7 +604,7 @@ class ModelsGallery implements Gallery {
    * with neither the sea nor the hull's seal (vehicles.ts sealHull), and compares the two over the
    * hull's opening (a mask drawn from the seal): the sea drawn over the floor, or anything inside
    * hidden by the seal, is a difference there. `swell` first lowers and tips the boat into the sea, as
-   * src/render/open/life.ts rocks one at sea. Returns how many pixels inside the opening differ, out of
+   * src/render/open/land.ts rocks one at sea. Returns how many pixels inside the opening differ, out of
    * how many, and the share of the pixels outside it that differ (the sea, which should be drawn).
    */
   private seaInside(label: string, swell: { bob?: number; pitch?: number; roll?: number }): { inside: number; of: number; around: number } | null {

@@ -1,6 +1,6 @@
 import { GLIDERS, MOUNTS, VEHICLES } from '../../content/vehicles';
 import { PACKS } from '../../content/trade';
-import type { Pack, Vehicle } from '../../engine/island';
+import type { Pack, Vehicle } from '../../engine/life';
 import type { FeedTick, PeerSample } from '../feedTick';
 import type { ArrowRecord, MeteorRecord, NetActor } from '../worldFeed';
 import { ackBytes, type Ent, Heard, type State } from './heard';

@@ -2,7 +2,7 @@
 // sticks): what a report keeps of the game's state, sampled as it plays, and the hooks it calls.
 // It reaches the game through `g`, the references src/main.ts hands it.
 import { isAlive, stateName } from '../engine/creatures';
-import { ridden } from '../engine/island';
+import { ridden } from '../engine/life';
 import { saveData } from './save';
 import { BugReporter } from './bugs/reporter';
 import { COMBAT } from '../content/tuning';

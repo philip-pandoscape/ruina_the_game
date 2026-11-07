@@ -5,7 +5,7 @@ import { FARM } from '../../content/farming';
 import { CLOCK, LABOR } from '../../content/trade';
 import { STORM } from '../../content/traversal';
 import vehiclesSource from '../../../crates/engine/src/life/vehicles.rs?raw';
-import { sailEfficiency, hourAt, rainAt } from '../../engine/island';
+import { sailEfficiency, hourAt, rainAt } from '../../engine/life';
 import { EMBERHOLM } from '../../engine/zone';
 import weatherSource from '../../../crates/engine/src/life/weather.rs?raw';
 import { SIM_HZ } from '../../content/tuning';

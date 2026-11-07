@@ -1,5 +1,5 @@
 import { rideable } from '../../../content/vehicles';
-import { housePose, questsAt } from '../../../engine/island';
+import { housePose, questsAt } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import type { View } from '../../components/window';
 import { iconImage } from '../../theme/icons';

@@ -1,7 +1,7 @@
 import './minigames.css';
 import { CHALLENGE, MINIGAMES, type MiniGameDef, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
 import type { BoardView, ChallengeView, TableLink, TableView } from './tables';
-import type { IslandView } from '../../engine/island';
+import type { IslandView } from '../../engine/life';
 import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu } from '../theme/contextMenu';
 import { iconHtml, money } from '../theme/icons';

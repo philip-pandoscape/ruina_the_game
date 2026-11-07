@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MOVE } from '../../content/tuning';
-import type { IslandView } from '../../engine/island';
+import type { IslandView } from '../../engine/life';
 import type { PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
 import { SpeciesCrowd } from '../creatures/crowd';
@@ -8,7 +8,7 @@ import { HERO_TEAM_COLOURS } from '../creatures/heroBody';
 import { getSpecies } from '../creatures/registry';
 import type { SpeciesDef } from '../creatures/species';
 import type { HouseView } from '../village/village';
-import { LifeView, sitIn, type Seated } from './life';
+import { LifeView, sitIn, type Seated } from './land';
 import type { ModelKit } from './models';
 
 // Everyone else in your channel of Emberholm, drawn: a body for each player as they move, with their

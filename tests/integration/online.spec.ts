@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { rainAt } from '../../src/engine/island';
+import { rainAt } from '../../src/engine/life';
 import { onlineReady as waitOnline } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
