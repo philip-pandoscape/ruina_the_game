@@ -181,7 +181,7 @@ export function defaultBuild(): Build {
 }
 
 /**
- * A build as it comes on the wire, by places in the content (crates/server/src/play/socket.rs
+ * A build as it comes on the wire, by places in the content (crates/server/src/gate/socket.rs
  * parse_build: the learned set's words, the weapon, the hotbar and the movement slots); null if it
  * isn't one, or doesn't hold together with `budget` points. The server and this page have the same
  * content (src/net/worldLink.ts checks), so the places mean the same to both.

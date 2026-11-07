@@ -14,7 +14,7 @@ add a region or an instance. The plans for the rest are in `.plans/world/` and t
 
 | What | Where | Played in |
 |---|---|---|
-| A region | `content/regions/<id>.json` (its recipe) and `content/regions/<id>/` (its places, buildings, gathering spots, doors and the rest; its people are `content/npcs/`) | Channels: everyone in the world, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
+| A region | `content/regions/<id>.json` (its recipe) and `content/regions/<id>/` (its places, buildings, gathering spots, doors and the rest; its people are `content/npcs/`) | Channels: everyone in the world, a channel each so none gets crowded (`crates/server/src/directory/mod.rs`) |
 | A dungeon | `content/instances/<id>.json`, its door in the region it's entered from (`content/regions/<region>/doors.json`) | A copy for each party, entered through its portal in the world |
 | A developer zone | `content/instances/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
 
@@ -101,7 +101,7 @@ instance.
 
 ## Channels
 
-The world is played in channels (`crates/server/src/play/spaces.rs`, `channels.rs`). A channel is a
+The world is played in channels (`crates/server/src/directory/mod.rs`, `channels.rs`). A channel is a
 game of its own, with its players, creatures and bots, stepped 20 times a second by the world thread.
 
 - **Residents.** Each channel is home to at most 24 characters (`CHANNEL_CAP`).
@@ -109,7 +109,7 @@ game of its own, with its players, creatures and bots, stepped 20 times a second
   they're away.
 - **Plots.** A house plot goes to whoever built on it first in that channel.
 
-Every game numbers its ticks by the world's clock (`crates/server/src/play/clock.rs`): frames at 60
+Every game numbers its ticks by the world's clock (`crates/server/src/sim/clock.rs`): frames at 60
 a second from the world's epoch (2026-01-01 UTC), and a server tick every third frame, 20 a second.
 - **The same moment everywhere.** A tick is the same moment in every channel and copy, so a browser's
   timelines run on across moves between them, and across a server's restart. A tick that runs late
@@ -199,7 +199,7 @@ its props stand on its own pieces, and its torches and falls have their light.
 
 A bot is a player without a socket whose inputs a brain fills each tick (`crates/engine/src/bots.rs`:
 a skirmisher finds a foe, fights and falls back when hurt; a wanderer walks about). The server steps
-them like players (`crates/server/src/play/bots.rs`), and browsers see them as other players marked
+them like players (`crates/server/src/sim/bots.rs`), and browsers see them as other players marked
 `bot`. Each brain sees everyone as the tick begins and decides for its bot alone, so the order they
 think in changes nothing, and a server started with `--parallel on` has them think all at once, as
 it steps the players (`play/stepping.rs`).
@@ -264,7 +264,7 @@ what's near the player (R10.16, R10.23).
   gliding, farming, vehicles, boats).
 - `crates/engine/src/open/dungeon.rs`: every instance loads, has a floor where you come in and its
   pieces within its edge, and every dungeon has a door in the world and a way out.
-- `crates/server/src/play/spaces.rs`: copies made, kept and let go; admins in, players kept out; the
+- `crates/server/src/directory/mod.rs`: copies made, kept and let go; admins in, players kept out; the
   yard's creatures on its floor; the goblin camp's war-band.
 - `crates/engine/src/session.rs` and `tests/unit/rules/instances.test.ts`: offline, a copy of the yard
   with its own creatures on its floor (the world's back as they were when you come out), where it's

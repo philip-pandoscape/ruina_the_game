@@ -1,7 +1,7 @@
 //! Characters: an account holds up to MAX_PER_ACCOUNT, each with its own island (kept on its row in
 //! Postgres) and a name no other character on the server has, whatever the case, since names show
 //! over heads. The browser's character select screen (src/ui/characterSelect.ts) lists them, makes
-//! new ones and deletes them; the world plays whichever it picks (crates/server/src/play/socket.rs).
+//! new ones and deletes them; the world plays whichever it picks (crates/server/src/gate/socket.rs).
 //!
 //!   GET    /api/characters       yours, oldest first: {characters: [Character], max}
 //!   POST   /api/characters       {name}: a new one with a fresh island -> {character}
@@ -89,7 +89,7 @@ pub async fn of_account(db: &PgPool, account: i64) -> Result<Vec<Character>, sql
 
 /// Rewrites the builds still kept by index, as they were before builds named things by id, by id
 /// (crate::skills::saved_by_id): how many it rewrote, and how many it left as they were. Run as the
-/// server starts (crate::db::connect). A row is rewritten only if it still holds what was read, so
+/// server starts (crate::store::db::connect). A row is rewritten only if it still holds what was read, so
 /// a build written meanwhile (by the server an update is replacing, say) is never lost: that one is
 /// rewritten the next time a server starts, and read as it is until then
 /// (crate::skills::build_from_saved reads both). One that was never a build the server would take

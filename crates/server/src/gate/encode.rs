@@ -1,5 +1,5 @@
 //! Combat on the wire. The rules of players fighting together are the engine's
-//! (crates/engine/src/combat.rs, reached here as `crate::combat::Players`): this is the server's
+//! (crates/engine/src/combat.rs, reached here as `crate::gate::encode::Players`): this is the server's
 //! side of them, what a browser's input bytes mean and the arrows, meteors and effects a browser is
 //! sent.
 

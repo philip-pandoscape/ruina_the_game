@@ -390,7 +390,7 @@ function portraitOf(who: string): string | null {
 }
 if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
-// Online the game server runs your island and keeps it (crates/server/src/play/mod.rs): your commands go
+// Online the game server runs your island and keeps it (crates/server/src/sim/mod.rs): your commands go
 // to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
 // over. Automated tests run the island here instead, starting fresh every time unless they ask for
 // the one kept in this browser (?world&test&load, which is how bug reports are replayed).
@@ -915,7 +915,7 @@ const api = makeTestApi(refs);
 wireBugReports(refs);
 
 // ---------- Dungeons, online ----------
-// You're in a dungeon's copy, or back in the open world (crates/server/src/play/spaces.rs): the server moved you
+// You're in a dungeon's copy, or back in the open world (crates/server/src/directory/mod.rs): the server moved you
 // there, and this follows (src/app/dungeonVisit.ts): the dungeon solid around you and drawn only
 // while you're in it, and getting up after a knockdown where it's entered.
 function onlineSpace(s: SpaceView): void {

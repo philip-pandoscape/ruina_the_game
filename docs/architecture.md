@@ -14,7 +14,7 @@ is, how they talk, and which guide says more. The root `AGENTS.md` lists the fol
 | The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket, and the games it plays | [world.md](world.md), [admin.md](admin.md) |
 | Content | `content/` built into `shared/` | Every kind of thing as files, checked and built into the bundles both sides read | [content.md](content.md) |
 | Assets | `src/render/assets/`, `src/ui/theme/` | Models, textures, sounds and icons, listed in a manifest and loaded by need | [assets.md](assets.md) |
-| What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build and home channel | `crates/server/src/db.rs` |
+| What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build and home channel | `crates/server/src/store/db.rs` |
 | Tools | `crates/tools`, `tools/` | The conformance programs and the balance harness; contentc, the asset and icon tools, bug reports | `tools/` |
 | Tests | `tests/` | The unit, integration and stress tiers | [testing.md](testing.md) |
 | The bible | `bible/`, `src/bible/` | How the game works, exactly, from its own rules and content | `src/bible/` |
@@ -44,7 +44,7 @@ How each side reaches it: [engine.md](engine.md).
    a sequence number, the tick it drew everyone else at, and the keys packed. Commands (buy, plant,
    build, enter a dungeon) go as JSON. Nothing a browser says about its own state is believed.
 4. **The tick.** One thread, `world`, steps every game 20 times a second, three of the rules' frames
-   each (`crates/server/src/play/socket.rs`, `spawn_world`). A game is a channel of the world or a
+   each (`crates/server/src/gate/socket.rs`, `spawn_world`). A game is a channel of the world or a
    copy of an instance (`play/spaces.rs`). Each tick it:
    - runs each player's inputs as real time allows;
    - steps their lives, the creatures, arrows and meteors, the tables and the bots;
