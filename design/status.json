@@ -1677,7 +1677,10 @@
         "What a region brings to life is data (R9.3): Emberholm's slimes and training dummy are its recipe's spawns, placed by one engine module (crates/engine/src/open/spawns.rs) for the server's channels and copies and the browser's island; ?goblins= is a developer option on top of data.",
         "Phase 9's client leftovers: a waterfall's landing stage and totem only where it has them (R9.10), Goblin's Dread's dressing as data so any cave is drawn from its file (R9.8), and the browser knowing weapons by id, held by a test that reorders them (R9.5's client part).",
         "Guides: docs/world.md (the world, regions on chunks, its ground, spaces and channels, and the instances beside it: their copies, an instance's file, dressing a cave, bots, adding a region or an instance; docs/zones.md folded into it), docs/deploys.md (branches, CI, Railway, a deploy as players see it), and the README as a quick start.",
-        "The content library reaches the hero only through what it says it shows (R6.11b): the weapon held, putting it somewhere, the pose's feedback, hiding the trails, the feet's holds; no casts to its private parts."
+        "The content library reaches the hero only through what it says it shows (R6.11b): the weapon held, putting it somewhere, the pose's feedback, hiding the trails, the feet's holds; no casts to its private parts.",
+        "Offline copies (R10.11): ?test=<instance> and ?offline=<instance> start you in a copy of any instance, its creatures on its floor; the yard instance in the training yard's layout, so the rules tests and most yard specs moved onto it unchanged.",
+        "The world's clock (R10.17): every game numbers its ticks from the world's epoch (crates/server/src/play/clock.rs), the same moment in every channel and copy.",
+        "docs/architecture.md: the map of the pieces, a game online and offline, the client's areas and content's ids."
       ]
     }
   ]

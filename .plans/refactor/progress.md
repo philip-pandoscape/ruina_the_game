@@ -635,3 +635,24 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   dev server reloaded their pages; they pass alone.
 - **Under way:** the skill tree by id (R9.5's rest), in a background agent's worktree. Next, the
   offline yard as the yard instance (R10.11), once that branch is in, since both touch the rules tests.
+
+## 2026-11-06: Offline Copies, the Yard Instance in the Yard's Layout, and the World's Clock (R10.11, R10.17, R13.2)
+
+- **Offline, a copy of any instance (R10.11).** `?test=<instance>` opens one paused for tests, and
+  `?offline=<instance>` plays it running, as if you'd come through its door. A copy played offline
+  brings the creatures its file spawns, standing on its floor, while the world's wait outside.
+- **The yard instance in the training yard's layout.** You come in facing the dummy, with five
+  slimes about it, as the offline yard has them. So the rules tests moved onto the yard instance
+  with nothing changed but their address: 77 of 78 at once, the last (the goblin war-band) now the
+  goblin camp's. Most yard specs moved too.
+- **Left of R10.11**, after the skill tree by id: the hotbar's health bar and three skills specs
+  (the yard's 30 practice points and the build it kept, where a developer zone gives the whole tree
+  and a life); `?test` alone becoming the world; the flat yard's code gone.
+- **The world's clock (R10.17).** Every game numbers its ticks from the world's epoch, so a tick is
+  the same moment in every channel and copy, and a browser's timelines run on across moves and
+  restarts. The ids wait for the wire for crowds and land (R10.8, R10.21), which change what they
+  are.
+- **`docs/architecture.md`**: the map of the pieces, a game online and offline, the client's areas
+  and content's ids.
+- **A slip:** the clock's commit was pushed with the Rust tests and the online specs run, but not
+  the TypeScript unit tier; the bible's test wanted the new file named. Fixed in the next commit.
