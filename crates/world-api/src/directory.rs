@@ -5,6 +5,7 @@
 //! copy of a dungeon), closes copies long empty, and keeps the copies' owners as parties form and
 //! break up.
 
+use ruina_channels::{Standing, Target};
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{CharacterId, Conn, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
@@ -28,12 +29,29 @@ pub enum ToDirectory {
     /// were one owner's and are another's now (a party formed and took its leader's copies, or
     /// broke up and left them to whoever was left). The directory passes each simulation its part
     /// in one message (`ToSim::Parties`).
-    Parties { changed: Vec<(CharacterId, Option<PartyId>)>, hand: Vec<(Owner, Owner)> },
+    /// `leaders`: who leads each party in `changed` (someone who joins a party in another channel
+    /// goes to its leader's).
+    Parties {
+        changed: Vec<(CharacterId, Option<PartyId>)>,
+        hand: Vec<(Owner, Owner)>,
+        #[serde(default)]
+        leaders: Vec<(PartyId, CharacterId)>,
+    },
     /// Whether a character is being played (answered with `Answer::Playing`).
     IsPlaying { character: CharacterId, reply: Reply },
-    /// A character is gone for good (deleted): forget them, and their home channel's simulation
-    /// takes down what they built.
-    Forget { character: CharacterId, channel: Option<u32> },
+    /// A character is gone for good (deleted): forget them, and the channels take down what they
+    /// built.
+    Forget { character: CharacterId },
+    /// A player asks for their region's channels as they see them, through the simulation they play
+    /// in, which says what they're doing (answered with `ToConn::Channels`).
+    Channels { conn: Conn, standing: Standing },
+    /// A player asks to go to another channel, or their party's, through the simulation they play in
+    /// (`from`), which says what they're doing and whether they're an admin (who may open a channel
+    /// by going to it). Moved (`ToSim::Hand`), or told why not.
+    Change { conn: Conn, from: SimId, to: Target, standing: Standing, dev: bool },
+    /// A channel's simulation, once a second: what its players who aren't free to go anywhere are
+    /// doing (a pack, a fight, a vehicle, the air, a table). The rest are free.
+    Standings { sim: SimId, standings: Vec<(CharacterId, Standing)> },
     /// The server is stopping: every simulation writes everyone's life; answer once all are written
     /// (`Answer::Written`).
     SaveAll { reply: Reply },

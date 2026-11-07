@@ -239,7 +239,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/gate/socket.rs). */
-const WORLD_PROTOCOL = 11;
+const WORLD_PROTOCOL = 12;
 /**
  * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
  * says its own in its welcome. Built from other content, the two would read what goes on the wire

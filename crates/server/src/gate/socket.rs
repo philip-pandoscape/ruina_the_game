@@ -25,6 +25,8 @@
 //!                      | space {space}: you've gone into a dungeon's copy, or back out (crates/server/src/sim/host.rs)
 //!                      | party {party|null}: your party as it is now | partyInvite {invite|null}
 //!                      | notice {text}: something to read
+//!                      | channels {channels}: your region's channels as you see them (asked for, and
+//!                        when yours begins to close) | channelMoved {from, to, why}: moved between channels
 //!                      | reset | kicked | error {text}
 //!                      | updating: the server is stopping for an update; once the lives are
 //!                        written, the connection closes with 1012 (service restart)
@@ -37,6 +39,7 @@
 //!                      | dungeon {id, enter}: through a dungeon's portal, or back out of it
 //!                      | partyInvite {to?, name?} | partyAnswer {from, accept} | partyLeave
 //!                      | partyKick {id} | partyLead {id}   (parties, crates/server/src/social/parties.rs)
+//!                      | channels | channel {to} | channel {party: true}   (channels, crates/channels)
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -87,7 +90,7 @@ const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL). So does a page built from other content (content_hash, in
 /// the welcome): what goes on the wire as a place in a bundle's list would mean something else to it.
-pub const WORLD_PROTOCOL: u32 = 11;
+pub const WORLD_PROTOCOL: u32 = 12;
 
 /// Which character a browser wants to play (/ws/world?character=<id>).
 #[derive(Deserialize)]
@@ -196,6 +199,15 @@ enum FromBrowser {
     },
     PartyLead {
         id: i64,
+    },
+    /// Channels (crates/channels): your region's channels, please; to another one, or your
+    /// party's.
+    Channels,
+    Channel {
+        #[serde(default)]
+        to: Option<u32>,
+        #[serde(default)]
+        party: bool,
     },
 }
 
@@ -463,6 +475,10 @@ fn asked(m: FromBrowser, conn: Conn, admin: bool, post: &dyn ruina_world_api::Tr
         FromBrowser::PartyLeave => return social(ToSocial::Leave { conn }),
         FromBrowser::PartyKick { id } => return social(ToSocial::Kick { conn, who: id }),
         FromBrowser::PartyLead { id } => return social(ToSocial::Lead { conn, who: id }),
+        FromBrowser::Channels => Ask::Channels,
+        FromBrowser::Channel { party: true, .. } => Ask::Channel { to: ruina_channels::Target::Party },
+        FromBrowser::Channel { to: Some(n), .. } => Ask::Channel { to: ruina_channels::Target::Channel(n) },
+        FromBrowser::Channel { .. } => return Some(Err("Which channel?".into())),
     }))
 }
 

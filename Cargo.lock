@@ -1251,6 +1251,7 @@ dependencies = [
  "axum",
  "futures-util",
  "rayon",
+ "ruina-channels",
  "ruina-engine",
  "ruina-world-api",
  "serde",
@@ -1278,6 +1279,7 @@ dependencies = [
 name = "ruina-world-api"
 version = "0.1.0"
 dependencies = [
+ "ruina-channels",
  "ruina-engine",
  "serde",
  "serde_json",

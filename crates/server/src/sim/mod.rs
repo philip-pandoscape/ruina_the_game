@@ -201,6 +201,9 @@ pub struct Game {
     step_ms: f64,
     /// How its players are stepped each tick (the server's `--parallel`).
     pub stepping: stepping::Stepping,
+    /// When each player last struck a blow or took one (ms since 1970): in a fight, the channels'
+    /// policy won't move them (crates/channels).
+    fought: HashMap<CharacterId, ruina_world_api::Millis>,
 }
 
 /// Ticks between the stats an admin is sent (once a second).
@@ -280,6 +283,7 @@ impl Game {
             bot_count: 0,
             step_ms: 0.0,
             stepping: stepping::Stepping::chosen(),
+            fought: HashMap::new(),
         }
     }
 
@@ -844,6 +848,7 @@ impl Game {
             self.tick = at - 1;
         }
         self.play_tick(elapsed, world);
+        self.note_fights(crate::store::now_ms());
         let out = self.publish(now);
         let took = now.elapsed().as_secs_f64() * 1000.0;
         self.step_ms = if self.step_ms == 0.0 { took } else { self.step_ms * 0.9 + took * 0.1 };
@@ -887,6 +892,34 @@ impl Game {
         // their swinger saw.
         self.players.record_history(self.tick, &self.actors);
         self.catch_fallers();
+    }
+
+    /// Whoever struck a blow or took one this tick, at `now` (ms since 1970).
+    fn note_fights(&mut self, now: ruina_world_api::Millis) {
+        use crate::combat::{EVENT_YOU_HIT, EVENT_YOU_HURT};
+        for id in self.members.keys() {
+            let Some(slot) = self.players.slot_index(client(*id)) else { continue };
+            if self.players.told(slot).iter().any(|e| matches!(e.kind & 0xF, EVENT_YOU_HIT | EVENT_YOU_HURT)) {
+                self.fought.insert(*id, now);
+            }
+        }
+        let members = &self.members;
+        self.fought.retain(|id, _| members.contains_key(id));
+    }
+
+    /// What a player is doing, as far as changing channel goes (crates/channels): a pack on their
+    /// back, their last blow, knocked down, riding, in the air, at a table.
+    pub fn standing(&self, character: CharacterId) -> ruina_channels::Standing {
+        let c = client(character);
+        let Some((p, _, _)) = self.players.open_view(c) else { return ruina_channels::Standing::default() };
+        ruina_channels::Standing {
+            pack: p.pack != 0,
+            fought: self.fought.get(&character).copied(),
+            down: p.down_frame >= 0,
+            riding: p.mode == Mode::Ride || self.players.passenger(c).is_some(),
+            airborne: p.mode == Mode::Glide || (!p.grounded && p.mode != Mode::Swim && p.mode != Mode::Ride),
+            seated: self.tables.seated(character),
+        }
     }
 
     /// In a copy of an instance, anyone who falls out of it is back where it's entered.

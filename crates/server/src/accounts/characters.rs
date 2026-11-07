@@ -31,7 +31,7 @@ const TOO_MANY: &str = "An account holds at most 6 characters. Delete one to mak
 pub struct Character {
     pub id: i64,
     pub name: String,
-    /// The copy of Emberholm they live in (none until they first go in).
+    /// The channel their saved position is in (none until they first go in, or saved in a copy).
     pub channel: Option<i32>,
     /// When they last went into the world (ms since the epoch).
     pub last_played: Option<i64>,
@@ -76,7 +76,8 @@ fn skill_points(done: &[String]) -> u32 {
 /// An account's characters, oldest first.
 pub async fn of_account(db: &PgPool, account: i64) -> Result<Vec<Character>, sqlx::Error> {
     let rows: Vec<Row> = sqlx::query_as(
-        "SELECT id, name, home_channel, (extract(epoch FROM last_played_at) * 1000)::bigint, \
+        "SELECT id, name, CASE WHEN space LIKE 'channel:%' THEN split_part(space, ':', 3)::int END, \
+           (extract(epoch FROM last_played_at) * 1000)::bigint, \
            (extract(epoch FROM created_at) * 1000)::bigint, island->'state'->'quests'->'done', \
            island->'state'->'coins', build \
          FROM characters WHERE account_id = $1 ORDER BY id",
@@ -169,9 +170,9 @@ pub async fn create(State(app): State<App>, headers: HeaderMap, Json(c): Json<Na
 
 pub async fn delete(State(app): State<App>, headers: HeaderMap, Path(id): Path<i64>, Json(d): Json<Named>) -> Result<Json<Value>, ApiError> {
     let (db, account) = signed_in_account(&app, &headers).await?;
-    let row: Option<(String, Option<i32>)> =
-        sqlx::query_as("SELECT name, home_channel FROM characters WHERE id = $1 AND account_id = $2").bind(id).bind(account.id).fetch_optional(db).await?;
-    let Some((name, channel)) = row else {
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT name FROM characters WHERE id = $1 AND account_id = $2").bind(id).bind(account.id).fetch_optional(db).await?;
+    let Some((name,)) = row else {
         return Err(ApiError(StatusCode::NOT_FOUND, "You have no such character."));
     };
     if !d.name.trim().eq_ignore_ascii_case(&name) {
@@ -183,7 +184,7 @@ pub async fn delete(State(app): State<App>, headers: HeaderMap, Path(id): Path<i
     sqlx::query("DELETE FROM characters WHERE id = $1 AND account_id = $2").bind(id).bind(account.id).execute(db).await?;
     // Their houses and farms come down, their plots are free for the next one, and their party
     // lets them go.
-    app.gate.forget(id, channel.map(|c| c as u32));
+    app.gate.forget(id);
     Ok(Json(json!({ "ok": true })))
 }
 

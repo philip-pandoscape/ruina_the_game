@@ -12,7 +12,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::ties::{GuildId, Ties};
 use crate::tuning::Tuning;
@@ -42,7 +42,7 @@ struct Seat {
 }
 
 /// A merge under way: `from` closes into `into`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Merge {
     pub from: ChannelNo,
@@ -56,7 +56,7 @@ pub struct Merge {
 }
 
 /// What a player is doing, as far as changing channel goes: told by the simulation they play in.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Standing {
     /// A trade pack on their back.
     pub pack: bool,
@@ -103,8 +103,8 @@ impl Standing {
     }
 }
 
-// Where someone asks to go.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Where someone asks to go.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     /// A channel of their choosing.
     Channel(ChannelNo),
@@ -113,7 +113,7 @@ pub enum Target {
 }
 
 /// Why someone was moved.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Why {
     /// They chose another channel.
@@ -125,7 +125,7 @@ pub enum Why {
 }
 
 /// Something for the keeper of who plays where to carry out.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "camelCase")]
 pub enum Action {
     /// Channel `n` opens: start its simulation.
@@ -141,7 +141,7 @@ pub enum Action {
 }
 
 /// Why someone was placed where they were.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Placement {
     /// Back in the channel they left a moment ago.
@@ -161,7 +161,7 @@ pub enum Placement {
 }
 
 /// Where someone arriving goes, and why.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Placed {
     pub n: ChannelNo,
     pub why: Placement,
@@ -179,7 +179,7 @@ pub enum Follow {
 }
 
 /// Why someone can't change channel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "camelCase")]
 pub enum Refusal {
     /// They aren't in one of the region's channels (in a copy of a dungeon, or not playing).
@@ -245,7 +245,7 @@ pub fn short_time(ms: Millis) -> String {
 }
 
 /// How busy a channel is, as the Channels window says.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Load {
     /// Fewer than `quiet`.
@@ -272,7 +272,7 @@ impl Load {
 }
 
 /// A channel as someone choosing one sees it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelRow {
     pub n: ChannelNo,
@@ -285,7 +285,7 @@ pub struct ChannelRow {
 }
 
 /// A merge someone's channel is in: where they go, and how long (ms) until they're moved.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Closing {
     pub into: ChannelNo,
@@ -294,7 +294,7 @@ pub struct Closing {
 
 /// A region's channels as one player sees them (the browser's Channels window,
 /// src/ui/channels/channelsUI.ts ChannelsView).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelsView {
     pub region: String,
@@ -518,6 +518,16 @@ impl Region {
         self.left.remove(&who);
         self.changed.remove(&who);
         self.following.remove(&who);
+    }
+
+    /// Opens channel `n` now, if it isn't open (an admin's, to try a second channel without a crowd
+    /// to fill the first). True if it opened.
+    pub fn open_channel(&mut self, n: ChannelNo, now: Millis) -> bool {
+        if n == 0 || self.channels.contains_key(&n) {
+            return false;
+        }
+        self.open(n, now);
+        true
     }
 
     // ---------- Changing channel ----------
