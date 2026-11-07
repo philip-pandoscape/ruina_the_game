@@ -66,7 +66,7 @@ export const parties = system({
   summary: 'Forming a party, inviting and leading; going into a dungeon together, in a copy of its own.',
   icon: '🛡️',
   keywords: ['party', 'group', 'invite', 'leader', 'dungeon', 'instance', 'copy', 'portal', 'goblin'],
-  rules: ['crates/engine/src/open/dungeon.rs', 'crates/server/src/social/parties.rs', 'crates/server/src/directory/mod.rs'],
+  rules: ['crates/engine/src/open/dungeon.rs', 'crates/server/src/social/parties.rs', 'crates/server/src/social/mod.rs', 'crates/server/src/directory/mod.rs', 'crates/server/src/sim/host.rs'],
   content: ['shared/instances.json#instances', 'shared/regions/*.json#doors'],
   body: () => {
     const R = rule();
