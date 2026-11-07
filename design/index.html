@@ -294,7 +294,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
       </div>
       <p class="caption">Drawn by the game's own terrain generator from <code>shared/regions/emberholm.json</code>. North is up. Hover a place for what is there; in the game, north is +Z and east is −X.</p>
       <div class="table-wrap"><table id="placesTable"></table></div>
-      <div class="key"><span class="label">How the island is made</span>
+      <div class="key"><span class="label">How the region is made</span>
         <ul>
           <li>A zone is a recipe: coastline lobes, bays, sea cliffs, hills, mountains, ledge paths, flattened town ground and roads. The generator turns it into a 2 m height grid and a surface type per cell (grass, road, sand, rock, soil, plaza, forest).</li>
           <li>The rules and the renderer read the same grid, split into the same triangles, so feet always land on the drawn ground.</li>
@@ -313,7 +313,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
       <div class="key"><span class="label">How it is made</span>
         <ul>
           <li>Light first: soft diffuse light without outlines, ambient occlusion, haze that thins with height and warms toward the sun, bloom, tone mapping and a grade (<code>src/render/open/post.ts</code>).</li>
-          <li>The ground is real texture (CC0) laid over the island's surfaces, its detail only: the palette decides the colours (<code>src/render/open/ground.ts</code>).</li>
+          <li>The ground is real texture (CC0) laid over the world's surfaces, its detail only: the palette decides the colours (<code>src/render/open/ground.ts</code>).</li>
           <li>Buildings and props are made models (Meshy, from concept art painted after the reference), each fitted into its structure's own footprint from <code>shared/structures.json</code>: the art changes, the rules don't (<code>src/render/models/glb.ts</code>).</li>
           <li>Scenery goes only where nobody walks or sails: crags on slopes too steep to climb, isles past the edge of the world.</li>
           <li>One look, three qualities (<code>src/render/look.ts</code>): high on a graphics card; medium on integrated graphics (no ambient occlusion, nearer shadows); low where WebGL is drawn in software (only the haze and the grade of the screen effects, plain ground colours, the frame drawn smaller, lighter trees, nearer grass, a shorter view). <code>?quality=low|medium|high</code> chooses.</li>
@@ -430,7 +430,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
 
     <section id="quests">
       <div class="head"><div class="eyebrow">Onboarding</div><h2>The starter questline</h2><div class="meta" data-status="quests"></div></div>
-      <p class="lead">Fifteen quests that each teach one way of living on the island, unlocked by finishing what comes before. Objectives count what you actually do (planting, gliding, gathering, delivering, building), so the tutorial is the game.</p>
+      <p class="lead">Fifteen quests that each teach one way of living in the world, unlocked by finishing what comes before. Objectives count what you actually do (planting, gliding, gathering, delivering, building), so the tutorial is the game.</p>
       <div class="flow" id="questFlow"></div>
       <div class="next" data-next="quests"></div>
     </section>
@@ -461,7 +461,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         <div class="box"><b>Content</b><small>Every number and placement: vehicles, crops, packs, quests, zones, structures.</small><code>shared/*.json</code></div>
         <div class="box"><b>Rules</b><small>Fixed 60 Hz steps, one copy in Rust: the server runs it, and the browser runs it compiled to WebAssembly. Movement and combat in the player's step; trade, farms, houses and vehicles in Life, changed only by queued commands.</small><code>crates/engine/src/ · crates/engine/src/life/</code></div>
         <div class="box"><b>Presentation</b><small>Three.js scene, procedural and made models, DOM HUD and panels. Reads the rules' state; never changes it.</small><code>src/render/ · src/ui/</code></div>
-        <div class="box"><b>World server</b><small>Plays Emberholm: each channel's players from their key presses, their islands from their commands, the slimes and every hit, on the same rules the browser runs. Islands kept in Postgres, accounts, plot claims; nothing trusts the browser.</small><code>crates/server/</code></div>
+        <div class="box"><b>World server</b><small>Plays Emberholm: each channel's players from their key presses, their lives from their commands, the slimes and every hit, on the same rules the browser runs. Lives kept in Postgres, accounts, plot claims; nothing trusts the browser.</small><code>crates/server/</code></div>
       </div>
       <div class="table-wrap"><table id="fileTable"></table></div>
       <div class="next" data-next="tech"></div>

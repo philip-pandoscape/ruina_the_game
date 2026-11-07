@@ -27,7 +27,7 @@ page is how the two sides reach it, and how to add to what crosses between the p
 The server links the engine as a crate and steps it in each game it hosts (a channel of the world,
 or a copy of an instance, each a simulation of its own: `crates/server/src/sim/`). Each tick, 20 a second, a game steps every
 player through the inputs their browser has sent since the last, 60 a second
-(`ruina_engine::open::step_player`, the island's systems riding along), and the creatures and the
+(`ruina_engine::open::step_player`, the life systems riding along), and the creatures and the
 bots, then lands the fights and sends each player what changed.
 Commands (buying, building, entering a dungeon) are the engine's `life::Command`, run where the
 browser asked for them. Nothing a browser says about its own state is believed.
@@ -36,7 +36,7 @@ browser asked for them. Nothing a browser says about its own state is believed.
 
 The page reaches the rules only through `src/engine/` (its `AGENTS.md`; `tests/unit/boundaries.test.ts`
 holds it). There, the `Engine` (`engine.ts`) plays the page's game in one engine **session**
-(`crates/engine/src/session.rs`): you, the creatures, the island's life, and a copy of an instance
+(`crates/engine/src/session.rs`): you, the creatures, your life, and a copy of an instance
 while you're in one. The WebAssembly is loaded once a page (`load.ts`, `wasm.ts`) and asked
 synchronously; text crosses through its memory (`alloc` for room to write into, `out_ptr` for what it
 answered) as JSON, and big arrays are copied out of it.
@@ -47,7 +47,7 @@ answered) as JSON, and big arrays are copied out of it.
 |---|---|
 | `session_new(options)` | A session: the world, online or not, your build (a copy of an instance is gone into with `enterDungeon`). Returns its handle. |
 | `session_step(h, ...)` | One fixed step, 60 a second, with what was pressed: the stick and aim as numbers, the buttons as bits (`src/engine/shapes.ts` `Actions`). Returns how many events are waiting. |
-| `session_view(h, events)` | What the page reads after a step or a call, as one JSON text (`SessionView` in `src/engine/session.ts`): the frame, you, your levels, the creatures and missiles, your arrows and meteors, the island (its state, prompt, placing, resting, revision), what happened, and a key that changes with what's solid. |
+| `session_view(h, events)` | What the page reads after a step or a call, as one JSON text (`SessionView` in `src/engine/session.ts`): the frame, you, your levels, the creatures and missiles, your arrows and meteors, your life (its state, prompt, placing, resting, revision), what happened, and a key that changes with what's solid. |
 | `session_solid_key`, `session_colliders`, `session_clear_*` | What's solid and which cells are kept clear, read again only when the key changes. |
 | `session_world_clock(h, t)` | Online, the world's clock the rain and wind run on, for the next step. |
 | `session_call(h, {call, ...})` | Every other write from outside the rules, by name (below). |
@@ -67,12 +67,12 @@ method in `engine.ts`.
 | Calls | For |
 |---|---|
 | `place`, `reset`, `setBuild`, `setLevels`, `setVitals`, `calm` | Putting you somewhere; your build, levels and vitals; the creatures held still. |
-| `command`, `lifeEvents` | A command to the island's systems (`life::Command`), and what they said. |
+| `command`, `lifeEvents` | A command to the life systems (`life::Command`), and what they said. |
 | `enterDungeon`, `leaveDungeon`, `inside`, `floorAt`, `floorHere`, `solidity`, `spaceGround` | Into a copy of an instance, a space of its own played in place of the world, and out; its floors; what's solid; the ground of the space you're in. |
 | `groundY`, `standingAt`, `world` | The ground and what you'd stand on at a point; the world's colliders and grid. |
 | `regionsHeld`, `releaseRegion`, `regionSolids` | The regions the world holds and how many the rules grew on the spot; letting one go (`Engine.releaseRegion`); what's solid on one held (for one the rules grew themselves). |
-| `loadLife` | An island loaded from a save. |
-| `takePlayer`, `replay`, `runAhead`, `replayLife` | Online: the server's word on you taken, your unanswered inputs run again on top; a command run here at once, ahead of the server; your island as the server has it, with what's still ahead run again. |
+| `loadLife` | A life loaded from a save. |
+| `takePlayer`, `replay`, `runAhead`, `replayLife` | Online: the server's word on you taken, your unanswered inputs run again on top; a command run here at once, ahead of the server; your life as the server has it, with what's still ahead run again. |
 | `addSolidHouse`, `addSolidScarecrow`, `movers`, `others` | Online: what the server makes solid, others' vehicles, the players around you and their plots. |
 | `placeActor`, `setActor`, `spawnActor`, `spawnBand`, `hurtActor`, `takeHit`, `frame`, `placed` | The test API's moments set up directly (`window.__game`). |
 
@@ -94,7 +94,7 @@ method in `engine.ts`.
 - **A new write from outside the rules:** the session's method in `crates/engine/src/session.rs`,
   an arm for it in `crates/engine-wasm/src/session.rs` `call`, and an `Engine` method naming it in
   `src/engine/engine.ts` that rereads the view after. If outside code needs it, it goes through the
-  front door that names what outside code uses (`rules.ts`, `zone.ts`, `island.ts`, `creatures.ts`).
+  front door that names what outside code uses (`rules.ts`, `zone.ts`, `life.ts`, `creatures.ts`).
 - **Something new to read:** a field in the session's view (`view_json`) and in `SessionView`; what
   changes rarely belongs in a call the page makes when it needs it.
 - **A new system:** its module in the engine, reading its data from a bundle, with unit tests beside

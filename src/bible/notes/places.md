@@ -1,10 +1,10 @@
 # Places
 
-What is at each place on the island. Who works there, and the routes that run there, are on its entry.
+What is at each place on Emberholm. Who works there, and the routes that run there, are on its entry.
 
 ## lanternwick
 
-The harbour village where you arrive: a cobbled square with a well, market stalls and the specialty workbench, ringed by red-tiled houses, the inn, the wainwright's workshop, the stables and the Land Registry. Most of the island's people and most of its first quests are here.
+The harbour village where you arrive: a cobbled square with a well, market stalls and the specialty workbench, ringed by red-tiled houses, the inn, the wainwright's workshop, the stables and the Land Registry. Most of Emberholm's people and most of its first quests are here.
 
 ## docks
 

@@ -106,7 +106,7 @@ Saying yes checks again that you aren't in a party, that the one who asked still
 
 ## Going Into a Dungeon
 
-A dungeon's door is a portal somewhere on the island. Stand at it (within its reach and ${metres(
+A dungeon's door is a portal somewhere in the world. Stand at it (within its reach and ${metres(
         R.promptHeight,
       )} of its height) and F enters, if your hands are free: no pack on your back, on your own feet (not riding, not knocked down) and not sitting at a game. The server allows a step's slack, ${metres(R.doorSlack)} more than the portal's reach and ${metres(
         R.doorHeight,
@@ -130,7 +130,7 @@ To leave, F at the portal back out (the server allows ${metres(R.exitSlack)} mor
 - **Coming back.** If your connection drops inside, you come back into the same copy while it lasts and is still yours; otherwise into your home channel.
 - **No longer yours.** Leave the party, or be removed from it, while inside its copy, and you are warned, then taken out after ${duration(R.expelAfter)}.
 - **Parties change.** A party that forms takes over the copies of the one who invited (for dungeons it has no copy of yet); a party that breaks up leaves its copies to whoever was left in it.
-- **Saved outside.** While you are in a copy, your island is saved as standing outside the dungeon's door: a copy is gone after a server restart, and you come back to the open world there.
+- **Saved outside.** While you are in a copy, your life is saved as standing outside the dungeon's door: a copy is gone after a server restart, and you come back to the open world there.
 `,
       md`Each dungeon's door, how far its portals reach, and how far below its floor a fall takes you back to the way in:`,
       table(

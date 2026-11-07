@@ -40,12 +40,12 @@ server says. Nothing it says about its own state is believed; it predicts only i
   the server checks a swing against where its swinger saw the others, players and monsters alike
   (the `Track` of where each stood, in `crates/engine/src/combat.rs`). Draw others at that tick (the
   monsters are, `actorTimeline.ts`) and the two agree.
-- **Sides** are a developer zone's: on the island everyone is on one (`docs/world.md`).
+- **Sides** are a developer zone's: in the world everyone is on one (`docs/world.md`).
 
 ## Tests
 
 Online specs need a world server with a database (`docs/testing.md`): `online.spec.ts` (signing in,
-playing, saving), `online-combat.spec.ts` (the island's slimes), `battlefield.spec.ts` (players
+playing, saving), `online-combat.spec.ts` (the region's slimes), `battlefield.spec.ts` (players
 fighting: sides, lag compensation, spells, bots), `yard.spec.ts` (monsters streamed and fighting
 back), `party.spec.ts`, `minigames.spec.ts`, `update.spec.ts` (the server going away and coming
 back), `crowd-bodies.spec.ts` (players far off drawn as crowd bodies). The prediction alone:

@@ -33,10 +33,10 @@ time, the middle one before every push to `beta`, the slow one before a release.
   is held to (`crates/wire/tests/golden.rs`, `tests/fixtures/wire/`, `tests/unit/wire.test.ts`),
   and measures its bytes and time against today's JSON:
   `cargo test --release -p ruina-wire --test bench -- --ignored --nocapture`.
-- **It plays the game: you, the island, creatures, stepping frame by frame, but nothing drawn.** A
+- **It plays the game: you, the world, creatures, stepping frame by frame, but nothing drawn.** A
   rules test, `tests/unit/rules/<area>.test.ts`: written as for a page (`page.goto('/?test=yard')`, then
   `page.evaluate` over `window.__game`), it runs headless in Node (`tests/support/headless.ts`): the
-  rules, the island's life, auto-walk and the camera's maths for real, the step and the test API as
+  rules, your life, auto-walk and the camera's maths for real, the step and the test API as
   the page runs them, drawing and windows standing in. Its `test` gives each test a `page` as
   Playwright's does, so moving a test between this tier and the next is moving it between files
   (`tools/refactor/port-spec.mjs`, `split-specs.mjs`). What only a page has (the windows, the

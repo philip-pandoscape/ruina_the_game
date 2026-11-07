@@ -90,7 +90,7 @@ export const economy = system({
     const houseStages = BLUEPRINTS.flatMap((b) => b.stages.map((s) => s.labor));
     const shipStages = SHIP_DESIGNS.flatMap((d) => d.stages.map((s) => s.labor));
     return md`
-Ruina has two currencies and a resource. Coins buy almost everything. Charter Seals come from trade and quests and buy the best of what the island sells. Labor is your capacity for honest work: it is spent on every harvest, haul and build, and comes back with time and rest. All three are your own, kept with your island; online the game's server keeps them and decides every change.
+Ruina has two currencies and a resource. Coins buy almost everything. Charter Seals come from trade and quests and buy the best of what Emberholm sells. Labor is your capacity for honest work: it is spent on every harvest, haul and build, and comes back with time and rest. All three are your own, kept with your life; online the game's server keeps them and decides every change.
 
 ## Coins
 
@@ -172,7 +172,7 @@ The quests give back ${num(questLabor)} labor in all.
 
 ## Buying and Selling
 
-Shops are kept by the island's people ([[vendors]]). You buy and sell within ${metres(shopReach)} of the keeper.
+Shops are kept by Emberholm's people ([[vendors]]). You buy and sell within ${metres(shopReach)} of the keeper.
 
 - **Buying** needs room in your bag for all of what you buy, and its whole price in coin and seals.
 - **Selling** works only for what that vendor buys. You sell as many as you ask for, or all you have if that is fewer, and each fetches what the vendor pays:

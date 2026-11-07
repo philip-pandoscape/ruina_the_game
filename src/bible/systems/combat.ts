@@ -160,7 +160,7 @@ It loses the damage from its health and flashes; it gets angry, and so does its 
 - **Creatures** ([[creatures]]): every blow lands on them.
 - **The training dummy** stands at ${link(`places/${dummyPlace.id}`, dummyPlace.name)} for practice: it takes every blow, has ${dummy.maxHp} health, and is back ${frames(dummy.respawnFrames)} after you knock it down.
 - **Townsfolk** are never hit, by anything.
-- **Other players** never: on the island everyone is on one side, so your swings, arrows and meteors pass through other players, and your Healing Circle heals them too.
+- **Other players** never: in the world everyone is on one side, so your swings, arrows and meteors pass through other players, and your Healing Circle heals them too.
 
 ## Being Hit
 
@@ -176,7 +176,7 @@ A blow on you goes through these steps, in this order:
 
 ### Knocked Down
 
-When your health reaches nothing you are knocked down. You lie still for ${frames(COMBAT.downFrames)}, then get back up at the island's arrival spot (in a dungeon, where you came in) with full health, stamina and MP and every hotbar cooldown cleared. While you are down nothing can hit you, and no creature takes you for a target.
+When your health reaches nothing you are knocked down. You lie still for ${frames(COMBAT.downFrames)}, then get back up at the region's arrival spot (in a dungeon, where you came in) with full health, stamina and MP and every hotbar cooldown cleared. While you are down nothing can hit you, and no creature takes you for a target.
 
 ## Movement Skills
 

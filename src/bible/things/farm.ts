@@ -1,4 +1,4 @@
-// Crops and trees, farm animals, and the places on the island where materials are gathered.
+// Crops and trees, farm animals, and the places in the world where materials are gathered.
 
 import { ANIMALS, type AnimalDef, CLIMATES, CROPS, type CropDef, climateFactor, FARM, GATHERING, type GatherDef } from '../../content/farming';
 import { count, duration, pct, range } from '../format';
@@ -8,7 +8,7 @@ import { itemLink, ZONE } from './refs';
 
 const climateName = (id: string): string => CLIMATES[id]?.name ?? id;
 
-/** Seconds a crop takes from seed to ripe on this island, dry or watered all the way. */
+/** Seconds a crop takes from seed to ripe in this region, dry or watered all the way. */
 const ripens = (c: CropDef, wet: boolean): number => c.growSeconds / climateFactor(c, ZONE.climate) / (wet ? FARM.water.boost : 1);
 
 export const crops = kind<CropDef>({
@@ -118,7 +118,7 @@ export const gathering = kind<Spot>({
   title: 'Gathering',
   noun: 'Resource',
   icon: '⛏️',
-  summary: 'Timber, stone, ore and herbs: where they are on the island, what working them gives, and how soon they come back.',
+  summary: 'Timber, stone, ore and herbs: where they are in the world, what working them gives, and how soon they come back.',
   sources: ['shared/farming.json#gathering', 'shared/regions/*.json#nodes'],
   systems: ['farming'],
   all: () => SPOTS,
@@ -133,10 +133,10 @@ export const gathering = kind<Spot>({
     ['Rare find', g.rare ? phrase`${itemLink(g.rare.item)}, ${pct(g.rare.chance)} of the time` : null],
     ['Labor', g.labor],
     ['Back in', duration(g.respawn)],
-    ['On the island', count(ZONE.nodes.filter((n) => n.kind === g.id).length, 'spot')],
+    ['On Emberholm', count(ZONE.nodes.filter((n) => n.kind === g.id).length, 'spot')],
   ],
   body: (g) =>
-    md`Working a spot takes ${g.labor} labor and gives ${range(g.n)} ${itemLink(g.item)}; then that spot is picked clean on your island for ${duration(
+    md`Working a spot takes ${g.labor} labor and gives ${range(g.n)} ${itemLink(g.item)}; then that spot is picked clean, for you alone, for ${duration(
       g.respawn,
     )} before it can be worked again. The ${link('places', 'places')} say where they are.`,
   columns: [

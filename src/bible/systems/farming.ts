@@ -32,7 +32,7 @@ function rules() {
 }
 
 const climateName = (id: string): string => CLIMATES[id]?.name ?? id;
-/** Seconds from seed to ripe on this island, dry or watered all the way. */
+/** Seconds from seed to ripe in this region, dry or watered all the way. */
 const here = (c: CropDef, wet: boolean): number => c.growSeconds / climateFactor(c, Z.climate) / (wet ? FARM.water.boost : 1);
 const plotSide = (): number => FARM.scarecrowCells * FARM.cell;
 const itemName = (id: string): string => ITEMS.find((i) => i.id === id)?.name ?? id;
@@ -109,7 +109,7 @@ Farming on ${Z.name} happens in plots you claim with a scarecrow. A plot is ${co
     )}, each cell ${metres(FARM.cell)} square, so ${metres(plotSide())} on a side, and you can hold ${count(
       FARM.maxScarecrows,
       'plot',
-    )} at once. Every cell holds a single plant, or a young animal ([[systems/livestock]]). Plants grow on the island's own clock, every second, whether you are there to watch or not. Out in the wilds there is timber, stone, ore and herbs to gather, for labor, from spots that come back after a while.
+    )} at once. Every cell holds a single plant, or a young animal ([[systems/livestock]]). Plants grow on the land's own clock, every second, whether you are there to watch or not. Out in the wilds there is timber, stone, ore and herbs to gather, for labor, from spots that come back after a while.
 
 ## Claiming a Plot
 
@@ -182,7 +182,7 @@ ${table(
   [2, 3, 4],
 )}
 
-A plant shows its stages one after another, each an equal share of its growth, and shows the last only once it is ripe. A ripe plant waits for you: nothing on the island withers.
+A plant shows its stages one after another, each an equal share of its growth, and shows the last only once it is ripe. A ripe plant waits for you: nothing in the world withers.
 
 ### Watering
 
@@ -193,13 +193,13 @@ ${key('F')} on a growing plant that isn't watered waters it, for ${count(FARM.wa
 
 ### Rain
 
-While it rains, every plant on the island grows as if it were watered, whether you watered it or not. Each shower lasts ${between(
+While it rains, every plant in the region grows as if it were watered, whether you watered it or not. Each shower lasts ${between(
       FARM.rain.lastsSeconds,
     )}; [[systems/weather]] says when they come.
 
 ### While You Are Away
 
-The island's clock runs on while you are away, for up to ${duration(CLOCK.maxOfflineSeconds)}${
+Your life's clock runs on while you are away, for up to ${duration(CLOCK.maxOfflineSeconds)}${
       CLOCK.offlineFactor !== 1 ? phrase`, counted at ${times(CLOCK.offlineFactor)}` : ''
     }. When you come back, each plant grows through all of that time at once, at the speed it had when you left: at watered speed if you had watered it, though rain doesn't count. Then every plant wants watering again.
 
@@ -244,16 +244,16 @@ ${table(
 
 ## Gathering
 
-Deadfall timber, stone and ore outcrops and wild herbs lie about the island. Stand within ${metres(r.nodeReach)} of a spot's edge and ${key(
+Deadfall timber, stone and ore outcrops and wild herbs lie about the region. Stand within ${metres(r.nodeReach)} of a spot's edge and ${key(
       'F',
     )} works it: you need room in your bag for the most it could give and its labor, and you get a number drawn from its range${
       rare
         ? phrase`, with a chance of something rare (a ${link(`items/${rare[1].rare?.item}`, itemName(rare[1].rare?.item ?? ''))} at ${link(`gathering/${rare[0]}`)})`
         : ''
-    }. Then that spot is picked clean on your island until it comes back; its prompt says how long. A quest that asks you to gather counts what you gathered, not the times you worked a spot.
+    }. Then that spot is picked clean for you alone until it comes back; its prompt says how long. A quest that asks you to gather counts what you gathered, not the times you worked a spot.
 
 ${table(
-  ['Spot', 'Gives', 'Labor', 'Rare Find', 'Back In', 'On the Island'],
+  ['Spot', 'Gives', 'Labor', 'Rare Find', 'Back In', 'On Emberholm'],
   spots.map(([id, g]) => [
     link(`gathering/${id}`),
     phrase`${range(g.n)} ${link(`items/${g.item}`, itemName(g.item))}`,

@@ -100,7 +100,7 @@ export const quests = system({
     const starting = QUESTS.filter((q) => q.startItems?.length);
     return join(
       md`
-The island teaches itself through quests: ${count(line.length, 'quest')} in a line, each opened by finishing the ones before it, and ${count(
+Emberholm teaches itself through quests: ${count(line.length, 'quest')} in a line, each opened by finishing the ones before it, and ${count(
         milestones.length,
         'milestone',
       )} that count what you do along the way. Objectives count what you actually do (planting, gliding, gathering, delivering, building), so the tutorial is the game, and your skill points come from them.
@@ -164,7 +164,7 @@ Skill points aren't kept: they are counted from the quests and milestones you ha
 
 ## The Questline
 
-In the order the island tells it:
+In the order Emberholm tells it:
 `,
       table(
         ['Quest', 'Given By', 'Opens After', 'Hand In To', 'Steps', 'Rewards'],

@@ -19,7 +19,7 @@ export interface Section {
 export const SECTIONS: readonly Section[] = [
   { id: 'ruina', title: 'Ruina', summary: 'What the game is, how to play it, and how to read this book.' },
   { id: 'systems', title: 'Systems', summary: 'How each part of the game works, exactly: its rules, formulas and numbers.' },
-  { id: 'world', title: 'The World', summary: 'The island, its places, its people and the creatures that live there.' },
+  { id: 'world', title: 'The World', summary: 'The world, its places, its people and the creatures that live there.' },
   { id: 'things', title: 'Things', summary: 'Everything you can hold, grow, ride, learn or do, each with its numbers.' },
 ];
 

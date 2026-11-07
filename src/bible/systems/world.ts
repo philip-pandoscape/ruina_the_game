@@ -191,40 +191,40 @@ ${table(
 
 How steep you can climb, how deep you can wade and the rest of getting about on this ground are on [[systems/moving]] and [[systems/swimming-gliding]].
 
-## Growing the Island
+## Growing a Region
 
 The generator works through the recipe in order, each step shaping what the last one left.
 
-1. **The coast.** Every point gets a distance inland from the coast. The coast starts as a circle reaching ${metres(t.landmass.radius)} from the island's middle, pushed in and out round the compass by waves of its own, wandering by up to ${metres(t.landmass.warp)} more, pushed out at headlands, bitten into at bays, with islets raised offshore.
+1. **The coast.** Every point gets a distance inland from the coast. The coast starts as a circle reaching ${metres(t.landmass.radius)} from the landmass's middle, pushed in and out round the compass by waves of its own, wandering by up to ${metres(t.landmass.warp)} more, pushed out at headlands, bitten into at bays, with islets raised offshore.
 2. **The shore.** On land the ground rises over a beach ${metres(t.shore.beach)} wide to ${metres(t.shore.beachHeight)}, then ${metres(t.shore.inlandRise)} more for every metre inland. Out at sea the seabed falls away, to at most ${metres(t.shore.maxDepth)} down. Where the recipe puts a sea cliff, the coast rears up to the cliff's height within ${metres(cliffRise)} instead of shelving.
 3. **The hills.** Rolling hills up to ${metres(t.hills.height)} high, about ${metres(t.hills.scale)} from one to the next, rise in from ${metres(t.hills.inlandFrom)} inland and are at full height ${metres(t.hills.inlandTo)} inland, with a smaller ripple over them.
 4. **The mountains.** ${
       mountain
         ? phrase`A mountain is a flat top (the ${link('places/windspire', 'Windspire')}'s is at ${metres(mountain.top)}, flat out to ${metres(mountain.plateau)} from its middle), a sheer band of cliff out to ${metres(mountain.cliff)} from its middle, falling to ${metres(mountain.top * (1 - mountain.cliffDrop), 0)}, and a walkable skirt down to the land by ${metres(mountain.skirt)} out. The cliff is craggy and its line wanders.`
-        : 'None on this island.'
+        : 'None in this region.'
     }
 5. **The ledge path.** ${
       ramp
         ? phrase`A path ${metres(ramp.width)} wide is carved into the cliff along its own contour lines, climbing from ${metres(ramp.from)} to ${metres(ramp.to)} over ${pct(ramp.turns)} of the way round. It is the way up on foot.`
-        : 'None on this island.'
+        : 'None in this region.'
     }
-6. **Pits.** ${pit ? phrase`The quarry is dug ${metres(pit.depth)} deep, with a flat floor.` : 'None on this island.'}
+6. **Pits.** ${pit ? phrase`The quarry is dug ${metres(pit.depth)} deep, with a flat floor.` : 'None in this region.'}
 7. **Flattened ground.** Town squares, the quay, the fields, the house plots and the trading posts are flattened to a height of their own and blend back into the land round their edges; some are paved.
 8. **Building pads.** Every building stands on level ground: the ground is levelled ${metres(padOut)} past its footprint and blends into the land over ${metres(padBlend)} more.
 9. **Roads.** Each road is smoothed into a curve through the recipe's points and graded: it follows the land but never climbs more than ${pct(grade)} (${slopeDegrees(grade)}), what a cart can pull, and never runs lower than ${metres(roadLow)} above the sea. It is paved its full width and blends into the land over a shoulder of ${metres(shoulder)}.
 10. **Kinds of ground** are worked out last (the table above): what the recipe paints, roads, then forest, sand and rock.
-11. **Trees and rocks.** The land is cut into squares of ${metres(scatterCell)}, and one tree or rock may stand in each, on the throw of the island's dice. Trees grow on grass and forest flatter than ${slopeDegrees(treeSlope)}, more thickly in the forests; rocks lie anywhere but roads, plazas and soil: one square in ${num(1 / rockOnRock, 0)} on bare rock, one in ${num(1 / rockOnSand, 0)} on sand, more rarely elsewhere. Nothing grows below ${metres(scatterLow)} above the sea, within ${metres(Z.scatter.clearOfRoad ?? 0)} of a road, within ${metres(Z.scatter.clearOfStructure ?? 0)} of a building, on a house plot or where people stand. ${Z.name} grows ${count(trees, 'tree')} and ${count(rocks, 'rock')} this way; each is solid, and you walk round it.
+11. **Trees and rocks.** The land is cut into squares of ${metres(scatterCell)}, and one tree or rock may stand in each, on the throw of the region's dice. Trees grow on grass and forest flatter than ${slopeDegrees(treeSlope)}, more thickly in the forests; rocks lie anywhere but roads, plazas and soil: one square in ${num(1 / rockOnRock, 0)} on bare rock, one in ${num(1 / rockOnSand, 0)} on sand, more rarely elsewhere. Nothing grows below ${metres(scatterLow)} above the sea, within ${metres(Z.scatter.clearOfRoad ?? 0)} of a road, within ${metres(Z.scatter.clearOfStructure ?? 0)} of a building, on a house plot or where people stand. ${Z.name} grows ${count(trees, 'tree')} and ${count(rocks, 'rock')} this way; each is solid, and you walk round it.
 12. **The waterfall.** ${
       fall
         ? phrase`Last, so nothing else moves: a spring pool on the Windspire's top spills over its lip, and the water falls free down a slot ${metres(fall.width)} wide cut into the cliff, to a pool at its foot. Behind the falling water a ledge juts out of the slot's back wall at ${metres(fall.shelf.top)}, under a hood of rock ${metres(fall.roof.above)} over it: only a glider gets there, and ${door ? link(`dungeons/${door.id}`) : 'a dungeon'}'s door stands on it.`
-        : 'None on this island.'
+        : 'None in this region.'
     }
 
 Then come the colliders: every building's walls, floors and stairs, the piers and the glider launch as decks, the posts of the props, the trees and the rocks.
 
 ## Places
 
-The places on the island are named spots the map, the compass and the quests point to: ${raw(
+The places on Emberholm are named spots the map, the compass and the quests point to: ${raw(
       Z.places.map((p) => link(`places/${p.id}`, p.name).html).join(', '),
     )}. The ${link('places', 'places')} say what is at each.
 

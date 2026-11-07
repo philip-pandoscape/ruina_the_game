@@ -28,7 +28,7 @@ An open market stall in the square: a counter across the front, posts and a stri
 
 ## workbench
 
-The heavy oak workbench where trade packs are made, with a vice, tools on a rail and a half-packed crate. Each of the island's [[workbenches]] is one of these.
+The heavy oak workbench where trade packs are made, with a vice, tools on a rail and a half-packed crate. Each of Emberholm's [[workbenches]] is one of these.
 
 ## tradingPost
 
@@ -92,7 +92,7 @@ An iron lamp post with a glass lantern, lit at night.
 
 ## signpost
 
-A wooden post with arrow boards pointing the way to the island's places.
+A wooden post with arrow boards pointing the way to Emberholm's places.
 
 ## bench
 

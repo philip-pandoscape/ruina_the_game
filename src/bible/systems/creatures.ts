@@ -428,7 +428,7 @@ A thrown stone starts ${metres(THROW_AHEAD())} in front of the thrower at ${pct(
 
 ## Coming Back
 
-- **Creatures the island placed** come back where they first stood, as what they were first, once their kind's time is up: but only if there is room. The slimes alive, counted by mass and with every piece and grown slime among them, plus the one coming back, may not pass the mass the meadow started with. So a pack that has grown, or burst into pieces, has to be dealt with before the meadow fills again.
+- **Creatures the region placed** come back where they first stood, as what they were first, once their kind's time is up: but only if there is room. The slimes alive, counted by mass and with every piece and grown slime among them, plus the one coming back, may not pass the mass the meadow started with. So a pack that has grown, or burst into pieces, has to be dealt with before the meadow fills again.
 - **Pieces and reformed slimes** never come back, and what is left of them is cleared away ${frames(CLEAR_AFTER())} after they die.
 - **A slime taken in** by another is out of the world, not dead: it counts for no kill, and comes back like any other when there is room.
 

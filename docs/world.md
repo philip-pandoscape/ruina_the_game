@@ -33,8 +33,8 @@ add a region or an instance. The plans for the rest are in `.plans/world/` and t
 | Land | What's built and planted in the world, and what's left standing in it: houses, farms, ships on the slipways, packs, vehicles. The world's, the same in every channel of a region (Land, below). |
 | Life | A character's own state: bag, coins, seals, quests, skills, labour, contracts. |
 
-"Island" is the old word for a character's life and for Emberholm. It leaves the code, the wire and
-the saves' column (`characters.island`) as each area is touched (R10.14).
+"Island" was the old word for a character's life and for Emberholm. It has left the code, the wire and
+the saves' column (`characters.island` is `characters.life`, migration 0040: R10.14).
 
 ## Where the Regions Stand
 
@@ -464,7 +464,7 @@ them away). A new kind of bot is a brain in `bots.rs` and its name in `Brain::na
 
    The templates are in `content/_templates/region/`. Its people are `content/npcs/`. The creatures
    it brings to life are its recipe's `spawns`, as an instance's are (An Instance's File, above): the
-   server spawns them in each channel, and the browser's island does offline
+   server spawns them in each channel, and the browser's game does offline
    (`crates/engine/src/open/spawns.rs`).
 2. **Its chunks** go in `content/world.json`, a square of them that no other region has. Its recipe's
    grid covers exactly them (`cells` × `cell`), with the same cell as every other region, and its
@@ -500,7 +500,7 @@ worker as you come near it.
 
 - **The fixture world** (`tests/fixtures/world/`, in the shapes of `shared/world.json` and a region's
   recipe): `world.json` is Emberholm; Saltmere across a chunk of open sea to its west (x 1024 to
-  2048 m); and Thornmarch beside Saltmere across a land border at x = 2048 m, one island grown half by
+  2048 m); and Thornmarch beside Saltmere across a land border at x = 2048 m, one landmass grown half by
   each (Thornmarch frost to Saltmere's temperate). `far.json` is Emberholm and Farholt, a flat isle
   102 km out. Rust tests load them from `ruina_engine::open::fixture` (`world()`, `far()`, `recipe()`,
   and `bundles()` to give a whole engine in place of `shared/`), built in for the engine's tests and,

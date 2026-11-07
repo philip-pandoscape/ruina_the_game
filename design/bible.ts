@@ -157,13 +157,13 @@ const TOTAL = S.features.length;
 const bar = (c: Record<Status, number>, n: number): string =>
   '<div class="bar">' + STATUS.map((st) => `<i class="${st}" style="width:${(c[st] / Math.max(1, n)) * 100}%"></i>`).join('') + '</div>';
 
-/** The hero's line of facts. The island's own numbers join it once the island has grown. */
-function facts(isle: RegionMap | null): void {
+/** The hero's line of facts. The region's own numbers join it once the region has grown. */
+function facts(region: RegionMap | null): void {
   $('#facts').innerHTML = [
     `<span>Starter zone <b>${esc(Z.name)}</b></span>`,
     `<span><b>${Z.npcs.length}</b> townsfolk</span>`,
-    isle ? `<span><b>${isle.trees.toLocaleString()}</b> trees</span>` : '',
-    isle ? `<span>Peak <b>${isle.peak} m</b></span>` : '',
+    region ? `<span><b>${region.trees.toLocaleString()}</b> trees</span>` : '',
+    region ? `<span>Peak <b>${region.peak} m</b></span>` : '',
     `<span><b>${VEHICLES.length + MOUNTS.length}</b> rides · <b>${GLIDERS.length}</b> gliders</span>`,
     `<span><b>${QUESTS.length}</b> quests</span>`,
   ].join('');
@@ -201,7 +201,7 @@ part('the status summary', () => {
 });
 
 // ---------- map ----------
-// The island as the game grows it (src/bible/map.ts, which the bible's zone and place pages draw too).
+// The region as the game grows it (src/bible/map.ts, which the bible's zone and place pages draw too).
 
 const layers: Layers = { places: true, roads: true, routes: true, plots: true, nodes: false, air: true };
 const HERO_LAYERS: Layers = { places: true, roads: true, routes: true, plots: false, nodes: false, air: true };
@@ -232,14 +232,14 @@ const BLURB: Record<string, string> = {
   strand: 'A sandy beach on a sheltered bay; good for learning to swim and row.',
 };
 
-let island: RegionMap | null = null;
+let grown: RegionMap | null = null;
 
 function drawMaps(): void {
-  if (!island) return;
+  if (!grown) return;
   const hero = document.querySelector<HTMLCanvasElement>('#heroMap');
   const world = document.querySelector<HTMLCanvasElement>('#worldMap');
-  if (hero) drawRegion(hero, island, HERO_LAYERS, false);
-  if (world) drawRegion(world, island, layers, true);
+  if (hero) drawRegion(hero, grown, HERO_LAYERS, false);
+  if (world) drawRegion(world, grown, layers, true);
 }
 
 part('the map controls', () => {
@@ -251,7 +251,7 @@ part('the map controls', () => {
           `<label><input type="checkbox" id="layer-${k}" ${layers[k] ? 'checked' : ''}><span class="sw" style="background:${LAYER_NAMES[k][1]}"></span>${LAYER_NAMES[k][0]}</label>`,
       )
       .join('') +
-    '<p class="caption" id="mapStats" style="margin-top:8px">Growing the island…</p>';
+    '<p class="caption" id="mapStats" style="margin-top:8px">Growing the region…</p>';
   for (const k of Object.keys(layers) as Array<keyof Layers>)
     $<HTMLInputElement>('#layer-' + k).addEventListener('change', (e) => {
       layers[k] = (e.target as HTMLInputElement).checked;
@@ -836,7 +836,7 @@ part('the file map', () => {
         '<code>shared/vehicles.json</code> · <code>trade.json</code> · <code>farming.json</code> · <code>housing.json</code> · <code>items.json</code> · <code>quests.json</code>',
         'Every life-system number and recipe.',
       ],
-      ['<code>crates/engine/src/open/</code>', 'The height grid, the island generator, colliders and decks.'],
+      ['<code>crates/engine/src/open/</code>', 'The height grid, the region generator, colliders and decks.'],
       ['<code>crates/engine/src/open/traverse.rs</code>', 'Walking on terrain, swimming, gliding, updrafts.'],
       ['<code>crates/engine/src/life/</code>', 'Trade, farming, housing, vehicles, quests, weather and what F does.'],
       [
@@ -844,7 +844,7 @@ part('the file map', () => {
         'The open-world scene and the procedural models (every one in the content library, <code>/dev/library.html#/models</code>).',
       ],
       ['<code>src/ui/life/</code>', 'The open-world HUD and panels.'],
-      ['<code>src/app/save.ts</code>', 'Saving the island in the browser, and time passing while away.'],
+      ['<code>src/app/save.ts</code>', 'Saving your life in the browser, and time passing while away.'],
       ['<code>tests/integration/world.spec.ts</code>', 'The open-world test suite.'],
       [
         '<code>design/</code>',
@@ -1029,19 +1029,20 @@ part('the open questions and the log', () => {
     .join('');
 });
 
-// ---------- the island ----------
-// Growing the island takes the engine (src/engine/load.ts) a hundred milliseconds or so, so the rest
+// ---------- the region ----------
+// Growing the region takes the engine (src/engine/load.ts) a hundred milliseconds or so, so the rest
 // of the page goes up first. data-ready on <html> says everything has been drawn (the tests wait for it).
 
 requestAnimationFrame(() =>
   setTimeout(async () => {
     await startEngine().catch((e) => console.error('design bible: could not load the engine:', e));
     part('the map', () => {
-      const isle = growRegion();
-      island = isle;
+      const region = growRegion();
+      grown = region;
       drawMaps();
-      facts(isle);
-      $('#mapStats').textContent = `Island ~1 km across. Grid cell ${isle.cell} m. ${isle.rocks.toLocaleString()} rocks, ${isle.trees.toLocaleString()} trees.`;
+      facts(region);
+      $('#mapStats').textContent =
+        `Emberholm ~1 km across. Grid cell ${region.cell} m. ${region.rocks.toLocaleString()} rocks, ${region.trees.toLocaleString()} trees.`;
     });
     document.documentElement.dataset.ready = 'true';
   }),

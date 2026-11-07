@@ -10,7 +10,7 @@ import { find, warmSearch } from './search';
 import { href, type Page, PAGES, pageAt, resolve, SECTIONS, sectionOf } from './site';
 import { startEngine } from '../engine/load';
 
-// The island's pages grow it with the engine (its map, its numbers): loaded before any page is shown.
+// The region's pages grow it with the engine (its map, its numbers): loaded before any page is shown.
 await startEngine();
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string): T => {

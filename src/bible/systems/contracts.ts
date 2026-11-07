@@ -39,9 +39,9 @@ Every trading post keeps a board of contracts: orders for so many packs of a kin
 
 ## The Boards
 
-Each post's board, on your island, holds ${count(CONTRACTS.perOutpost, 'contract')}. Every ${duration(
+Your board at each post holds ${count(CONTRACTS.perOutpost, 'contract')}. Every ${duration(
       CONTRACTS.refreshSeconds,
-    )} the boards are topped up, starting from your island's first moment. A new contract is for:
+    )} the boards are topped up, starting from your life's first moment. A new contract is for:
 
 - a pack drawn from the trade packs that post buys, each as likely as the others: those with a route to it from where they are made;
 - a number of them drawn from ${range(CONTRACTS.count)}, each as likely;
@@ -69,7 +69,7 @@ That is ${pct(CONTRACTS.coinBonus)} of what the packs would fetch on that route 
 
 ## Running Out
 
-When its time runs out, a contract you hold lapses: it comes off your list and its bonus is lost. Nothing else is taken from you; the packs you sold for it were paid when you sold them. The island's clock runs while you are away, so a contract can run out while you are gone.
+When its time runs out, a contract you hold lapses: it comes off your list and its bonus is lost. Nothing else is taken from you; the packs you sold for it were paid when you sold them. Your life's clock runs while you are away, so a contract can run out while you are gone.
 
 ## What They Pay
 

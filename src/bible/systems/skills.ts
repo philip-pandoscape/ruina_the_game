@@ -125,7 +125,7 @@ Ruina has no classes. Everything you can do in a fight (each weapon, each spell,
 
 Every node you learn takes one point, and you can never have more learned than your points allow.
 
-- **On the island** you start with ${count(START_POINTS, 'point')}, and each quest and milestone that rewards points adds them when you finish it: ${count(fromQuests, 'point')} in all from the ${count(earned.length, 'quest')} that do, so ${count(START_POINTS + fromQuests, 'point')} once every one is done. Your points are counted from the quests you have finished, never stored, so they can't drift from them.
+- **In the world** you start with ${count(START_POINTS, 'point')}, and each quest and milestone that rewards points adds them when you finish it: ${count(fromQuests, 'point')} in all from the ${count(earned.length, 'quest')} that do, so ${count(START_POINTS + fromQuests, 'point')} once every one is done. Your points are counted from the quests you have finished, never stored, so they can't drift from them.
 - **A new character** already knows ${raw(known.map((n) => nodeLink(n).html).join(', '))}, which takes ${count(known.length, 'point')} of them.
 
 ${table(
@@ -234,11 +234,11 @@ ${table(
   }),
 )}
 
-Your experience is kept with your island. Every level-up also counts for quests that ask for them${levelUps ? phrase`, such as ${link(`quests/${levelUps.id}`, levelUps.name)}` : ''}.
+Your experience is kept with your life. Every level-up also counts for quests that ask for them${levelUps ? phrase`, such as ${link(`quests/${levelUps.id}`, levelUps.name)}` : ''}.
 
 ## Your Build Online
 
-Your build is kept on the game server with your character. Each time you change it, the server checks it before taking it: every learned node must connect back to a root, the count must be within your points, the weapon in your hands one you know, and every slot hold a skill you have learned, each in one slot only. A build that fails is refused, and you keep the one you had. Starting your island over takes its quests with it: your build stays only if the points a fresh island starts with still cover it, and otherwise you are back to the first build.
+Your build is kept on the game server with your character. Each time you change it, the server checks it before taking it: every learned node must connect back to a root, the count must be within your points, the weapon in your hands one you know, and every slot hold a skill you have learned, each in one slot only. A build that fails is refused, and you keep the one you had. Starting your life over takes its quests with it: your build stays only if the points a fresh life starts with still cover it, and otherwise you are back to the first build.
 `;
   },
 });

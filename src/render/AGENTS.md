@@ -1,13 +1,13 @@
 # src/render
 
-Drawing, with three.js: the island and its buildings, bodies and creatures, models, effects and the
+Drawing, with three.js: the world and its buildings, bodies and creatures, models, effects and the
 look. It reads the rules' state and whatever it's handed, and never changes the rules' state.
 
 | Path | What |
 |---|---|
 | `look.ts` | The look, its palette, and how much of it each quality draws (`GRAPHICS`: `high`, `medium`, `low`; `?quality=`). |
 | `scene.ts`, `camera.ts` | The stage (renderer, scene, light) and the camera that follows you. |
-| `open/` | The open world: the stage (`stage.ts`: lights, sky, sea and a view of each region held round you, added as they arrive and let go behind you), a region drawn where the world places it (`regionView.ts`: its ground `terrain.ts` and `ground.ts`, trees and grass `foliage.ts`, dressing, buildings and falls, built a little each frame), the sea (`water.ts`, reading the nearest regions' depths, `seaDepths.ts`), sky, screen effects (`post.ts`), the island's life drawn (`life.ts`), everyone else drawn (`peersView.ts`: heroes up close, crowd bodies past 42 m, crossfading between), dungeons and zones (`dungeonView.ts`, a cave as its file dresses it; `arenaView.ts`), mini-game tables (`gameTables.ts`, each game's board on them `gameBoards/<id>.ts`, found by the game's id). |
+| `open/` | The open world: the stage (`stage.ts`: lights, sky, sea and a view of each region held round you, added as they arrive and let go behind you), a region drawn where the world places it (`regionView.ts`: its ground `terrain.ts` and `ground.ts`, trees and grass `foliage.ts`, dressing, buildings and falls, built a little each frame), the sea (`water.ts`, reading the nearest regions' depths, `seaDepths.ts`), sky, screen effects (`post.ts`), the land drawn (`land.ts`), everyone else drawn (`peersView.ts`: heroes up close, crowd bodies past 42 m, crossfading between), dungeons and zones (`dungeonView.ts`, a cave as its file dresses it; `arenaView.ts`), mini-game tables (`gameTables.ts`, each game's board on them `gameBoards/<id>.ts`, found by the game's id). |
 | `origin.ts` | The scene's origin, moving with you (a floating origin): where it stands (on a lattice, once the camera is far from it), what the patterns laid in the world are handed to stay put and precise (`repeatShift`, `noiseShift`, `followOrigin`), and going between the world's coordinates and three.js's own (`toScene`, `fromScene`, `lookAtWorld`). |
 | `village/` | Buildings you can walk into, from Quaternius' village kit: assembled from their plans, cut open above your storey, doors and lamps. |
 | `character.ts`, `detail/` | The hero up close: poses as a pure function of `PoseInput` (`detail/humanoid.ts`), feet and hands (`body.ts`, `gait.ts`), swings, the made body fitted to our rig (`fit.ts`, `madeHero.ts`), retargeted clips (`retarget.ts`, `moves.ts`). |

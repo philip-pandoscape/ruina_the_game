@@ -55,7 +55,7 @@ export const weather = system({
     // Showers come one to a slot (weather.rs): a shower and a gap, on average, starting up to the jitter into it.
     const slot = (rain.lastsSeconds[0] + rain.lastsSeconds[1]) / 2 + (rain.gapSeconds[0] + rain.gapSeconds[1]) / 2;
     const jitter = Math.max(0, (rain.gapSeconds[1] - rain.gapSeconds[0] - (rain.lastsSeconds[1] - rain.lastsSeconds[0])) / 2);
-    // The first showers on a new island's clock, as the rules work them out.
+    // The first showers on a new life's clock, as the rules work them out.
     const showers: Array<{ start: number; end: number }> = [];
     for (let at = rainAt(0).next, i = 0; i < 5; i++) {
       const s = rainAt(at + 1e-3);
@@ -70,23 +70,23 @@ export const weather = system({
     const [strMid, strA, strP] = numbers(weatherSource, /wind_speed = ([\d.]+) \+ ([\d.]+) \* \(c \/ ([\d.]+) \+ [\d.]+\)\.js_sin\(\)/, 'how the wind blows');
     const [sailBase, sailWind] = numbers(vehiclesSource, /eff \* \(([\d.]+) \+ ([\d.]+) \* wind_speed\)/, 'how much the wind’s strength fills a sail');
     const [stormBase, stormWind] = numbers(weatherSource, /k \* \(([\d.]+) \+ ([\d.]+) \* life\.weather\.wind_speed\)/, 'how the wind whips up a storm');
-    // The time away is caught up as the server loads your island (load_life).
+    // The time away is caught up as the server loads your life (load_life).
     const awayAtAll = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.state\.clock \+= away;/, 'how long away counts as away');
     const welcome = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.toast\(/, 'how long away earns a welcome back');
     const daylight = ((sky.sunset - sky.sunrise) / 24) * sky.dayLengthSeconds;
     const round = (x: number) => 2 * Math.PI * x;
     return md`
-Your island keeps time, and the sky and the weather run on a clock everyone in the world shares. Day turns to night, showers sweep in and water the fields, and a wind wanders round the compass and fills the sails. While you are away your island's clock runs on, up to a point.
+Your life keeps time, and the sky and the weather run on a clock everyone in the world shares. Day turns to night, showers sweep in and water the fields, and a wind wanders round the compass and fills the sails. While you are away your life's clock runs on, up to a point.
 
-## Your Island's Clock
+## Your Life's Clock
 
-Your island has a clock of its own: the seconds it has run. It moves on by a step each frame of play, ${SIM_HZ} times a second, and what is yours alone counts on it: crops growing, a gathering spot coming back, a contract running out, a vehicle being repaired.
+Your life has a clock of its own: the seconds it has run. It moves on by a step each frame of play, ${SIM_HZ} times a second, and what is yours alone counts on it: crops growing, a gathering spot coming back, a contract running out, a vehicle being repaired.
 
-What stands in the world (your house, your farm's animals, a pack you made) counts on the land's clock instead: online the world's (the server's), the same for everyone and running whether or not you play, so the tax falls due, an animal's feed runs out and a pack goes stale while you are away. Playing alone, the world is yours and the land's clock is your island's.
+What stands in the world (your house, your farm's animals, a pack you made) counts on the land's clock instead: online the world's (the server's), the same for everyone and running whether or not you play, so the tax falls due, an animal's feed runs out and a pack goes stale while you are away. Playing alone, the world is yours and the land's clock is your life's.
 
 ## Day and Night
 
-A whole day, sunrise to sunrise, lasts ${duration(sky.dayLengthSeconds)} of real time. The hour is worked out from a clock: online the world's own clock (the server's), so everyone in the world sees the same hour at the same moment; playing alone, your island's clock, which starts at ${clockTime(hourAt(sky, 0))} on a new island.
+A whole day, sunrise to sunrise, lasts ${duration(sky.dayLengthSeconds)} of real time. The hour is worked out from a clock: online the world's own clock (the server's), so everyone in the world sees the same hour at the same moment; playing alone, your life's clock, which starts at ${clockTime(hourAt(sky, 0))} on a new life.
 
 $$
 hour = the part after the point of (clock ÷ ${num(sky.dayLengthSeconds)} + ${num(sky.startHour)} ÷ 24) × 24
@@ -96,11 +96,11 @@ The sun rises at ${clockTime(sky.sunrise)} and sets at ${clockTime(sky.sunset)},
 
 ## Rain
 
-Showers come and go on the weather's clock, and every shower waters every field on your island while it falls: a crop in the rain grows as if it had been watered, ${pct(FARM.water.boost - 1)} faster ([[systems/farming]]). Hand-watering lasts until a plant's next stage; the rain's watering lasts as long as the rain.
+Showers come and go on the weather's clock, and every shower waters every field on your land while it falls: a crop in the rain grows as if it had been watered, ${pct(FARM.water.boost - 1)} faster ([[systems/farming]]). Hand-watering lasts until a plant's next stage; the rain's watering lasts as long as the rain.
 
 - A shower lasts ${duration(rain.lastsSeconds[0])} to ${duration(rain.lastsSeconds[1])}, and the dry spell between two showers ${duration(rain.gapSeconds[0])} to ${duration(rain.gapSeconds[1])}.
 - Exactly: the clock is cut into slots of ${duration(slot)}, an average shower and an average dry spell. Each slot's shower starts up to ${duration(jitter)} into it and lasts its length; where in its range each falls is drawn from the slot's number, not from anyone's dice, so the same clock always has the same rain.
-- Online the rain runs on the world's clock, so it rains on everyone in the world at once. Playing alone it runs on your island's clock, and a new island's first shower comes ${duration(rain.firstAfter)} in.
+- Online the rain runs on the world's clock, so it rains on everyone in the world at once. Playing alone it runs on your life's clock, and a new life's first shower comes ${duration(rain.firstAfter)} in.
 - Out at sea, rain whips up a storm over deep water (below).
 
 $$
@@ -120,7 +120,7 @@ ${table(
   [1, 2, 3],
 )}
 
-The table is a new island's first showers, playing alone, its clock counted from when it began.
+The table is a new life's first showers, playing alone, its clock counted from when it began.
 
 ## Wind
 
@@ -152,9 +152,9 @@ $$
 
 ## Time Away
 
-When you come back to your island (online, when the server loads it as you join; playing alone, when the game loads it), the time since you left is caught up at once: up to ${duration(CLOCK.maxOfflineSeconds)} of it, counted at ${pct(CLOCK.offlineFactor, 0)} of its length. Away for less than ${duration(awayAtAll)}, nothing happens.
+When you come back (online, when the server loads your life as you join; playing alone, when the game loads it), the time since you left is caught up at once: up to ${duration(CLOCK.maxOfflineSeconds)} of it, counted at ${pct(CLOCK.offlineFactor, 0)} of its length. Away for less than ${duration(awayAtAll)}, nothing happens.
 
-- Your island's clock moves on by that much, and everything that waits on it with it: gathering spots come back, contracts run out. (The tax, an animal's feed and a pack's age wait on the land's clock, which never stopped.)
+- Your life's clock moves on by that much, and everything that waits on it with it: gathering spots come back, contracts run out. (The tax, an animal's feed and a pack's age wait on the land's clock, which never stopped.)
 - Every crop grows by that much, at the pace it had when you left (watered or not), and wakes unwatered. Rain while you were away doesn't count.
 - Every animal grows and gives for as much of that time as it was fed for ([[systems/livestock]]).
 - Labor comes back at ${LABOR.offlinePerMinute} a minute, rather than the ${LABOR.perMinute} it does while you play ([[systems/economy]]).

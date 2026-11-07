@@ -29,13 +29,13 @@ const REGIONS: ZoneRecipe[] = [ZONE];
 const ZONE_LAYERS: Layers = { places: true, roads: true, routes: true, plots: true, nodes: false, air: true };
 const PLACE_LAYERS: Layers = { places: true, roads: true, routes: false, plots: false, nodes: false, air: false };
 
-/** A map of the island, drawn once the page is in place (growing the island takes a moment). */
-const MAP = (caption: string): Html => figure('<canvas class="map" role="img" aria-label="A map of the island"></canvas>', caption);
+/** A map of the region, drawn once the page is in place (growing the region takes a moment). */
+const MAP = (caption: string): Html => figure('<canvas class="map" role="img" aria-label="A map of the region"></canvas>', caption);
 
 function drawMap(root: HTMLElement, all: boolean, mark?: string): void {
   const canvas = root.querySelector<HTMLCanvasElement>('canvas.map');
   if (!canvas) return;
-  // After the page's text is on screen: growing the island the first time takes a few hundred milliseconds.
+  // After the page's text is on screen: growing the region the first time takes a few hundred milliseconds.
   requestAnimationFrame(() =>
     setTimeout(() => {
       if (!canvas.isConnected) return;
@@ -89,7 +89,7 @@ export const regions = kind<ZoneRecipe>({
   ],
   body: (z) =>
     join(
-      MAP(`The island as the game grows it from its recipe, north up: its roads, plots, trade routes, the ledge path and rising air, and its places.`),
+      MAP(`The region as the game grows it from its recipe, north up: its roads, plots, trade routes, the ledge path and rising air, and its places.`),
       md`## Places`,
       table(
         ['Place', 'Kind'],
@@ -100,7 +100,7 @@ export const regions = kind<ZoneRecipe>({
         ['Who', 'What They Do', 'Where'],
         z.npcs.map((n) => [npcLink(n.id), n.title, placeLink(n.place)]),
       ),
-      md`[[systems/world]] tells how the island is grown from its recipe, and [[systems/weather]] how its days and weather go.`,
+      md`[[systems/world]] tells how a region is grown from its recipe, and [[systems/weather]] how its days and weather go.`,
     ),
   mount: (_z, root) => drawMap(root, true),
 });
@@ -113,7 +113,7 @@ export const places = kind<ZonePlace>({
   title: 'Places',
   noun: 'Place',
   icon: '📍',
-  summary: 'The named places of the island: the village, the farmland, the crag, the trading posts and the wilds.',
+  summary: 'The named places of Emberholm: the village, the farmland, the crag, the trading posts and the wilds.',
   sources: ['shared/regions/*.json#places', 'shared/regions/*.json#outposts', 'shared/trade.json#places'],
   systems: ['world', 'trade'],
   all: () => ZONE.places,
@@ -168,7 +168,7 @@ export const npcs = kind<ZoneNpc>({
   title: 'People',
   noun: 'Person',
   icon: '🧑',
-  summary: 'The townsfolk of the island: who they are, where they stand, what they sell, make and ask of you.',
+  summary: 'The townsfolk of Emberholm: who they are, where they stand, what they sell, make and ask of you.',
   sources: ['shared/regions/*.json#npcs'],
   systems: ['quests', 'economy'],
   all: () => ZONE.npcs,

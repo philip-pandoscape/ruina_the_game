@@ -1,6 +1,6 @@
 ---
 name: fix-bugs
-description: Work through the bug reports recorded in the game (pressing \ while playing) and fix them. Each report in bugs/<id>/ has a voice transcript, frames from before and after the key press, a screenshot with the HUD, console errors, game events, the player's path and the island save. Use when the user types /fix-bugs or asks you to look at their bug reports.
+description: Work through the bug reports recorded in the game (pressing \ while playing) and fix them. Each report in bugs/<id>/ has a voice transcript, frames from before and after the key press, a screenshot with the HUD, console errors, game events, the player's path and the life's save. Use when the user types /fix-bugs or asks you to look at their bug reports.
 argument-hint: "[report id, or part of one]"
 ---
 
@@ -39,7 +39,7 @@ The digest has what was said (t = seconds from the key press, negative = before 
 Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
 
 - Playwright drives the real game through `window.__game` (the "Hooks for automated tests" section of `src/main.ts`): `advance(frames, actions)`, `teleport(x, z, facing)`, `lifeCommand(cmd)`, `state()`, `life()`, `setCamera(...)`, `sceneObjects(prefix)`, and more. `tests/integration/world.spec.ts` shows the helpers the existing specs use.
-- `save.json` loads the island exactly as it was at the press:
+- `save.json` loads the life exactly as it was at the press:
   ```ts
   await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('bugs/<id>/save.json', 'utf8'));
   await page.goto('/?test&load');

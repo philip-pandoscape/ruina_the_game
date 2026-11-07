@@ -1,6 +1,6 @@
 # Content
 
-Everything the game is made of that isn't code: the island's people and places, items, quests,
+Everything the game is made of that isn't code: the world's people and places, items, quests,
 crops, vehicles, creatures, buildings and the numbers that tune them. It lives in `content/`, a
 folder per kind and a file per thing, and `npm run content` builds it into the bundles both sides
 read (`shared/*.json`; the browser imports them and the server builds them into itself). A new thing
@@ -23,8 +23,8 @@ The steps are the same for every kind; the recipes below say what each kind's fi
    change before committing.
 4. **Explain it for the bible**, if its kind has no description of its own: a `## <id>` and a few
    sentences in `src/bible/notes/<kind>.md` (Markdown, not code; the bible's test says which).
-5. **On the island?** Anything placed on it (a person, a structure, a gathering spot, a plot) moves
-   the ground round it; the server and the browser both grow the island from the bundles, so
+5. **In the world?** Anything placed on it (a person, a structure, a gathering spot, a plot) moves
+   the ground round it; the server and the browser both grow the region from the bundles, so
    nothing more is needed.
 6. **Online**, build the world server again (`npm run up`). `npm run content` writes the content's
    hash too (`shared/hash.json`), the server says its own when a page connects, and a page built
@@ -45,7 +45,7 @@ is its `look` (Looks, below).
 |---|---|
 | `name`, `title` | Who they are and what they do |
 | `place` | The place they belong to (`content/regions/emberholm/places.json`) |
-| `x`, `z`, `facing` | Where they stand on the island, and which way they face |
+| `x`, `z`, `facing` | Where they stand in the world, and which way they face |
 | `kind` | Their actor kind (`content/actors/`: `npc-elder`, `npc-merchant`, `npc-crafter`, `npc-sailor`): solid, never anyone's target, and how the crowd draws them from afar |
 | `look` | How they are drawn close up: their colours (`#rrggbb`), build and hair, and an `outfit` by name (`src/render/models/villagers.ts` OUTFITS: the elder's staff, the grocer's basket); without one, a plain villager dressed from their id |
 | `portrait` | Their face as an emoji, until their portrait is taken |
@@ -156,8 +156,8 @@ A new type of objective is a new mechanic: code.
 ## Buildings, Structures and Props
 
 - **A structure** (a building's footprint and collider, a well, a dock): `content/structures/<id>.json`
-  (template `structure.json`); placed on the island by an entry in
-  `content/regions/emberholm/structures.json` (template `region/structures.json`). How the island sits
+  (template `structure.json`); placed in the region by an entry in
+  `content/regions/emberholm/structures.json` (template `region/structures.json`). How the region sits
   it is its data too: the ground under it is levelled to a pad unless it has a `deck` or
   `pad: false` (a farm plot, a scarecrow); `seaLevel: true` stands it at sea level (a pier);
   `clearMargin` is how far round it trees and rocks are kept off; `surface` is what the ground

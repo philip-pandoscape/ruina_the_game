@@ -16,12 +16,12 @@ peers to their drawing).
 | `bugWiring.ts` | The bug reporter (`bugs/`) wired to the game: what a report keeps and samples. |
 | `dungeonVisit.ts` | Into a copy of a dungeon and out again. |
 | `drawing.ts` | Drawing a frame: the world as the rules have it at the moment shown (between two steps), the effects of what happened, spells' circles, monsters' warnings, the ability bar, the camera, everyone else. |
-| `step.ts` | One step of the rules with what you pressed, and what it shows: the effects of what happened and what the island said; online, the server's word on you taken in first. |
+| `step.ts` | One step of the rules with what you pressed, and what it shows: the effects of what happened and what your life said; online, the server's word on you taken in first. |
 | `cameraRig.ts` | The camera's sense of where it is: not into the ground, under the sea or below your storey, pulled in rather than through a wall, the eye kept under a hood of rock. |
 | `loop.ts` | The main loop: the rules stepped at 60 Hz for the time that has passed, with what you pressed for each step, then a frame drawn; tests pause it and step it a frame at a time. |
 | `aiming.ts`, `targeting.ts` | Aiming: the mark (a soft lock you override with Tab), the circle a ground-aimed spell is placed with, aim assist, the combat stance. |
 | `perf.ts` | How the game runs: frame times, the page's and the graphics card's share, draw calls; the HUD's stats line and the stress tests read it. |
-| `save.ts`, `savedBuild.ts`, `storage.ts`, `resume.ts` | The island and the build kept in the browser offline, browser storage under the game's name, coming back after a reload. |
+| `save.ts`, `savedBuild.ts`, `storage.ts`, `resume.ts` | The life and the build kept in the browser offline, browser storage under the game's name, coming back after a reload. |
 
 ## How the modules reach the game
 
