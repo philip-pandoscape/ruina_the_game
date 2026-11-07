@@ -27,7 +27,13 @@
     },
     "free": [
       "l"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_ilsa"
+      ],
+      "h": 1.82
+    }
   },
   "portrait": "🧑‍✈️",
   "greeting": "Rowboats for the bay, a sloop for the open sea. Sail with the wind at your back and you'll fly."

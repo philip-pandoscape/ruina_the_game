@@ -15,7 +15,13 @@
     "pants": "#6b4a32",
     "boots": "#3d2a1e",
     "hair": "#a0522d",
-    "style": "ponytail"
+    "style": "ponytail",
+    "model": {
+      "files": [
+        "npc_tamsin"
+      ],
+      "h": 1.68
+    }
   },
   "portrait": "🧑‍🔧",
   "greeting": "The bench is yours whenever you've the goods. Remember: a pack sold where it's made is worth nothing.",

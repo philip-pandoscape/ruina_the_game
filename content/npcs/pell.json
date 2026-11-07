@@ -28,7 +28,13 @@
     },
     "free": [
       "l"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_pell"
+      ],
+      "h": 2.02
+    }
   },
   "portrait": "🎩",
   "greeting": "Gullrock's a long row from anywhere. That's why I pay in seals as well as silver."

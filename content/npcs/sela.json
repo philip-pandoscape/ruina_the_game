@@ -16,7 +16,13 @@
     "boots": "#3a2618",
     "tallBoots": true,
     "hair": "#c0502a",
-    "style": "braid"
+    "style": "braid",
+    "model": {
+      "files": [
+        "npc_sela"
+      ],
+      "h": 1.72
+    }
   },
   "portrait": "👩‍🦰",
   "greeting": "A donkey will carry your pack and complain the whole way. A horse will outrun the wind and carry nothing."

@@ -446,13 +446,13 @@ export function pivot(parent: THREE.Object3D, x = 0, y = 0, z = 0, name?: string
   return g;
 }
 
-/** Triangles and draw calls an object costs, for budgets and the harness. */
+/** Triangles and draw calls an object costs as drawn (nothing hidden, or under something hidden), for budgets and the harness. */
 export function cost(obj: THREE.Object3D): { triangles: number; draws: number } {
   let tris = 0;
   let draws = 0;
-  obj.traverse((o) => {
+  obj.traverseVisible((o) => {
     const m = o as THREE.Mesh;
-    if (!m.isMesh || !m.visible) return;
+    if (!m.isMesh) return;
     tris += triangles(m.geometry);
     draws++;
   });

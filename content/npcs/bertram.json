@@ -19,7 +19,13 @@
     "boots": "#3a2a20",
     "hair": "#6b4226",
     "style": "short",
-    "beard": "bushy"
+    "beard": "bushy",
+    "model": {
+      "files": [
+        "npc_bertram"
+      ],
+      "h": 1.86
+    }
   },
   "portrait": "🧔",
   "greeting": "A cart for the patient, a roadster for the bold, a hauler for the ambitious. Bring timber and iron."

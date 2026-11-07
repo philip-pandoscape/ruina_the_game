@@ -1123,6 +1123,19 @@
     {
       "system": "look",
       "status": "done",
+      "title": "The townsfolk as made bodies like the hero's",
+      "notes": "All twelve townsfolk wear made bodies in the hero's painted look: turnaround sheets painted with Gemini from the hero's sheet and the approved concept art, made with Tripo (Smart Mesh P2.0, about 10k triangles each, textured and rigged there; src/render/assets/models/npc_*.glb) and worn on the hero's rig as his is (madeBody.ts, fit.ts), the built townsperson standing in until theirs has loaded. They stand in the hero's rest pose with a sway of their own, look about and talk with their hands (madeTownsfolk.ts), hold what the built ones hold (the elder's staff, the grocer's basket, the factor's cane, the ledgers), and are still past 60 m. ?npcModel=<id>:<address> tries another body; ?npcModel=none shows the built ones.",
+      "files": [
+        "src/render/detail/madeBody.ts",
+        "src/render/detail/madeTownsfolk.ts",
+        "src/render/models/villagers.ts",
+        "src/content/looks.ts",
+        "src/render/assets/models/npc_mara.glb"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
       "title": "Made weapons",
       "notes": "A sword, club, staff and bow made with Meshy (Poly Haven's free estoc and mace were compared in the game first and read as a rapier and a mace) held where the box hero's were, as long, so swings, trails and reach are unchanged (madeWeapons.ts). Steel and gold give back the hemisphere light's sky and ground colours, so they dim at night; the staff's orb glows; the bow's string is the game's own, drawn back to the hand. Put away, a made body carries the sword and club at the hip and the staff and bow across the back (stow.ts MADE_STOWED). tools/models/weaponprep.mjs paints a metal-roughness map from Meshy's colour-only textures.",
       "files": [

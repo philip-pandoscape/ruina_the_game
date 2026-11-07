@@ -99,6 +99,9 @@
         "blush": {
           "type": "boolean"
         },
+        "model": {
+          "type": "object"
+        },
         "h": {
           "type": "number"
         },

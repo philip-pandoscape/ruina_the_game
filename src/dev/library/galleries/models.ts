@@ -287,9 +287,10 @@ function measure(obj: THREE.Object3D, withFigures = false): THREE.Box3 {
   obj.updateMatrixWorld(true);
   const box = new THREE.Box3();
   const v3 = new THREE.Vector3();
-  obj.traverse((o) => {
+  // As drawn: nothing hidden, or under something hidden (a townsperson's built body under a made one).
+  obj.traverseVisible((o) => {
     const m = o as THREE.Mesh;
-    if (!m.isMesh || !m.visible) return;
+    if (!m.isMesh) return;
     if (!withFigures) for (let p: THREE.Object3D | null = m; p; p = p.parent) if (p.userData.figure) return;
     // Exact: transform every vertex (a rotated box's bounds would overstate it).
     const pos = m.geometry.getAttribute('position');

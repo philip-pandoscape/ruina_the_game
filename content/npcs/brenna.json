@@ -28,7 +28,13 @@
     },
     "free": [
       "l"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_brenna"
+      ],
+      "h": 1.84
+    }
   },
   "portrait": "⛏️",
   "greeting": "Stone and iron, raw or ready. Ten stone makes a block at the cutting table. Mind your back.",

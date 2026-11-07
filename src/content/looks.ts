@@ -76,6 +76,12 @@ export interface VillagerLook {
   /** How the arms rest (radians about x, y and z), and which are free to gesture. */
   rest?: { l?: [number, number, number]; r?: [number, number, number] };
   free?: Array<'l' | 'r'>;
+  /**
+   * A made, rigged body worn in place of the built one once it has loaded: its first file, on the
+   * hero's rig (src/render/detail/madeTownsfolk.ts), standing `h` metres tall (the hero's 1.78 if it
+   * doesn't say), turned `yaw` first if its front isn't +Z.
+   */
+  model?: MadeModel;
 }
 
 /** A colour as its red, green and blue parts (0 to 1), as the light is worked out in. */

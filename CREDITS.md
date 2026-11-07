@@ -20,6 +20,11 @@ his weapons and his Meshy animation clips: `hero_walk`, `hero_run`, `hero_moves_
 own: generated with [Meshy](https://www.meshy.ai) on a paid plan from concept art it painted for Ruina, then
 compressed with [glTF Transform](https://gltf-transform.dev).
 
+The townsfolk's bodies (`npc_*` in `src/render/assets/models/`) are the project's own: made with
+[Tripo AI](https://www.tripo3d.ai) on a paid plan (Smart Mesh P2.0 from four views, textured and rigged
+there) from turnaround sheets painted for Ruina with Google's Gemini image model, then compressed with glTF
+Transform.
+
 The icons in `src/ui/theme/icons/` (items, skills, places and the HUD's own) are the project's own: painted
 for Ruina with Google's Gemini image model (Nano Banana Pro, on a paid plan) by `tools/icons/paint.mjs`, and
 cut out of their sheets by `tools/icons/bake.mjs`.

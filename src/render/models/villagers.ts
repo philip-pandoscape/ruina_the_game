@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { PAL, Parts, bev, box, cone, cyl, extrude, glowMaterial, ico, mesh, mix, octa, pivot, rod, sph, tor, type Rgb, type V3 } from './kit';
 import { clamp } from '../../util/math';
 import type { Hair, VillagerLook } from '../../content/looks';
+import { madeBody, madeBodyNow, type WornBody } from '../detail/madeBody';
+import { wearTownsperson, type MadeTownsperson } from '../detail/madeTownsfolk';
 
 // The townsfolk of Emberholm, built like the hero (src/render/creatures/heroBody.ts): chunky
 // rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
@@ -9,7 +11,8 @@ import type { Hair, VillagerLook } from '../../content/looks';
 // around and gesture (more when `talking`) for about ten draw calls. Each is built and dressed
 // by their look (src/content/looks.ts VillagerLook: colours, build and hair, and an outfit by name,
 // hats and a prop in hand that say their job at a glance); one with no look gets a plain villager
-// dressed from their id.
+// dressed from their id. One whose look names a made body (`model`) wears it once it has loaded,
+// on the hero's rig (src/render/detail/madeTownsfolk.ts), the box one standing in until then.
 
 export interface VillagerAnim {
   /** Seconds. */
@@ -73,9 +76,22 @@ interface Kit {
   d: number;
   h: number;
   shoulderY: number;
-  /** Builds a prop in the shoulder's upright frame around the resting hand, then hangs it on the arm. */
-  held(side: 'l' | 'r', build: (p: Parts, hand: THREE.Vector3, ground: number) => void): void;
+  /**
+   * A prop in hand: built in the shoulder's upright frame round the resting hand, then hung on the
+   * arm. A made body holds it too, built round its own hand, unless `on` is 'built' (a made body
+   * that wears its own: the captain's spyglass, the woodcutter's axe); 'made' is a made body's only.
+   */
+  held(side: 'l' | 'r', build: HeldProp['build'], on?: 'both' | 'built' | 'made'): void;
 }
+
+/** A prop in a townsperson's hand: built round the hand where it rests, upright, the ground `ground` below. */
+interface HeldProp {
+  side: 'l' | 'r';
+  build: (p: Parts, hand: THREE.Vector3, ground: number) => void;
+}
+
+/** What each built townsperson holds that a made body of theirs holds too. */
+const CARRIED = new WeakMap<VillagerModel, HeldProp[]>();
 
 type Extra = (k: Kit, root: THREE.Group, body: THREE.Group) => ((t: number, talk: number) => void) | void;
 
@@ -101,6 +117,7 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
   const shoulderY = hips + 0.46 * h;
   const restL = new THREE.Euler(...(look.rest?.l ?? [0, 0, 0.08]));
   const restR = new THREE.Euler(...(look.rest?.r ?? [0, 0, -0.08]));
+  const carried: HeldProp[] = [];
   const k: Kit = {
     look,
     legs: new Parts(),
@@ -113,7 +130,9 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
     d,
     h,
     shoulderY,
-    held(side, build) {
+    held(side, build, on = 'both') {
+      if (on !== 'built') carried.push({ side, build });
+      if (on === 'made') return;
       // The arm hangs from a body that may stoop, so undo both turns to build the prop upright.
       const rest = side === 'l' ? restL : restR;
       const total = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(look.hunch ?? 0, 0, 0)).multiply(new THREE.Matrix4().makeRotationFromEuler(rest));
@@ -184,7 +203,7 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
   const free = new Set(look.free ?? ['l', 'r']);
   const hunch = look.hunch ?? 0;
   let talk = 0;
-  return {
+  const model: VillagerModel = {
     root,
     animate(dt, s) {
       const t = s.time + off;
@@ -210,6 +229,8 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
       anim?.(t, talk);
     },
   };
+  CARRIED.set(model, carried);
+  return model;
 }
 
 function hair(p: Parts, look: Look): void {
@@ -357,10 +378,14 @@ const captain: Extra = (k) => {
   );
   hat.add(cyl(0.2, 0.24, 0.16, 8), 0x1f2430, [0, 0.62, -0.02]);
   k.head.take(hat);
-  k.held('r', (p, hand) => {
-    p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
-    p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
-  });
+  k.held(
+    'r',
+    (p, hand) => {
+      p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
+      p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
+    },
+    'built',
+  );
 };
 
 /** A white collar, buttons, spectacles, a quill behind the ear and a ledger under the arm: the land clerk's. */
@@ -372,6 +397,15 @@ const clerk: Extra = (k) => {
   for (const sx of [-1, 1]) k.head.add(tor(0.055, 0.01, 3, 10), PAL.gold, [sx * 0.11, 0.23, 0.25]);
   k.head.add(box(0.06, 0.012, 0.012), PAL.gold, [0, 0.24, 0.25]);
   k.head.add(cone(0.025, 0.28, 4), PAL.white, [0.27, 0.42, -0.05], [0.4, 0, -0.3], [1, 1, 0.3]);
+  // A made body has a satchel and no ledger under the arm: it carries one, as the trader does.
+  k.held(
+    'l',
+    (p, hand) => {
+      p.add(box(0.06, 0.3, 0.22), 0x8a2f2a, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.03], [0.3, 0, 0]);
+      p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
+    },
+    'made',
+  );
 };
 
 /** A flight jacket with a fleece collar, goggles pushed up and a red scarf streaming out: the wingwright's. */
@@ -439,13 +473,17 @@ const woodcutter: Extra = (k) => {
   soft(k.head, 0.55, 0.22, 0.51, 0x4f7a3a, [0, 0.44, -0.01], undefined, 0.08);
   k.head.add(box(0.57, 0.07, 0.53), 0x3f6a2e, [0, 0.36, -0.01]);
   k.head.add(ico(0.07, 0), 0x3f6a2e, [0, 0.58, -0.02]);
-  k.held('r', (p, hand) => {
-    // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
-    const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
-    p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
-    p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
-    p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
-  });
+  k.held(
+    'r',
+    (p, hand) => {
+      // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
+      const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
+      p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
+      p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
+      p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
+    },
+    'built',
+  );
 };
 
 /** A leather vest, a brass miner's helmet with a little lamp and a pickaxe planted: the quarrymaster's. */
@@ -456,12 +494,16 @@ const quarrymaster: Extra = (k) => {
   k.head.add(cyl(0.34, 0.34, 0.03, 10), 0x9a7a35, [0, 0.45, -0.01]);
   k.head.add(box(0.1, 0.1, 0.06), PAL.iron, [0, 0.53, 0.3]);
   k.glow.add(box(0.07, 0.07, 0.02), PAL.glow, [0, 0.53, 0.335]);
-  k.held('r', (p, hand, ground) => {
-    const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
-    p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
-    p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
-    p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
-  });
+  k.held(
+    'r',
+    (p, hand, ground) => {
+      const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
+      p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
+      p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
+      p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
+    },
+    'built',
+  );
 };
 
 /** A short slanted strip (the waistcoat's watch chain). */
@@ -543,9 +585,125 @@ function bodyLook(l: VillagerLook): Look {
 }
 
 /**
- * Builds a townsperson (`id` names the model) dressed by their look and its outfit; with no look,
- * a plain villager dressed from their id.
+ * Builds a townsperson (`id` names the model) dressed by their look and its outfit, facing +Z with
+ * the origin at their feet; with no look, a plain villager dressed from their id. `at`, where they
+ * stand in the world, brings a made body's file in as you come near them.
  */
-export function buildVillager(id: string, look?: VillagerLook): VillagerModel {
-  return look ? villager(id, bodyLook(look), look.outfit ? OUTFITS[look.outfit] : undefined) : plain(id);
+export function buildVillager(id: string, look?: VillagerLook, at?: { x: number; z: number }): VillagerModel {
+  const built = look ? villager(id, bodyLook(look), look.outfit ? OUTFITS[look.outfit] : undefined) : plain(id);
+  const made = madeOf(id, look);
+  return made ? inMadeBody(id, built, made, look, at) : built;
+}
+
+// ---------- made bodies ----------
+
+/** How tall a made body stands where its look doesn't say: the hero's height. */
+const MADE_HEIGHT = 1.78;
+
+/**
+ * Trying a townsperson's made body without shipping it: ?npcModel=mara:/scratch/mara.glb (several
+ * with commas), standing as tall as their look says, the hero if it doesn't, or &npcHeight=1.68.
+ */
+const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+const TRIED = new Map(
+  (params?.get('npcModel') ?? '')
+    .split(',')
+    .filter((s) => s.includes(':'))
+    .map((s) => [s.slice(0, s.indexOf(':')), s.slice(s.indexOf(':') + 1)] as const),
+);
+const TRIED_HEIGHT = Number(params?.get('npcHeight')) || 0;
+/** ?npcModel=none: everyone in their built body, to compare with the look before the made ones. */
+const BUILT_ONLY = params?.get('npcModel') === 'none';
+
+interface Made {
+  /** A file in src/render/assets/models by name, or an address. */
+  source: string;
+  height: number;
+  yaw: number;
+}
+
+/** The made body a townsperson wears, if any: one tried by address, or the first file their look names. */
+function madeOf(id: string, look?: VillagerLook): Made | null {
+  const tried = TRIED.get(id);
+  const file = tried ?? look?.model?.files[0];
+  if (!file || BUILT_ONLY) return null;
+  return { source: file, height: (tried && TRIED_HEIGHT) || look?.model?.h || MADE_HEIGHT, yaw: look?.model?.yaw ?? 0 };
+}
+
+/** A townsperson's moment in their idle, the same each time they're built, so no two move as one. */
+const offsetOf = (id: string): number => {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 9973;
+  return (h % 230) / 10;
+};
+
+/**
+ * The built townsperson until their made body has come (and for good if it can't), then the made
+ * one in its place, under the same root: what holds them (the land, the content library) is none
+ * the wiser.
+ */
+function inMadeBody(id: string, built: VillagerModel, made: Made, look: VillagerLook | undefined, at?: { x: number; z: number }): VillagerModel {
+  const off = offsetOf(id);
+  const carried = CARRIED.get(built) ?? [];
+  const holds = carried.map((c) => c.side);
+  // An arm rests as the look says only to hold what it holds: one whose prop a made body wears
+  // instead (the captain's spyglass, the woodcutter's axe) hangs.
+  const rest = { l: holds.includes('l') ? look?.rest?.l : undefined, r: holds.includes('r') ? look?.rest?.r : undefined };
+  const stance = { hunch: look?.hunch, free: look?.free, rest, holds };
+  let worn: MadeTownsperson | null = null;
+  const dress = (body: WornBody | null | undefined) => {
+    if (!body || worn) return;
+    worn = wearTownsperson(body, stance);
+    for (const c of built.root.children) c.visible = false;
+    built.root.add(worn.root);
+    built.root.userData.face = worn.face;
+    // Stood up out of the pose it was made in, though it may never come near enough to move.
+    worn.animate(0, { time: off, talking: false });
+    holdIn(worn, carried);
+  };
+  const now = madeBodyNow(made.source, made.height, made.yaw);
+  if (now !== undefined) dress(now);
+  else void madeBody(made.source, made.height, made.yaw, at ? { need: 'near', at: () => at } : undefined)?.then(dress);
+  return {
+    root: built.root,
+    animate(dt, s) {
+      if (worn) worn.animate(dt, { time: s.time + off, talking: s.talking });
+      else built.animate(dt, s);
+    },
+  };
+}
+
+const _toRoot = new THREE.Matrix4();
+const _inHand = new THREE.Matrix4();
+const _wrist = new THREE.Vector3();
+const _knuckles = new THREE.Vector3();
+
+/**
+ * Puts what a townsperson carries in their made hands: each prop built as the built body builds it,
+ * round the middle of the made palm as they stand at rest (upright, the ground under their feet),
+ * then hung on the hand so it goes where the hand goes.
+ */
+function holdIn(worn: MadeTownsperson, carried: readonly HeldProp[]): void {
+  if (!carried.length) return;
+  worn.root.updateMatrixWorld(true);
+  _toRoot.copy(worn.root.matrixWorld).invert();
+  for (const { side, build } of carried) {
+    const s = side === 'l' ? 'L' : 'R';
+    const hand = worn.rig.joint(`hand${s}`);
+    hand.getWorldPosition(_wrist).applyMatrix4(_toRoot);
+    if (worn.rig.has(`fingers${s}`)) worn.rig.joint(`fingers${s}`).getWorldPosition(_knuckles).applyMatrix4(_toRoot);
+    else _knuckles.copy(_wrist);
+    const p = new Parts();
+    build(p, _wrist.clone().lerp(_knuckles, 0.6), 0);
+    const geo = p.build();
+    // From the townsperson's frame into the hand's, as the hand is now.
+    geo.applyMatrix4(_inHand.multiplyMatrices(_toRoot, hand.matrixWorld).invert());
+    mesh(hand, geo, { name: `held${s}` });
+  }
+}
+
+/** Waits for a townsperson's made body, if their look names one (the content library, before it films them). */
+export async function villagerReady(id: string, look?: VillagerLook): Promise<void> {
+  const made = madeOf(id, look);
+  if (made) await madeBody(made.source, made.height, made.yaw);
 }
