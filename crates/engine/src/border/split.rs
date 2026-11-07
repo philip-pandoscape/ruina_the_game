@@ -159,7 +159,7 @@ impl Split {
                 let mut players = Players::new(tick_ms);
                 players.ground = ground;
                 let flat = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
-                Sim::new(id, OpenWorld::on(map, zone), flat, players, Actors::new())
+                Sim::new(id, map, OpenWorld::on(map, zone), flat, players, Actors::new())
             })
             .collect();
         Split {

@@ -11,6 +11,7 @@ use crate::bots::{Bot, FoeSeen};
 use crate::combat::{MAX_PLAYERS, Players};
 use crate::ids::EntityId;
 use crate::open::OpenWorld;
+use crate::open::map::WorldMap;
 use crate::player::{Actions, Mode};
 use crate::world::World;
 
@@ -23,6 +24,9 @@ pub struct Leaving {
 /// One simulation's part of a world.
 pub struct Sim {
     pub id: SimId,
+    /// The world its players' lives live in (a life holds its region's zone for good), as the
+    /// world's map itself: its own `world.map` is a view of it holding only what it plays.
+    pub map: &'static WorldMap,
     pub world: OpenWorld,
     /// The flat arena [`Players::work_out`] is handed (unused in an open world).
     pub flat: World,
@@ -53,9 +57,10 @@ pub struct Sim {
 }
 
 impl Sim {
-    pub fn new(id: SimId, world: OpenWorld, flat: World, players: Players, actors: Actors) -> Sim {
+    pub fn new(id: SimId, map: &'static WorldMap, world: OpenWorld, flat: World, players: Players, actors: Actors) -> Sim {
         Sim {
             id,
+            map,
             world,
             flat,
             players,
@@ -313,7 +318,7 @@ impl Sim {
                 continue;
             }
             let (slot, client, epoch) = (m.slot, m.client, m.epoch);
-            let (d, bot) = m.departing(self.world.map);
+            let (d, bot) = m.departing(self.map);
             self.players.unghost(slot);
             self.ghost_of.remove(&slot);
             if !self.players.arrive(d) {
