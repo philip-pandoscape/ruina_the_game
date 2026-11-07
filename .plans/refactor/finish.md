@@ -2,7 +2,8 @@
 
 Started 2026-11-06 (evening, on the Windows machine), on the user's word: finish the refactor,
 **including the multi-server version** (which the plan had put after the merge, D19), with as many
-sub-agents as the work needs. This page is how the work is split and how the pieces meet. The plan is
+sub-agents as the work needs (D21 in the plan, taking back D20: GitHub issue #4, the multi-server part,
+is done here with the rest). This page is how the work is split and how the pieces meet. The plan is
 [README.md](README.md), the tasks are [tracker.md](tracker.md), the design behind the world is
 [`.plans/world/research.md`](../world/research.md) (sections 3, 5a, 5b and 5d above all).
 
@@ -54,12 +55,16 @@ browser ─WebSocket─▶ gate ×N ──inputs, commands──▶ sim ×M (a r
 | offline | R10.11's rest, R10.4's rest, R10.10's rest: `?test` alone the world, the tests off the old options, the flat yard gone, the yard's rules as engine rules any instance switches on | `refactor/offline`, `ruina-wt-offline` | 3 | 1 | |
 | wire | R10.8 the wire for crowds: first the protocol, its codec both ends and far peers drawn by the crowd renderer; then, once tiers is in, the gate and the sims on it, measured | `refactor/wire`, `ruina-wt-wire` | 4 | 1, 2 | tiers (for its second half) |
 | land | R10.21 land, plots and the ledger: the engine, content, client and SQL first; the server's side on the store tier once tiers is in | `refactor/land`, `ruina-wt-land` | 5 | 1, 2 | tiers (for the server's side) |
-| borders | R10.19 borders: ownership, ghosts, handoff, events across, vehicles crossing, leashing; Emberholm split in two matching one sim bit for bit; the fixture world crossed | `refactor/borders`, `ruina-wt-borders` | 6 | 2 | tiers, bigworld's fixture |
-| channels | R10.22 channels that open past a soft cap and merge when quiet, placed by affinity | `refactor/channels`, `ruina-wt-channels` | 7 | 2 | tiers (land for "the same land in every channel") |
-| multiserver | The multi-server version (research 5b): roles, TCP transport, the directory's leases in Postgres, the gate re-routing across processes, an instance pool, failure tests | `refactor/multiserver` | 1 | 3 | tiers, borders, land, channels, wire |
-| scale | R10.24 proof at scale: thousands of bots fighting, crossing and crowding, measured; failure tests | `refactor/scale` | 8 | 3 | the rest |
+| borders | R10.19 borders: ownership, ghosts, handoff, events across, vehicles crossing, leashing; Emberholm split in two matching one sim bit for bit; the fixture world crossed | `refactor/borders`, `ruina-wt-borders` | 6 | 1, 2 | tiers, bigworld's fixture (for its second half) |
+| channels | R10.22 channels that open past a soft cap and merge when quiet, placed by affinity | `refactor/channels`, `ruina-wt-channels` | 7 | 1, 2 | tiers, land (for its second half) |
+| multiserver | The multi-server version (research 5b): roles, TCP transport, the directory's leases in Postgres, the gate re-routing across processes, an instance pool, failure tests | `refactor/multiserver`, `ruina-wt-multiserver` | 10 | 1, 3 | tiers, borders, land, channels, wire (for its second half) |
+| scale | R10.24 proof at scale: thousands of bots fighting, crossing and crowding, measured; failure tests | `refactor/scale`, `ruina-wt-scale` | 8 | 1, 3 | the rest (for its second half) |
 | words | R10.14: "island" out of the code, the wire, the docs and the saves' column | `refactor/words` | 9 | 3 (last) | everything else merged |
 | (main) | R9.5's tick, R6.14 the look check, Phase 13 (AGENTS.md, docs, the design bible's tracker, memory notes, close-out), the merge into `beta` | `refactor/first`, `yggdrasil-refactor` | 0 | all | |
+
+**Sped up (the user, 2026-11-06 evening):** borders, channels, multiserver and scale start in wave 1
+too, each with a first half that doesn't wait on tiers (engine modules, libraries, policies,
+harnesses, measurements), and a second half on the tiers once they land.
 
 ## Who Owns What, While Several Run at Once
 
@@ -92,6 +97,7 @@ Everything listens on localhost only. Each workstream uses its slot and nothing 
 | 7 channels | `ruina-wt-channels-db`, 5487 | 7878 | 5268 | 170 | 8800-8899 |
 | 8 scale | `ruina-wt-scale-db`, 5488 | 7879 | 5269 | 180 | 8900-8999 |
 | 9 words | `ruina-wt-words-db`, 5489 | 7880 | 5270 | 190 | 9000-9099 |
+| 10 multiserver | `ruina-wt-multiserver-db`, 5478 | 7881 | 5271 | 200 | 9100-9199 |
 
 A slot's rig, for slot *k* (the image `postgres:18` is local; Docker Desktop is running, leave it so):
 
@@ -103,7 +109,8 @@ DATABASE_URL=postgres://ruina:ruina@127.0.0.1:548k/ruina DEV_LOGIN=1 ./scratch/r
 PW_PORT=526k TEST_PORT_OFFSET=<offset> RUINA_SERVER=http://localhost:787k RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:548k/ruina npx playwright test <specs> --output=scratch/pw-out
 ```
 
-(Slot 0 uses 5461 for Postgres; slots 1-9 use 548*k*.) The user's own `ruina` compose project holds
+(Slot 0 uses 5461 for Postgres, slots 1-9 use 548*k*, slot 10 uses 5478.) With nine workstreams on
+one machine, run Playwright with `PW_WORKERS=3` and only the specs your work touches until your final run. The user's own `ruina` compose project holds
 7777 and its database; never touch it, nor any container or process you didn't start. Restart your
 rig's server after rebuilding it (copy again first).
 
@@ -118,6 +125,11 @@ rig's server after rebuilding it (copy again first).
   against your slot's rig; the whole integration tier if your work touches the game broadly. List
   any failure with whether it fails on `refactor/first` too (the known races are listed in the
   tracker's Now section).
+- **As you go** (the user, 2026-11-06): commit each meaningful step to your branch, at least every
+  30-45 minutes of work; keep `.plans/refactor/reports/<id>.md` as a running report, a dated entry at
+  each milestone (what landed with commits, what you ran and how it went, what's next, what blocks or
+  what others must know), committed with the work; and send the orchestrator a 1-3 line summary
+  after each (SendMessage to "main"). The orchestrator rolls them up into `progress.md`.
 - **Your report** goes in `.plans/refactor/reports/<id>.md`, committed: what landed (with commits),
   the numbers, the decisions you made and why, what's left, and anything another workstream must know.
   Don't edit `tracker.md`, `progress.md` or `design/status.json`.
@@ -143,4 +155,5 @@ rig's server after rebuilding it (copy again first).
 
 | When | What |
 |---|---|
+| 2026-11-06 | Merged the Mac's last commit (83d60a1, D20 and issue #4); D21 recorded. Integration tier on Windows: 202 passed, the yard spec's count fixed (both machines made the same fix) |
 | 2026-11-06 | Picked up on Windows at 5d25daa; `npm run check` green (263 TypeScript, 181 engine, 81 server tests). Wave 1 started: tiers, bigworld, offline, wire, land |
