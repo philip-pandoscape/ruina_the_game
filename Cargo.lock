@@ -1259,11 +1259,14 @@ dependencies = [
 name = "ruina-tools"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "ruina-engine",
  "ruina-engine-wasm",
  "ruina-world-api",
  "serde",
  "serde_json",
+ "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]
