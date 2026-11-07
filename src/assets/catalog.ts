@@ -16,7 +16,10 @@ export type AssetKind = 'model' | 'animation' | 'texture' | 'icon' | 'font' | 's
  * The places a file is used:
  *   front      the title screen, sign-in and character select: the first download
  *   *          every zone a player can be in (their own body and gear)
- *   emberholm  the island (and the arenas drawn over it); a dungeon or developer zone in content/instances by its id
+ *   emberholm  a region of the world by its id (and the arenas drawn over it); a dungeon or developer
+ *              zone in content/instances by its id. A region's made buildings, props and village kit
+ *              (whatever its looks name: src/app/regions.ts regionFiles) are fetched as you approach
+ *              it, each from the point of the region nearest you, the nearest first.
  *   dev        only the developer pages, or an address option for developers
  */
 export type Zone = string;

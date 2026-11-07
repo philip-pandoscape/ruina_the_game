@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { answer, type GrowerPort, type GrowerReply, type GrownMessage, RegionGrower, regionOf } from '../../src/app/grower';
-import { DROP, GROW, Regions } from '../../src/app/regions';
+import { DROP, GROW, Regions, regionFiles } from '../../src/app/regions';
+import { ruleFor } from '../../src/assets/catalog';
 import { defaultBuild } from '../../src/content/build';
 import { Engine } from '../../src/engine/engine';
 import { growRegionHere, regionsNear } from '../../src/engine/zone';
@@ -116,4 +117,14 @@ test('the regions round you: the nearest grown ahead of you one at a time, adopt
   // What's solid follows: Saltmere's trees are no longer in the page's colliders.
   const tree = growRegionHere(SALTMERE).gen.obstacles.find((o) => o.kind === 'tree')!;
   expect(engine.world.index!.obstacles.some((o) => o.x === tree.x && o.z === tree.z)).toBe(false);
+});
+
+test("a region's files are what its looks name, each one the catalogue's", () => {
+  // Emberholm's: its made buildings and props, and the village kit its town is built of.
+  const ember = regionFiles(growRegionHere(EMBERHOLM).recipe);
+  expect(ember).toEqual(expect.arrayContaining(['village/kit', 'village/props', 'models/windmill']));
+  for (const id of ember) expect(ruleFor(id)?.zones, id).toContain('emberholm');
+  // Saltmere's lamps; Thornmarch has nothing made, only the trees and ground every region shares.
+  expect(regionFiles(growRegionHere(SALTMERE).recipe)).toEqual(expect.arrayContaining(['models/lamp']));
+  expect(regionFiles(growRegionHere(THORNMARCH).recipe)).toEqual([]);
 });

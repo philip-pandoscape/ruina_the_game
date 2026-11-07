@@ -1,5 +1,8 @@
+import { asset } from '../assets/manifest';
+import { propDef, structureDef } from '../content/structures';
 import type { Engine } from '../engine/engine';
-import { distanceTo, regionsNear } from '../engine/zone';
+import { distanceTo, regionBounds, regionsNear, type WorldLayout, type ZoneRecipe } from '../engine/zone';
+import { model } from '../render/assets';
 import type { OpenStage } from '../render/open/stage';
 import { PICTURE_PX, type WorldPictures } from '../ui/life/map';
 import { type GrownMessage, type RegionGrower, regionOf } from './grower';
@@ -15,6 +18,27 @@ import { type GrownMessage, type RegionGrower, regionOf } from './grower';
 export const GROW = 600;
 /** And let go once you're this far from them (m): further than GROW, so turning back loses nothing. */
 export const DROP = 900;
+
+/**
+ * The files a region's drawing wants (by id: its made buildings', props' and village kit's), which
+ * the asset catalogue names among the files regions use (src/assets/catalog.ts).
+ */
+export function regionFiles(recipe: ZoneRecipe): string[] {
+  const ids = new Set<string>();
+  const made = (files: string[] | undefined) => {
+    for (const f of files ?? []) ids.add(`models/${f}`);
+  };
+  for (const s of recipe.structures ?? []) {
+    const def = structureDef(s.id);
+    made(def.look?.model?.files);
+    if (def.collider === 'building') {
+      ids.add('village/kit');
+      ids.add('village/props');
+    }
+  }
+  for (const p of recipe.props ?? []) made(propDef(p.id).look?.model?.files);
+  return [...ids].sort();
+}
 
 /** What happened to a region, for the tests: grown and handed over (on which frame, and how long it took), or let go. */
 export interface RegionEvent {
@@ -126,6 +150,9 @@ export class Regions {
     const t0 = performance.now();
     const region = regionOf(m);
     this.d.engine.adoptRegion(region);
+    // Its files are wanted from the nearest point of it, so they come as you approach it, nearest
+    // first, before its buildings and props are in view (src/assets/loader.ts).
+    if (this.d.stage) this.fetchFiles(layout, m.place, region.recipe);
     this.d.stage?.addRegion(region, m.depths);
     this.d.pictures?.arrive(m.place, region.recipe, m.picture, PICTURE_PX);
     this.log.push({
@@ -138,6 +165,13 @@ export class Regions {
       takeMs: performance.now() - t0,
     });
     this.wake();
+  }
+
+  /** Asks the loader for a region's files, each wanted from the point of the region nearest you. */
+  private fetchFiles(layout: WorldLayout, place: number, recipe: ZoneRecipe): void {
+    const [x0, z0, x1, z1] = regionBounds(layout, layout.regions[place]);
+    const at = () => ({ x: Math.min(Math.max(this.last.x, x0), x1), z: Math.min(Math.max(this.last.z, z0), z1) });
+    for (const id of regionFiles(recipe)) if (asset(id)) void model(id, { need: 'near', at }).catch(() => undefined);
   }
 
   private drop(place: number): void {
