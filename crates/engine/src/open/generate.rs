@@ -204,8 +204,12 @@ pub struct FallsRecipe {
     pub floor: [f64; 2],
     pub shelf: Shelf,
     pub roof: Hood,
-    pub landing: Landing,
-    pub totem: Totem,
+    /// A landing stage on the ledge (a deck to glide down onto), if it has one.
+    #[serde(default)]
+    pub landing: Option<Landing>,
+    /// A totem on the ledge (a post), if it has one.
+    #[serde(default)]
+    pub totem: Option<Totem>,
     pub spring: Spring,
     pub plunge: Plunge,
     pub speed: f64,
@@ -416,8 +420,10 @@ pub struct WaterfallInfo {
     pub speed: f64,
     pub shelf: Span,
     pub roof: Span,
-    pub landing: LandingInfo,
-    pub totem: TotemInfo,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub landing: Option<LandingInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub totem: Option<TotemInfo>,
     pub floor: [f64; 2],
     pub spring: SpringInfo,
     pub plunge: PlungeInfo,
@@ -1216,14 +1222,20 @@ pub fn generate(z: &Recipe) -> Generated {
         let r1 = f.lip + f.roof.depth;
         let (hx, hz) = at((r0 + r1) / 2.0, 0.0);
         decks.push(rect(hx, hz, half, (r1 - r0) / 2.0, turn, roof_top));
-        let l0 = f.lip + f.landing.from;
-        let l1 = f.lip + f.landing.to;
-        let landing_top = f.shelf.top + f.landing.above;
-        let (lx, lz) = at((l0 + l1) / 2.0, 0.0);
-        decks.push(rect(lx, lz, f.landing.half, (l1 - l0) / 2.0, turn, landing_top));
-        let totem_top = f.shelf.top + f.totem.above;
-        let (tx, tz) = at(f.lip + f.totem.at, f.totem.across);
-        boxes.push(rect(tx, tz, 0.35, 0.35, turn, totem_top));
+        let landing = f.landing.map(|l| {
+            let (l0, l1, top) = (f.lip + l.from, f.lip + l.to, f.shelf.top + l.above);
+            let (lx, lz) = at((l0 + l1) / 2.0, 0.0);
+            decks.push(rect(lx, lz, l.half, (l1 - l0) / 2.0, turn, top));
+            LandingInfo { s0: l0, s1: l1, half: l.half, top }
+        });
+        let totem = f.totem.map(|t| {
+            let top = f.shelf.top + t.above;
+            let (tx, tz) = at(f.lip + t.at, t.across);
+            boxes.push(rect(tx, tz, 0.35, 0.35, turn, top));
+            TotemInfo { s: f.lip + t.at, t: t.across, top }
+        });
+        // The ledge's walls run out to the landing stage's end, or without one the shelf's.
+        let l1 = landing.map_or(shelf_end, |l| l.s1);
         // The ledge's walls, as clean as the hood over them: the ground's cut is a slope a cell wide
         // (two metres), which whoever hits the back wall would otherwise slide down and off the side.
         let (bx, bz) = at(f.lip + 1.0, 0.0);
@@ -1247,8 +1259,8 @@ pub fn generate(z: &Recipe) -> Generated {
             speed: f.speed,
             shelf: Span { s0: f.lip, s1: shelf_end, top: f.shelf.top },
             roof: Span { s0: r0, s1: r1, top: roof_top },
-            landing: LandingInfo { s0: l0, s1: l1, half: f.landing.half, top: landing_top },
-            totem: TotemInfo { s: f.lip + f.totem.at, t: f.totem.across, top: totem_top },
+            landing,
+            totem,
             floor: f.floor,
             spring: SpringInfo { x: sx, z: sz, at: f.spring.at, r: f.spring.r, level: spring_level },
             plunge: PlungeInfo { x: px, z: pz, s: f.plunge.at, along: f.plunge.along, across: f.plunge.across, level: plunge_level },
@@ -1352,5 +1364,23 @@ mod tests {
         assert!(g.obstacles.len() > 1000, "trees and rocks");
         assert!(!g.buildings.is_empty() && g.buildings.iter().all(|b| b.boxes[1] > b.boxes[0]), "buildings with walls");
         assert!(!g.roads.is_empty() && !g.falls.is_empty() && !g.placements.is_empty());
+    }
+
+    #[test]
+    fn a_waterfall_s_landing_stage_and_totem_are_where_it_has_them() {
+        let whole = generate(&emberholm_recipe());
+        let mut bare = emberholm_recipe();
+        for f in &mut bare.terrain.falls {
+            f.landing = None;
+            f.totem = None;
+        }
+        let g = generate(&bare);
+        let n = whole.falls.len();
+        assert!(n > 0 && whole.falls.iter().all(|f| f.landing.is_some() && f.totem.is_some()));
+        assert!(g.falls.iter().all(|f| f.landing.is_none() && f.totem.is_none()));
+        // A deck and a box fewer for each: the stage and the post, and nothing else of the ledge.
+        assert_eq!(g.decks.len(), whole.decks.len() - n);
+        assert_eq!(g.boxes.len(), whole.boxes.len() - n);
+        assert_eq!(g.terrain.heights(), whole.terrain.heights(), "the ground is cut the same");
     }
 }

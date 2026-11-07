@@ -155,10 +155,10 @@ export interface WaterfallRecipe {
   shelf: { top: number; depth: number };
   /** The rock hood over the ledge: how far above it, reaching how far out from the back wall. */
   roof: { above: number; depth: number };
-  /** The goblins' landing stage on the ledge, planks jutting out over the drop: from and to (out from the back wall), half its width, how high. */
-  landing: { from: number; to: number; half: number; above: number };
-  /** Their totem on the ledge: out from the back wall, across, how tall. */
-  totem: { at: number; across: number; above: number };
+  /** The goblins' landing stage on the ledge, planks jutting out over the drop, if it has one: from and to (out from the back wall), half its width, how high. */
+  landing?: { from: number; to: number; half: number; above: number };
+  /** Their totem on the ledge, if it has one: out from the back wall, across, how tall. */
+  totem?: { at: number; across: number; above: number };
   /** The spring pool on top (its middle out along the bearing, its radius, how deep under its surface). */
   spring: { at: number; r: number; depth: number };
   /** The pool the water falls into (middle along the bearing, half its length along, half its width across, depth). */
