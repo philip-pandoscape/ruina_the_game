@@ -619,3 +619,19 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   weapons by place is the skill tree's numbers (R9.5's rest), which the engine reads.
 - **Guides.** `docs/world.md`, `docs/deploys.md`, and the README as a quick start.
 
+
+## 2026-11-06: The Library's Last Casts, One Guide to the World, and the Whole Tier Again (R6.11b, R6.11, R10.25, R10.16)
+
+- **The content library's last casts (R6.11b).** The hero shows what the library needs through a
+  small public surface: the weapon held, putting it somewhere, the pose's feedback for a kept frame,
+  hiding the trails, the feet's holds. The library no longer casts the hero to a shape of its private
+  parts. With the names settled (R6.11), Phase 6 is done but for the look check (R6.14), which needs
+  a real GPU and a baseline from `beta`.
+- **One guide to the world (R10.25).** `docs/zones.md` is folded into `docs/world.md`: the regions,
+  the instances and their copies, bots, and adding a region or an instance, on one page.
+- **One step for a player in an open world (R10.16).** The last thin wrapper went.
+- **The whole integration tier** on the merged tree: 199 passed, 4 failed. One is the pointer-lock
+  test, which always fails on macOS. The other three ran while files were being edited, so the
+  dev server reloaded their pages; they pass alone.
+- **Under way:** the skill tree by id (R9.5's rest), in a background agent's worktree. Next, the
+  offline yard as the yard instance (R10.11), once that branch is in, since both touch the rules tests.

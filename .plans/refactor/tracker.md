@@ -501,7 +501,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   baked clips (`clips.ts`), the crowd, jelly and proxies, the built-in species, the goblin's body, the
   bodies with folders of their own (`folders.ts`), the hero's close-up body (`heroBody.ts`, no longer
   content importing three.js) and the list of close-up bodies (`closeUps.ts`).
-- [~] **R6.11** Root files to their areas: `src/skills.ts`, `src/tuning.ts`, `src/build.ts`,
+- [x] **R6.11** Root files to their areas: `src/skills.ts`, `src/tuning.ts`, `src/build.ts`,
   `src/rng.ts`. Names that say what they are: today there are 5 `index.ts`, 4 `types.ts`, 3 each of
   `pose.ts`/`hero.ts`/`harness.ts`, `sim/world.ts` beside `sim/zone/world.ts`, and
   `content/creatures.ts` beside a `content/creatures/` folder.
@@ -509,6 +509,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   readers of tuning.json and skilltree.json, which outlast `src/sim/`), `build.ts` to `src/app/`,
   `src/sim/world.ts` to `src/sim/yard.ts`. The other names that don't say what they are come with
   the splits that touch them.
+  Done: `src/sim/` went with Phase 8 and the splits renamed the rest. A name now repeats only where
+  its folder says what it is: each folder's registry (`index.ts` in `src/bible/things/`,
+  `src/bible/systems/`, `src/render/models/`, the library's `subjects/`), a bible page per system
+  and per kind (`systems/world.ts` and `things/world.ts`), the library's subject and its bench
+  (`subjects/hero.ts`, `bench/hero.ts`).
 - [x] **R6.11b** Workarounds out: the 15 `tryBuild(...) ?? standIn` fallbacks for a models folder that
   can't be missing (or real lazy loading, R11.2); `worldPeers.ts:258`'s fake `Sim`; the library's and
   `animations.ts:650`'s reaching into the hero's private fields; `main.ts:505` (the TypeScript command
@@ -1142,7 +1147,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   in shuffled orders and all at once, the same game. `--parallel on` steps players on rayon's
   threads: 1024 bots 3.3 ms a tick before, 2.0 one after another, 0.8 to 1.0 all at once (Apple M4);
   off by default, slower at today's sizes. Sending updates (8 ms at 1024 bots) is the next cost.
-  Left for R10.16: `open::step_player`, a thin wrapper kept for `open/map.rs`'s tests.
+  The thin wrapper `open::step_player` kept for `open/map.rs`'s tests went in 9d729a0: one step
+  for a player in an open world, reading the world.
 - [ ] **R10.19** Borders, in one process.
   - **Ownership:** a simulation owns its chunks.
   - **Ghosts:** neighbours exchange read-only copies of what's within about 120 m of the border, every
@@ -1213,9 +1219,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [~] **R10.25** `docs/world.md`, in place of `docs/zones.md`: the world, regions, instances, channels,
   borders and land, and how to add a region or an instance.
   Begun (7ea3035): the words, where the regions stand, the ground through the world map, spaces,
-  channels as they are, adding a region, and its tests. Left: `docs/zones.md` folded into it (after
-  the background agents' branches, which may touch it), and channels, borders and land as R10.19 to
-  R10.22 land.
+  channels as they are, adding a region, and its tests. `docs/zones.md` folded into it (8becee4):
+  instances and their copies, an instance's file, dressing a cave, bots, adding an instance, and
+  every reference moved. Left: channels, borders and land as R10.19 to R10.22 land.
 
 ## Phase 11: Assets
 
