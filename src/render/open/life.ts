@@ -1,3 +1,4 @@
+import { toScene } from '../origin';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
@@ -375,7 +376,7 @@ export class LifeView {
 
   /** For tests: the height of the farm ground drawn over (x, z) (soil or a furrow), or null where there is none. */
   farmGroundAt(x: number, z: number): number | null {
-    const ray = new THREE.Raycaster(new THREE.Vector3(x, 1e4, z), new THREE.Vector3(0, -1, 0), 0, 2e4);
+    const ray = new THREE.Raycaster(toScene(new THREE.Vector3(x, 1e4, z)), new THREE.Vector3(0, -1, 0), 0, 2e4);
     let best: number | null = null;
     for (const h of ray.intersectObjects(
       this.plots.children.filter((c) => c.userData.ground),
@@ -384,6 +385,9 @@ export class LifeView {
       best = Math.max(best ?? -Infinity, h.point.y);
     return best;
   }
+
+  /** The camera's place in the scene (relative to its origin). */
+  private eye = new THREE.Vector3();
 
   private rebuildHouses(): void {
     const hf = this.life.zone.gen.terrain;
@@ -799,7 +803,8 @@ export class LifeView {
         const k = (d.phase + this.time * 0.09) % 1;
         const a = d.phase * 40 + this.time * 1.4;
         m.position.set(Math.cos(a) * d.r, k * top, Math.sin(a) * d.r);
-        m.lookAt(cameraPos.x, m.getWorldPosition(new THREE.Vector3()).y, cameraPos.z);
+        const eye = toScene(this.eye.copy(cameraPos));
+        m.lookAt(eye.x, m.getWorldPosition(new THREE.Vector3()).y, eye.z);
         ((m as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.3;
       }
     }

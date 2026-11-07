@@ -25,8 +25,23 @@ export function track<T>(load: Promise<T>): Promise<T | undefined> {
     });
 }
 
+/** Loads of files placed in the world (a made building, a pack), by file: counted until settled, unless the file waits for the camera to come near. */
+const placed = new Map<Promise<unknown>, string>();
+
+/** Counts the load of a file placed in the world (`id`, wanted where it stands) until it settles, bar while it waits for the camera to come near (a region far behind you). */
+export function trackPlaced<T>(id: string, load: Promise<T>): Promise<T | undefined> {
+  const settled = load.catch((e: unknown) => {
+    failed.push(String(e));
+    console.warn('asset failed to load', e);
+    return undefined;
+  });
+  placed.set(settled, id);
+  return settled.finally(() => placed.delete(settled));
+}
+
 /** Whether everything asked for has arrived (bar files waiting for the camera to come near them). */
 export function assetsReady(): boolean {
+  for (const id of placed.values()) if (!files.waitingForCamera(id)) return false;
   return pending === 0 && files.pending() === 0;
 }
 

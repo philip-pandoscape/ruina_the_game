@@ -69,6 +69,7 @@ const PLUMBING: Record<string, string> = {
   'crates/engine/src/rng.rs': 'the seeded random numbers both sides share',
   'crates/engine/src/content.rs': 'reads the content files for the engine',
   'crates/engine/src/bundles.rs': 'the content files the engine reads: built in, or given in their place for the tests',
+  'crates/engine/src/open/fixture.rs': 'the tests’ worlds of regions, built in for the tests alone',
   'crates/engine/src/creatures.rs': 'lists the creature files in the browser’s order',
   'crates/engine/src/life/content.rs': 'reads the island’s content files for the engine',
   'crates/server/src/play/mod.rs': 'runs a channel: the rules above, fed from players’ inputs',

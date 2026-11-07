@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CAMERA } from '../content/tuning';
+import { lookAtWorld } from './origin';
 
 // Over-the-shoulder camera that orbits the player and shakes on big hits.
 export class FollowCamera {
@@ -167,7 +168,7 @@ export class FollowCamera {
       this.reach = free < this.reach ? free : this.reach + (free - this.reach) * (1 - Math.exp(-4 * dt));
       if (this.reach < 0.999) cam.position.lerpVectors(look, cam.position, this.reach);
     }
-    cam.lookAt(look);
+    lookAtWorld(cam, look);
 
     this.shakeTime += dt;
     this.trauma = Math.max(0, this.trauma - 2.2 * dt);

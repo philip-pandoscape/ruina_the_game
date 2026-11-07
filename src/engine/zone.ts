@@ -5,6 +5,10 @@
 // it hands back and the helpers that read them.
 
 export { Heightfield, SURFACE, hash2, valueNoise } from './world/terrain';
+export type { Ground } from './world/terrain';
+export { WorldGround } from './world/worldGround';
+export { distanceTo, regionAt, regionBounds, regionsNear, worldLayout } from './world/layout';
+export type { RegionPlace, WorldLayout } from './world/layout';
 export { groundAt, inRect } from './world/colliders';
 export { DUNGEONS, arrivalOf, dungeonDef, dungeonDoor } from './world/dungeons';
 export type { DungeonDef, DungeonPiece } from './world/dungeons';
@@ -12,12 +16,14 @@ export { toLocal, toWorld } from './world/frames';
 export { ON_ROAD, RoadNetwork, TAIL_MAX, routeFrom, routeNearest, routePoint, routeTight } from './world/roads';
 export type { Point, Route } from './world/roads';
 export type { BoxCollider, Deck, DungeonDoor, WaterfallInfo, ZoneNpc, ZonePlace, ZoneRecipe } from './world/types';
-export { EMBERHOLM, generateZone, makeZoneWorld } from './world/region';
-export type { PlacedBuilding, ZoneData } from './world/region';
+export { EMBERHOLM, generateZone, growRegionHere, makeZoneWorld, regionData } from './world/region';
+export type { Grown, PlacedBuilding, RegionData, ZoneData } from './world/region';
 
 import type { Obstacle } from './shapes';
 import type { BoxCollider as Box, Deck as Platform } from './world/types';
 import { buildingSolids } from './wasm';
+
+export { growWhole } from './wasm';
 
 /** Everything solid about a building plan placed at (x, z), turned `rot`, on ground at `y`: the engine's colliders for it (null for no such plan). */
 export const buildingColliders = (

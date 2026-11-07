@@ -1,6 +1,6 @@
 import type { Obstacle } from '../shapes';
 import type { BoxCollider, Deck } from './types';
-import type { Heightfield } from './terrain';
+import type { Ground } from './terrain';
 
 // Everything solid in an open world, bucketed on a coarse grid so a query only looks at what is
 // nearby. A zone has thousands of trees; the training yard's straight loop over its few dozen
@@ -183,7 +183,7 @@ export function pushOutOfBox(b: BoxCollider, x: number, z: number, r: number): {
  * box top it is standing on (a box top at most `stepUp` above its feet, a deck at most `deckUp`:
  * someone walking steps higher onto a deck, which is built for it).
  */
-export function groundAt(hf: Heightfield, index: ColliderIndex | undefined, x: number, z: number, y: number, stepUp: number, deckUp = stepUp): number {
+export function groundAt(hf: Ground, index: ColliderIndex | undefined, x: number, z: number, y: number, stepUp: number, deckUp = stepUp): number {
   let g = hf.height(x, z);
   if (!index) return g;
   const reach = y + stepUp;

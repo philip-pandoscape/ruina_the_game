@@ -1,5 +1,5 @@
 import type { SkillSet } from '../content/skills';
-import type { Heightfield } from './world/terrain';
+import type { Ground } from './world/terrain';
 import type { ColliderIndex } from './world/colliders';
 import type { ZoneData } from './world/region';
 
@@ -251,7 +251,7 @@ export interface World {
   // Open worlds only. The training yard and the battlefield are flat at y = 0 and leave these
   // out, which keeps their rules exactly as the server runs them (tests/conformance/player.test.ts).
   /** Ground heights, surfaces and sea level. */
-  terrain?: Heightfield;
+  terrain?: Ground;
   /** Obstacles, building colliders and walkable decks, bucketed for fast queries. */
   index?: ColliderIndex;
   /** The recipe and everything generated from it. */

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { pointsLeft, swapSlots, validBuild } from '../content/build';
 import { actorKindAt } from '../content/actors';
 import { assetsReady } from '../render/assets';
+import { fromScene, sceneOrigin } from '../render/origin';
 import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
@@ -48,6 +49,50 @@ export function makeTestApi(g: GameRefs) {
         g.followSim(STEP);
       }
       if (drawn) g.draw(1, 0, 0);
+    },
+    /**
+     * The world's regions round you (src/app/regions.ts): those the page holds (places in the world's
+     * map) and their ids, the one on its way from the worker, every arrival and leaving so far, and how
+     * many the rules grew on the spot because they were asked about ground the page hadn't handed over.
+     */
+    regionsNow(): { held: number[]; ids: string[]; pending: number | null; log: unknown[]; unheld: number; drawn: number[] } {
+      const r = g.regions;
+      const rules = g.engine.layout ? g.engine.regionsHeld() : { held: [], unheld: 0 };
+      return {
+        held: r?.held ?? [],
+        ids: (r?.held ?? []).map((p) => g.engine.layout?.regions[p]?.id ?? ''),
+        pending: r?.pending ?? null,
+        log: JSON.parse(JSON.stringify(r?.log ?? [])),
+        unheld: rules.unheld,
+        drawn: g.openStage ? [...g.openStage.regions.keys()] : [],
+      };
+    },
+    /** Where you are and what you're doing, cheaply (sampled every frame by the tests that time frames). */
+    where(): { x: number; y: number; z: number; mode: string } {
+      const p = g.sim.player;
+      return { x: p.pos.x, y: p.pos.y, z: p.pos.z, mode: p.mode };
+    },
+    /** The scene's origin (src/render/origin.ts) and the largest distance from it of anything drawn, the camera and the sun's shadow camera included: what the graphics card is handed. */
+    sceneSpan(): { origin: [number, number]; camera: number; shadow: number; farthest: number; meshes: number } {
+      const o = sceneOrigin();
+      const v = new THREE.Vector3();
+      const cam = g.follow.camera.getWorldPosition(v).length();
+      const stage = g.openStage;
+      const shadow = stage ? stage.sun.shadow.camera.getWorldPosition(v).length() : 0;
+      let farthest = 0;
+      let meshes = 0;
+      g.stage.scene.traverse((m) => {
+        if (!(m as THREE.Mesh).isMesh || !m.visible) return;
+        meshes++;
+        m.getWorldPosition(v);
+        // Only what's drawn near you: far-off things are far off however they're handed over.
+        if (Math.hypot(v.x, v.z) < 4000) farthest = Math.max(farthest, Math.hypot(v.x, v.z));
+      });
+      return { origin: [o[0], o[1]], camera: cam, shadow, farthest, meshes };
+    },
+    /** Resolves once every region near (x, z) is held, grown in the worker as if you'd come from afar (a teleport's arrival). */
+    regionsReady(x: number, z: number): Promise<void> {
+      return g.regions ? g.regions.readyAt(x, z) : Promise.resolve();
     },
     /** Auto-run and travel by road: what is walking you, where to, and how far is left. */
     walk() {
@@ -126,7 +171,7 @@ export function makeTestApi(g: GameRefs) {
     holds() {
       const h = g.hero.seatHolds?.hands;
       if (!h) return null;
-      const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()).toArray();
+      const at = (o: THREE.Object3D) => fromScene(o.getWorldPosition(new THREE.Vector3())).toArray();
       return { hands: [at(g.hero.detail.joint('handL')), at(g.hero.detail.joint('handR'))], holds: h.map(at) };
     },
     // Targeting, the ground-aim circle, and the floating numbers currently on screen.
@@ -490,8 +535,8 @@ export function makeTestApi(g: GameRefs) {
       const r = (n: number) => +n.toFixed(2);
       g.stage.scene.traverse((o) => {
         if (!o.name.startsWith(prefix)) return;
-        o.getWorldPosition(v);
-        box.setFromObject(o).getCenter(c);
+        fromScene(o.getWorldPosition(v));
+        fromScene(box.setFromObject(o).getCenter(c));
         let shown = o.visible;
         for (let p = o.parent; p && shown; p = p.parent) shown = p.visible;
         out.push({ name: o.name, x: r(v.x), y: r(v.y), z: r(v.z), visible: shown, centre: { x: r(c.x), y: r(c.y), z: r(c.z) } });

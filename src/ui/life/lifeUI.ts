@@ -4,6 +4,7 @@ import { packDef } from '../../content/trade';
 import type { Vitals } from '../hud';
 import { housePose, stillNeeds, type Command, type IslandView, type LifeEvent } from '../../engine/island';
 import type { SimView, World } from '../../engine/rules';
+import type { WorldLayout } from '../../engine/zone';
 import { DockedWindow, type View } from '../components/window';
 import { closeMenu, menuPress } from '../theme/contextMenu';
 import { uiRoot } from '../theme/scale';
@@ -20,7 +21,7 @@ import { PortraitHud } from './hud/portrait';
 import { QuestTracker, Untracked } from './hud/quests';
 import { RideBox } from './hud/ride';
 import { Toasts } from './hud/toasts';
-import { IslandPicture } from './map';
+import { WorldPictures } from './map';
 import { islandTip } from './tips';
 import { TravelUI } from './travelUI';
 import { adminView } from './windows/admin';
@@ -74,6 +75,8 @@ export interface LifeUIDeps {
   device: () => 'keyboard' | 'gamepad';
   /** Auto-run and travel by road (src/input/autoWalk.ts), shown on the map and under the compass. */
   walk?: AutoWalk;
+  /** Where the world's regions stand, for the maps (null: the region you're in alone). */
+  layout?: WorldLayout | null;
 }
 
 /**
@@ -91,6 +94,8 @@ const faceHtml = (url: string | null, emoji = '🙂'): string => (url ? `<img sr
 export class LifeUI {
   /** What the widgets and windows see of this. */
   private ui: IslandUI;
+  /** The world's regions as the maps draw them: each region's picture is handed over as the page's worker grows it (src/app/regions.ts). */
+  readonly pictures: WorldPictures;
   // HUD
   private portrait: PortraitHud;
   private minimap: Minimap;
@@ -150,7 +155,8 @@ export class LifeUI {
       face: (id) => faceHtml(this.portraitOf(id), d.life.zone.recipe.npcs.find((n) => n.id === id)?.portrait),
     };
     const untracked = new Untracked(() => this.playerName);
-    const picture = new IslandPicture(d.world);
+    this.pictures = new WorldPictures(d.world, d.layout ?? null);
+    const picture = this.pictures;
     this.portrait = new PortraitHud(this.ui);
     this.minimap = new Minimap(this.ui, picture);
     this.clock = new ClockHud(this.ui);
@@ -188,6 +194,7 @@ export class LifeUI {
       this.travel = new TravelUI({
         walk: d.walk,
         world: d.world,
+        frame: () => ({ ...this.map.frame(), world: this.map.world }),
         places: () => this.life.zone.recipe.places,
         player,
         device: d.device,

@@ -31,7 +31,10 @@ import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
-import { startEngine } from './engine/load';
+import { startEngine, useContent } from './engine/load';
+import { fixtureWorld } from './app/fixture';
+import { type GrowerPort, RegionGrower } from './app/grower';
+import { Regions } from './app/regions';
 import { YardPractice } from './app/yardPractice';
 import { rigCamera } from './app/cameraRig';
 import { makeStep } from './app/step';
@@ -108,7 +111,17 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // on the game server, and its developer zones) the server decides hits, so the rules here run
 // without the training dummy and hit pause, and only predict your own moves.
 await engineLoading;
+// Offline, a fixture world of the tests' in place of the shipped one (?fixture=world), given to the
+// page's engine (and to its region grower below) before either reads anything.
+const fixture = opt.fixture && !online ? await fixtureWorld(opt.fixture) : null;
+if (fixture) useContent(fixture);
 const engine = new Engine({ openWorld, online: !!online, band: opt.band, build });
+// The world's regions grow in a worker as you travel (src/app/grower.ts, regions.ts): an engine of
+// its own, given the same content.
+const grower =
+  engine.layout && typeof Worker === 'function'
+    ? new RegionGrower(new Worker(new URL('./app/grower.worker.ts', import.meta.url), { type: 'module' }) as unknown as GrowerPort, fixture)
+    : null;
 const { world, sim, range } = engine;
 /** The world's ground at the start (null on the yard's flat ground): whether this is an open world. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
 const terrain = engine.terrain;
@@ -139,7 +152,7 @@ if (splash) {
   splash.toward('stage', 4);
   await splash.paint();
 }
-const openStage = models ? new OpenStage(canvas, world, models) : null;
+const openStage = models && engine.home && engine.layout ? new OpenStage(canvas, world, models, engine.home, engine.layout) : null;
 if (splash) {
   splash.step('stage');
   splash.say('Waking the Townsfolk…');
@@ -174,9 +187,11 @@ const drawnGround = (x: number, z: number, pad: number): number => {
 // Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
 // about), floating on the sea rather than sinking under it.
 if (terrain) {
+  // Every region's grid is on one lattice (a whole number of cells to a chunk), the first region's.
+  const grid = world.zone!.gen.terrain;
   spells.ground = {
-    cell: terrain.cell,
-    origin: terrain.min,
+    cell: grid.cell,
+    origin: grid.minX,
     height: (x, z, near, pad) => {
       const ground = engine.terrain ?? terrain;
       return Math.max(ground.water, Number.isFinite(near) ? groundAt(ground, world.index, x, z, near, 0.5) : ground.height(x, z), drawnGround(x, z, pad));
@@ -184,6 +199,8 @@ if (terrain) {
   };
 }
 const follow = new FollowCamera(innerWidth / innerHeight, openWorld ? GRAPHICS.viewDistance : 320, openWorld ? 40 : 14);
+// The camera is the scene's, so it moves with the scene's origin (src/render/origin.ts) as all else does.
+stage.scene.add(follow.camera);
 rigCamera(follow, engine, openStage);
 follow.reset(world.spawn.facing);
 const input = new Input(canvas);
@@ -224,8 +241,12 @@ const lifeUI = life
       yaw: () => follow.yaw,
       device: () => input.lastDevice,
       walk: walker ?? undefined,
+      layout: engine.layout,
     })
   : null;
+// The regions round you: grown ahead of you in the worker, adopted, drawn and mapped as they come,
+// let go behind you.
+const regions = grower ? new Regions({ engine, stage: openStage, pictures: lifeUI?.pictures ?? null, grower, frame: () => sim.frame }) : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(world.zone, engine, life, online.welcome.character.id, online.link) : null;
@@ -881,6 +902,9 @@ const refs = {
   },
   get yardTrain() {
     return yardTrain;
+  },
+  get regions() {
+    return regions;
   },
 };
 export type GameRefs = typeof refs;

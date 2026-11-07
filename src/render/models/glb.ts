@@ -1,7 +1,8 @@
+import { sceneOrigin } from '../origin';
 import * as THREE from 'three';
 import { asset } from '../../assets/manifest';
 import type { MadeModel } from '../../content/looks';
-import { model, track } from '../assets';
+import { model, trackPlaced } from '../assets';
 import { toon } from '../toon';
 
 // The made models (src/render/assets/models: generated with Meshy from concept art
@@ -17,7 +18,9 @@ const fileId = (file: string): string | null => (asset(`models/${file}`) ? `mode
 /** Where something stands, for the loader to fetch what's nearest first. */
 const whereIs = (o: THREE.Object3D) => (): { x: number; z: number } => {
   o.updateWorldMatrix(true, false);
-  return { x: o.matrixWorld.elements[12], z: o.matrixWorld.elements[14] };
+  // three.js's own coordinates are the scene's, shifted by its origin: back in the world's.
+  const [ox, oz] = sceneOrigin();
+  return { x: o.matrixWorld.elements[12] + ox, z: o.matrixWorld.elements[14] + oz };
 };
 
 /** How much windows glow: 0 by day, up to 1 at night (OpenStage.setTime; the village's glass reads it). */
@@ -97,7 +100,8 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
 export function madeStructure(made: MadeModel, file: string, root: THREE.Object3D, box: { w: number; h: number; d: number }): void {
   const id = fileId(file);
   if (!id) return;
-  track(
+  trackPlaced(
+    id,
     model(id, { need: 'near', at: whereIs(root) }).then((scene) => {
       const fit = fitted(scene, made, made.w ?? box.w, made.h ?? box.h, made.d ?? box.d);
       for (const child of [...root.children]) if (!made.keep?.includes(child.name)) root.remove(child);
@@ -160,7 +164,8 @@ export function madePack(made: MadeModel | undefined, root: THREE.Object3D): voi
   if (box.isEmpty()) return;
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
-  track(
+  trackPlaced(
+    file,
     model(file, { need: 'near', at: whereIs(root) }).then((scene) => {
       const fit = fitted(scene, { ...made, sink: 0 }, size.x, size.y, size.z);
       fit.position.set(centre.x, box.min.y, centre.z);
