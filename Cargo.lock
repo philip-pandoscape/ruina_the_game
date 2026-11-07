@@ -1253,6 +1253,7 @@ dependencies = [
  "rayon",
  "ruina-channels",
  "ruina-engine",
+ "ruina-wire",
  "ruina-world-api",
  "serde",
  "serde_json",
@@ -1271,6 +1272,7 @@ dependencies = [
  "futures-util",
  "ruina-engine",
  "ruina-engine-wasm",
+ "ruina-wire",
  "ruina-world-api",
  "serde",
  "serde_json",
@@ -1279,11 +1281,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruina-wire"
+version = "0.1.0"
+dependencies = [
+ "ruina-engine",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ruina-world-api"
 version = "0.1.0"
 dependencies = [
  "ruina-channels",
  "ruina-engine",
+ "ruina-wire",
  "serde",
  "serde_json",
 ]

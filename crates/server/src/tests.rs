@@ -17,7 +17,7 @@ use ruina_world_api::gate::{SpaceView, ToConn};
 use ruina_world_api::records::{Private, TickOut};
 use ruina_world_api::sim::{Ask, ToSim};
 use ruina_world_api::social::{PartyView, ToSocial};
-use ruina_world_api::{CharacterId, Conn, EntityKind, SimId, Transport};
+use ruina_world_api::{CharacterId, Conn, EntityId, EntityKind, SimId, Transport};
 
 use crate::directory::{COPY_KEPT, EXPEL_AFTER};
 use crate::gate::Event;
@@ -220,7 +220,7 @@ impl Player {
     /// The bots in the space they play in.
     async fn bots(&mut self) -> usize {
         let out = self.tick().await;
-        out.cells.iter().flat_map(|c| &c.players).filter(|p| p.id.kind() == Some(EntityKind::Bot)).count()
+        out.frame.records().filter(|r| EntityId::from_raw(r.key).and_then(EntityId::kind) == Some(EntityKind::Bot)).count()
     }
 }
 

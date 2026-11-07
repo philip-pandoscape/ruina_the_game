@@ -42,7 +42,7 @@ test("moved into another game, the last word heard from the one you left doesn't
   const feed = new WorldFeed(() => {});
   const engine = new Engine({ online: true, build: defaultBuild() });
   const inCopy = { ...JSON.parse(JSON.stringify(engine.player)), pos: { x: 0, y: 0.5, z: -3.5 } };
-  feed.applyWorld(40, { id: 1, ack: 12, player: inCopy }, [], [], [], []);
+  feed.applyYou(40, { id: 1, ack: 12, player: inCopy });
   expect(feed.you?.player.pos.z).toBe(-3.5);
   feed.resetWorld();
   // Nothing of yours is left to take in until the new game's first tick.

@@ -28,6 +28,11 @@ time, the middle one before every push to `beta`, the slow one before a release.
   takes with 64, 256 and 1024 bots, one after another and all at once:
   `cargo test --release -p ruina-server tick_time -- --ignored --nocapture`. `tests/conformance/`
   holds the WebAssembly to the native engine and the browser's ground sampling to the engine's.
+  The wire for crowds (`crates/wire`) talks to its own browser's side over a road that loses and
+  shuffles updates (`crates/wire/tests/protocol.rs`), keeps golden fixtures the browser's decoder
+  is held to (`crates/wire/tests/golden.rs`, `tests/fixtures/wire/`, `tests/unit/wire.test.ts`),
+  and measures its bytes and time against today's JSON:
+  `cargo test --release -p ruina-wire --test bench -- --ignored --nocapture`.
 - **It plays the game: you, the island, creatures, stepping frame by frame, but nothing drawn.** A
   rules test, `tests/unit/rules/<area>.test.ts`: written as for a page (`page.goto('/?test=yard')`, then
   `page.evaluate` over `window.__game`), it runs headless in Node (`tests/support/headless.ts`): the
@@ -90,7 +95,7 @@ Switches for looking closer when something disagrees:
 | Variable | What it prints |
 |---|---|
 | `BALANCE_TRACE=1` | `npm run balance` (`crates/tools/src/bin/balance.rs`): every duel's fighters every half second (positions, distance, health, mode, cooldowns) |
-| `RUINA_GOLDEN=1` | `cargo test --release -p ruina-engine golden` keeps the golden scenarios' new answers (`crates/engine/tests/golden/`) after a change made on purpose |
+| `RUINA_GOLDEN=1` | `cargo test --release -p ruina-engine golden` keeps the golden scenarios' new answers (`crates/engine/tests/golden/`) after a change made on purpose; `cargo test -p ruina-wire --test golden` writes the wire's fixtures again (`tests/fixtures/wire/`) |
 
 ### Ports and a private test rig
 

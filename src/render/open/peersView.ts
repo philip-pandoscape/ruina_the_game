@@ -1,7 +1,12 @@
 import * as THREE from 'three';
+import { MOVE } from '../../content/tuning';
 import type { IslandView } from '../../engine/island';
 import type { PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
+import { SpeciesCrowd } from '../creatures/crowd';
+import { HERO_TEAM_COLOURS } from '../creatures/heroBody';
+import { getSpecies } from '../creatures/registry';
+import type { SpeciesDef } from '../creatures/species';
 import type { HouseView } from '../village/village';
 import { LifeView, sitIn, type Seated } from './life';
 import type { ModelKit } from './models';
@@ -10,6 +15,11 @@ import type { ModelKit } from './models';
 // name over their head, and their island (houses, farms, ships, vehicles, packs and glider) by a
 // life view of its own. What they are doing comes from whoever keeps them (online, the world
 // server's updates: src/net/worldPeers.ts), brought to the moment drawn before each frame.
+//
+// Up close each is a hero (src/render/character.ts: the made body, its feet planted, its hands on
+// its weapon); far off, past where the wire stops sending everything about them, a crowd body (the
+// hero's own poses baked, one instanced draw for all of them: src/render/creatures/crowd.ts),
+// crossfading from one to the other so nobody pops.
 
 /** Someone else here, as much of them as drawing them needs. */
 export interface ShownPeer {
@@ -34,9 +44,32 @@ interface Body {
   hero: Hero;
   view: LifeView;
   label: THREE.Sprite;
+  /** The name on it (someone first heard of through their things, out of sight, has none yet). */
+  labelName: string;
   /** The side their colours show (0 until a developer zone puts them on another). */
   team: number;
+  /** 0 drawn as a hero up close, 1 as a crowd body; between, fading from one to the other. */
+  crowd: number;
+  /** Drawn in the crowd this frame. */
+  inCrowd: boolean;
+  /** Which it's going toward: the crowd body (far off) or the hero. */
+  far: boolean;
+  /** The hero has been faded once (its materials fade from then on). */
+  faded: boolean;
+  /** How far into the crowd body's clip (seconds). */
+  clipTime: number;
 }
+
+/**
+ * Past `from` metres from you someone is drawn as a crowd body, and within `within` as a hero again:
+ * the wire for crowds sends everything about them within 40 m (crates/wire interest NEAR), and a
+ * margin either way keeps anyone at the edge from flickering between the two. The switch takes
+ * `seconds`, the one fading out as the other fades in.
+ */
+export const CROWD_AT = { from: 42, within: 38, seconds: 0.35 };
+
+/** Toward `to` by at most `step`. */
+const toward = (v: number, to: number, step: number): number => (v < to ? Math.min(to, v + step) : Math.max(to, v - step));
 
 /** Riding along in someone else's vehicle. */
 const along = (p: ShownPeer): boolean => p.shown.mode === 'ride' && !!p.shown.host;
@@ -54,6 +87,12 @@ const PLATE_HEIGHT = 0.04;
 
 export class PeersView {
   private bodies = new Map<number, Body>();
+  /** Everyone drawn far off, one instance each (made when first needed, bigger when outgrown). */
+  private crowd: SpeciesCrowd | null = null;
+  private species: SpeciesDef | null = null;
+  private clips = new Map<string, number>();
+  /** How many crowd bodies were drawn last frame. */
+  private crowded = 0;
   /** Called when the ground under someone's new farm or house needs its grass cleared. */
   onGroundChanged: (() => void) | null = null;
   /** What draws your own vehicles, for anyone riding along in one of them. */
@@ -102,9 +141,34 @@ export class PeersView {
     const label = nameTag(p.name);
     label.position.set(0, 2.45, 0);
     hero.root.add(label);
-    b = { hero, view, label, team: 0 };
+    b = { hero, view, label, labelName: p.name, team: 0, crowd: 0, inCrowd: false, far: false, faded: false, clipTime: 0 };
     this.bodies.set(p.id, b);
     return b;
+  }
+
+  /** A name plate made again for a name heard since. */
+  private rename(b: Body, name: string): void {
+    const label = nameTag(name);
+    label.position.copy(b.label.position);
+    b.hero.root.remove(b.label);
+    (b.label.material as THREE.SpriteMaterial).map?.dispose();
+    b.label.material.dispose();
+    b.hero.root.add(label);
+    b.label = label;
+    b.labelName = name;
+  }
+
+  /** How someone is drawn right now (tests): as a hero, a crowd body, both (fading) or not at all, and how far toward the crowd body. */
+  look(id: number): { body: 'hero' | 'crowd' | 'both' | 'none'; crowd: number } {
+    const b = this.bodies.get(id);
+    if (!b) return { body: 'none', crowd: 0 };
+    const hero = b.hero.root.visible;
+    return { body: hero && b.inCrowd ? 'both' : hero ? 'hero' : b.inCrowd ? 'crowd' : 'none', crowd: +b.crowd.toFixed(3) };
+  }
+
+  /** How many crowd bodies were drawn last frame (tests). */
+  get crowdBodies(): number {
+    return this.crowded;
   }
 
   /** Draws everyone as they are this frame. */
@@ -112,13 +176,94 @@ export class PeersView {
     // Whoever drives (or walks) first, then whoever rides along with them: a vehicle has to be
     // where it is this frame before anyone sits down in it.
     const order = [...this.source.all()].sort((a, b) => Number(along(a)) - Number(along(b)));
+    let n = 0;
     for (const p of order) {
       const b = this.body(p);
-      if (p.drawn) this.pose(p, b, dt, frame);
-      else b.hero.root.visible = false;
+      // Riding, or at a mini-game's table, always up close: a crowd body has no seat to sit in.
+      const seated = p.shown.mode === 'ride' || !!this.stoolFor?.(p.id);
+      if (seated || p.away < CROWD_AT.within) b.far = false;
+      else if (p.away > CROWD_AT.from) b.far = true;
+      b.crowd = seated ? 0 : toward(b.crowd, b.far ? 1 : 0, dt / CROWD_AT.seconds);
+      if (p.drawn && b.crowd < 1) {
+        this.pose(p, b, dt, frame);
+        if (b.crowd > 0 || b.faded) {
+          b.faded = true;
+          b.hero.setFade(1 - b.crowd);
+        }
+      } else b.hero.root.visible = false;
+      b.inCrowd = p.drawn && b.crowd > 0;
+      if (b.inCrowd) this.crowdBody(n++, p, b, dt);
       b.view.update(p.shown, dt, cameraPos);
+      if (p.name !== b.labelName) this.rename(b, p.name);
       plateFor(b.label, p.away);
     }
+    this.crowded = n;
+    if (this.crowd) {
+      this.crowd.setCount(n);
+      this.crowd.flush();
+    }
+  }
+
+  /** Someone far off as crowd body `i`: where they are, what they're doing, their side, how much shows. */
+  private crowdBody(i: number, p: ShownPeer, b: Body, dt: number): void {
+    const crowd = this.crowdFor(i + 1);
+    const sh = p.shown;
+    crowd.place(i, sh.pos.x, sh.pos.y, sh.pos.z, sh.facing);
+    const clip = (name: string) => this.clips.get(name) ?? 0;
+    // The crowd's clips are the hero's poses baked (src/render/creatures/heroBody.ts HERO_CLIPS), 30
+    // to a second, a swing's and a cast's a frame of theirs to a frame of the clip's.
+    let at = clip('idle');
+    let seconds = 0;
+    if (sh.downFrame >= 0) at = clip('down');
+    else if (sh.mode === 'attack' && sh.attackFrame >= 0 && this.clips.has(`attack${sh.attackIndex + 1}`)) {
+      at = clip(`attack${sh.attackIndex + 1}`);
+      seconds = sh.attackFrame / 30;
+    } else if (sh.mode === 'cast') {
+      at = clip('cast');
+      seconds = Math.min(Math.max(0, sh.castFrame), 47) / 30;
+    } else if (!sh.grounded && sh.mode !== 'swim' && sh.mode !== 'glide') at = clip('air');
+    else {
+      // Walking, running or sprinting by the pace, the clip played as fast as they cover the ground.
+      const speed = Math.hypot(sh.vel.x, sh.vel.z);
+      const gait =
+        speed < 0.3
+          ? null
+          : speed < MOVE.runSpeed * 0.7
+            ? { name: 'walk', pace: 0.43 }
+            : sh.sprinting
+              ? { name: 'sprint', pace: 1.4 }
+              : { name: 'run', pace: 1 };
+      at = clip(gait?.name ?? 'idle');
+      b.clipTime += dt * (gait ? speed / (gait.pace * MOVE.runSpeed) : 1);
+      seconds = b.clipTime;
+    }
+    crowd.animate(i, at, seconds, sh.team === 1 ? 1 : 0);
+    if (crowd.fade) crowd.fade[i] = b.crowd;
+  }
+
+  /** The crowd, with room for at least `n`. */
+  private crowdFor(n: number): SpeciesCrowd {
+    if (this.crowd && this.crowd.capacity >= n) return this.crowd;
+    this.species ??= getSpecies('hero');
+    this.species.clips.forEach((c, i) => {
+      this.clips.set(c.name, i);
+    });
+    const old = this.crowd;
+    const crowd = new SpeciesCrowd(this.species, Math.max(64, (old?.capacity ?? 0) * 2, n), {
+      fade: true,
+      palette: { teamA: HERO_TEAM_COLOURS[0].tunic, teamB: HERO_TEAM_COLOURS[1].tunic },
+    });
+    if (old) {
+      // What the old one was given this frame carries over.
+      crowd.root.set(old.root);
+      crowd.pose.set(old.pose);
+      if (old.fade && crowd.fade) crowd.fade.set(old.fade);
+      this.scene.remove(old.group);
+      old.dispose();
+    }
+    this.scene.add(crowd.group);
+    this.crowd = crowd;
+    return crowd;
   }
 
   private pose(p: ShownPeer, b: Body, dt: number, frame: number): void {

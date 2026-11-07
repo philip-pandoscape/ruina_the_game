@@ -13,8 +13,10 @@
 #                   world's channels and dungeon copies, its WebSocket.
 #   crates/tools    programs run by hand or by the tests: the TypeScript-against-Rust checks, the
 #                   balance harness.
+#   crates/wire     what a browser hears of the world: records per cell, handles, deltas against what
+#                   it acknowledged, byte budgets (no I/O; src/net/wire is the browser's side).
 [workspace]
-members = ["crates/channels", "crates/engine", "crates/engine-wasm", "crates/server", "crates/tools", "crates/world-api"]
+members = ["crates/channels", "crates/engine", "crates/engine-wasm", "crates/server", "crates/tools", "crates/wire", "crates/world-api"]
 resolver = "3"
 
 [workspace.package]
@@ -26,6 +28,7 @@ ruina-channels = { path = "crates/channels" }
 ruina-engine = { path = "crates/engine" }
 ruina-engine-wasm = { path = "crates/engine-wasm" }
 ruina-server = { path = "crates/server" }
+ruina-wire = { path = "crates/wire" }
 ruina-world-api = { path = "crates/world-api" }
 futures-util = "0.3.34"
 # The browser's exp and atan2 (fdlibm, as V8's are), so the rules both sides run agree to the bit.

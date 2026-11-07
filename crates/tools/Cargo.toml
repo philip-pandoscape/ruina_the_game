@@ -11,6 +11,8 @@ ruina-engine = { workspace = true, features = ["fixture-world"] }
 ruina-engine-wasm.workspace = true
 # What a browser's input bytes mean (the balance harness drives fighters with them).
 ruina-world-api.workspace = true
+# The wire for crowds' acknowledgements, which the load harness's clients send as browsers do.
+ruina-wire = { workspace = true, default-features = false }
 serde.workspace = true
 serde_json.workspace = true
 # The load harness (src/bin/loadtest.rs): virtual clients on real WebSocket connections to a

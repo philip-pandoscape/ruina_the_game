@@ -35,10 +35,12 @@ export class DetailRig {
 
   constructor(readonly def: RigDef) {
     for (const [key, m] of Object.entries(def.materials)) {
-      this.materials.set(
-        key,
-        m.basic ? new THREE.MeshBasicMaterial({ color: m.color, toneMapped: false }) : toon(m.color, m.emissive !== undefined ? { emissive: m.emissive } : {}),
-      );
+      const mat = m.basic
+        ? new THREE.MeshBasicMaterial({ color: m.color, toneMapped: false })
+        : toon(m.color, m.emissive !== undefined ? { emissive: m.emissive } : {});
+      // This rig's own, shared with no other body (a fading hero changes it in place: Hero.setFade).
+      mat.userData.ownRig = true;
+      this.materials.set(key, mat);
     }
     for (const j of def.joints) {
       const g = new THREE.Group();
