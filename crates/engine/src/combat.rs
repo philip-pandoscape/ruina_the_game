@@ -367,7 +367,7 @@ impl Before<'_> {
                             life.command(c);
                         }
                     }
-                    crate::open::step_player_in(&mut slot.player, &a, ow, slot.life.as_deref_mut(), slot.owner);
+                    crate::open::step_player(&mut slot.player, &a, ow, slot.life.as_deref_mut(), slot.owner);
                 }
                 None => slot.player.step(&a, self.world),
             }

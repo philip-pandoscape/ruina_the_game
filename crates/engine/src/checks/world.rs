@@ -86,7 +86,7 @@ fn flag(b: bool) -> f64 {
 /// Runs a script (JSON) and gives back every frame (JSON).
 pub fn run(input: &str) -> serde_json::Result<String> {
     let script: Script = serde_json::from_str(input)?;
-    let mut world = OpenWorld::new(emberholm());
+    let world = OpenWorld::new(emberholm());
     let spawn = Spawn { x: script.spawn.x, z: script.spawn.z, facing: script.spawn.facing };
     let mut p = Player::new(spawn, 0, Build::default());
     // Stand on the ground there, not inside it (as api.reset() in src/main.ts does).
@@ -99,7 +99,7 @@ pub fn run(input: &str) -> serde_json::Result<String> {
     let mut frames = Vec::with_capacity(script.steps.len());
     for (i, s) in script.steps.iter().enumerate() {
         if script.gusts.contains(&i) {
-            gust(&mut Sim { player: &mut p, world: &mut world, owner: 0 });
+            gust(&mut Sim { player: &mut p, world: &world, owner: 0 });
         }
         let a = Actions {
             move_x: s.move_x,
@@ -120,7 +120,7 @@ pub fn run(input: &str) -> serde_json::Result<String> {
             face_x: s.face_x,
             face_z: s.face_z,
         };
-        step_player(&mut p, &a, &mut world, None, 0);
+        step_player(&mut p, &a, &world, None, 0);
         let frame = vec![
             p.pos.x,
             p.pos.y,

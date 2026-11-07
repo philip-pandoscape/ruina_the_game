@@ -512,14 +512,14 @@ mod tests {
         use crate::player::{Actions, Build, Mode, Player};
         use crate::world::Spawn;
         let w = mainland();
-        let mut world = OpenWorld::on(w, w.zone(w.region("fells").expect("fells")));
+        let world = OpenWorld::on(w, w.zone(w.region("fells").expect("fells")));
         let (x, z) = (1460.0, 0.0);
         let mut p = Player::new(Spawn { x, z, facing: std::f64::consts::FRAC_PI_2 }, 0, Build::default());
         p.pos.y = ground_at(w, &world.index, x, z, w.water, 1.2);
         assert!(w.height(x, z) > w.water && w.height(1620.0, 0.0) > w.water, "dry land either side of the border");
         let on = Actions { move_x: 1.0, ..Default::default() };
         for _ in 0..60 * 60 {
-            step_player(&mut p, &on, &mut world, None, 0);
+            step_player(&mut p, &on, &world, None, 0);
             assert!(p.mode != Mode::Swim, "never in the water: {:?}", p.pos);
             if p.pos.x > 1600.0 {
                 break;
@@ -600,7 +600,7 @@ mod tests {
         use crate::player::{Actions, Build, Mode, Player};
         use crate::world::Spawn;
         let w = archipelago();
-        let mut world = OpenWorld::on(w, w.zone(w.region("emberholm").expect("Emberholm")));
+        let world = OpenWorld::on(w, w.zone(w.region("emberholm").expect("Emberholm")));
         // In the sea off Emberholm's west coast, swimming west for the islet.
         let (x, z) = (700.0, 0.0);
         let mut p = Player::new(Spawn { x, z, facing: std::f64::consts::FRAC_PI_2 }, 0, Build::default());
@@ -608,7 +608,7 @@ mod tests {
         let west = Actions { move_x: 1.0, ..Default::default() };
         let mut crossed = None;
         for i in 0..60 * 400 {
-            step_player(&mut p, &west, &mut world, None, 0);
+            step_player(&mut p, &west, &world, None, 0);
             if crossed.is_none() && w.region_at(p.pos.x, p.pos.z).is_some_and(|r| r.id == "islet") {
                 crossed = Some(i);
             }

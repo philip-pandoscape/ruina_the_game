@@ -557,7 +557,7 @@ mod tests {
         p
     }
 
-    fn step(p: &mut Player, world: &mut OpenWorld, a: Actions) {
+    fn step(p: &mut Player, world: &OpenWorld, a: Actions) {
         step_player(p, &a, world, None, 0);
     }
 
@@ -573,12 +573,12 @@ mod tests {
 
     #[test]
     fn off_the_end_of_a_pier_you_swim_and_a_jump_hauls_you_out() {
-        let mut world = OpenWorld::new(emberholm());
+        let world = OpenWorld::new(emberholm());
         let mut p = stand(&world, 17.0, -344.0, PI);
         assert!((p.pos.y - 1.4).abs() < 1e-9, "on the pier: {}", p.pos.y);
         let south = Actions { move_z: -1.0, ..Default::default() };
         for _ in 0..90 {
-            step(&mut p, &mut world, south);
+            step(&mut p, &world, south);
         }
         assert_eq!(p.mode, Mode::Swim);
         assert!((p.pos.y - (world.terrain().water - swim().float)).abs() < 0.05);
@@ -588,7 +588,7 @@ mod tests {
         for i in 0..200 {
             let a = Actions { jump_pressed: i % 10 == 0, jump_held: true, ..north };
             let was = p.mode;
-            step(&mut p, &mut world, a);
+            step(&mut p, &world, a);
             if was == Mode::Swim && p.mode != Mode::Swim {
                 out = p.mode == Mode::Normal && !p.grounded && p.vel.y > 0.0 && p.jumps_used == 1;
                 break;
@@ -599,7 +599,7 @@ mod tests {
 
     #[test]
     fn a_jump_with_both_spent_opens_the_glider_and_the_ground_folds_it() {
-        let mut world = OpenWorld::new(emberholm());
+        let world = OpenWorld::new(emberholm());
         let mut p = stand(&world, -6.0, -264.0, -PI / 2.0);
         p.glider = "wayfarer".into();
         let west = Actions { move_x: -1.0, ..Default::default() };
@@ -612,14 +612,14 @@ mod tests {
         frames.extend(vec![held; 14]);
         frames.push(press);
         for a in frames {
-            step(&mut p, &mut world, a);
+            step(&mut p, &world, a);
         }
         assert_eq!(p.mode, Mode::Glide);
-        assert!(glider_blocked(&Sim { player: &mut p, world: &mut world, owner: 0 }) == Some("Busy"));
-        assert!(gust(&mut Sim { player: &mut p, world: &mut world, owner: 0 }));
-        assert!(!gust(&mut Sim { player: &mut p, world: &mut world, owner: 0 }), "the gust recharges");
+        assert!(glider_blocked(&Sim { player: &mut p, world: &world, owner: 0 }) == Some("Busy"));
+        assert!(gust(&mut Sim { player: &mut p, world: &world, owner: 0 }));
+        assert!(!gust(&mut Sim { player: &mut p, world: &world, owner: 0 }), "the gust recharges");
         for _ in 0..600 {
-            step(&mut p, &mut world, west);
+            step(&mut p, &world, west);
             if p.mode != Mode::Glide {
                 break;
             }
@@ -630,17 +630,17 @@ mod tests {
 
     #[test]
     fn a_trade_pack_is_too_heavy_to_glide_with() {
-        let mut world = OpenWorld::new(emberholm());
+        let world = OpenWorld::new(emberholm());
         let mut p = stand(&world, 0.0, -264.0, 0.0);
         p.glider = "wayfarer".into();
         p.pack = 1;
         p.grounded = false;
         p.pos.y += 10.0;
-        assert_eq!(glider_blocked(&Sim { player: &mut p, world: &mut world, owner: 0 }), Some("Too heavy to glide with a trade pack"));
+        assert_eq!(glider_blocked(&Sim { player: &mut p, world: &world, owner: 0 }), Some("Too heavy to glide with a trade pack"));
         p.pack = 0;
-        assert_eq!(glider_blocked(&Sim { player: &mut p, world: &mut world, owner: 0 }), None);
-        assert!(open_glider(&mut Sim { player: &mut p, world: &mut world, owner: 0 }));
-        close_glider(&mut Sim { player: &mut p, world: &mut world, owner: 0 }, "fold");
+        assert_eq!(glider_blocked(&Sim { player: &mut p, world: &world, owner: 0 }), None);
+        assert!(open_glider(&mut Sim { player: &mut p, world: &world, owner: 0 }));
+        close_glider(&mut Sim { player: &mut p, world: &world, owner: 0 }, "fold");
         assert_eq!((p.mode, p.jumps_used), (Mode::Normal, 1), "folding mid-air leaves a double jump");
     }
 }
