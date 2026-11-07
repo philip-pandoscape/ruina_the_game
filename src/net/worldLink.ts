@@ -573,9 +573,14 @@ export class WorldLink {
     } else if (msg.t === 'space') {
       const s = (msg as { space?: SpaceView }).space;
       if (!s) return;
-      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks.
+      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks. The
+      // channels heard were the old place's: they're asked for again.
       this.peers.clear();
       this.latest = null;
+      if (this.channels) {
+        this.channels = null;
+        this.onChannels?.(null);
+      }
       this.space = s;
       this.onSpace?.(s);
     } else if (msg.t === 'party') {

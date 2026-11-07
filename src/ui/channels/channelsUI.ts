@@ -172,7 +172,12 @@ export class ChannelsUI {
   constructor(private d: ChannelsDeps) {
     this.win.addEventListener('click', (e) => this.onClick(e));
     uiRoot().append(this.win, this.notice);
-    d.link.onChannels = () => this.render(true);
+    // Moved, or into a dungeon: what was heard of the channels was of the old place; the open
+    // window asks again at once.
+    d.link.onChannels = (c) => {
+      if (!c && !this.win.hidden) this.ask();
+      this.render(true);
+    };
     d.link.onMoved = () => this.render(true);
     this.render(true);
   }
@@ -257,9 +262,12 @@ export class ChannelsUI {
 
   private renderNotice(force: boolean): void {
     const { channels: v, channelsHeard, moved, movedHeard } = this.d.link;
+    // A move heard since the channels were is news; else a closing channel's countdown; else a move a moment ago.
+    const recent = !!moved && performance.now() - movedHeard < MOVED_FOR;
     let text = '';
-    if (v?.closing) text = closingLine(v.closing.into, this.left(v.closing.ms, channelsHeard));
-    else if (moved && performance.now() - movedHeard < MOVED_FOR) text = movedLine(moved);
+    if (moved && recent && movedHeard >= channelsHeard) text = movedLine(moved);
+    else if (v?.closing) text = closingLine(v.closing.into, this.left(v.closing.ms, channelsHeard));
+    else if (moved && recent) text = movedLine(moved);
     if (!force && text === this.sig.notice) return;
     this.sig.notice = text;
     this.notice.hidden = !text;

@@ -452,3 +452,18 @@ fn a_player_who_changed_lately_sees_the_wait_apart_from_what_else_stops_them() {
     assert_eq!((v.wait, v.blocked.as_deref()), (Some(secs(45.0)), Some("You can't change channel while carrying a pack.")));
     assert_eq!(r.blocked(1, &Standing::default(), T0 + secs(15.0), &t()), Some(Refusal::Wait { ms: secs(45.0) }));
 }
+
+#[test]
+fn a_channel_a_merge_has_just_filled_is_not_quiet_any_more() {
+    // Channel 3 (4) merges into channel 2 (4): channel 1 (12) can't take them, and channel 4, opened
+    // half a minute in, is emptier.
+    let mut r = filled(&[12, 4, 4]);
+    r.review(T0, &NoTies, free, &t());
+    r.open(4, T0 + secs(30.0));
+    assert_eq!(r.review(T0 + secs(60.0), &NoTies, free, &t()), vec![Action::Merging { from: 3, into: 2, at: T0 + secs(70.0) }]);
+    // Once it closes, channel 2 has 8: not quiet, though it was a minute ago, so it doesn't merge on.
+    let done = r.review(T0 + secs(70.0), &NoTies, free, &t());
+    assert_eq!(done.last(), Some(&Action::Close { n: 3, into: 2 }), "{done:?}");
+    assert_eq!(r.merge(), None);
+    assert_eq!(sizes(&r), vec![(1, 12), (2, 8), (4, 0)]);
+}

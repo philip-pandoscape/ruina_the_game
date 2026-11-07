@@ -701,12 +701,12 @@ impl Region {
         out.push(Action::Close { n: m.from, into: m.into });
     }
 
-    /// The channel due to merge, and where: the newest quiet for `quiet_for`, into the fullest other
-    /// (not closing) that can take its players and stay at most `merge_fill` (the lowest number of
-    /// those as full).
+    /// The channel due to merge, and where: the newest quiet for `quiet_for` (and quiet still: a merge
+    /// just closed may have filled it), into the fullest other (not closing) that can take its
+    /// players and stay at most `merge_fill` (the lowest number of those as full).
     fn merge_due(&self, now: Millis, t: &Tuning) -> Option<(ChannelNo, ChannelNo)> {
         for x in self.channels.values().rev() {
-            if !x.quiet_since.is_some_and(|q| now - q >= t.quiet_for_ms()) {
+            if x.players.len() >= t.quiet || !x.quiet_since.is_some_and(|q| now - q >= t.quiet_for_ms()) {
                 continue;
             }
             let take = x.players.len();
