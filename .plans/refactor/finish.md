@@ -125,6 +125,11 @@ rig's server after rebuilding it (copy again first).
   against your slot's rig; the whole integration tier if your work touches the game broadly. List
   any failure with whether it fails on `refactor/first` too (the known races are listed in the
   tracker's Now section).
+- **As you go** (the user, 2026-11-06): commit each meaningful step to your branch, at least every
+  30-45 minutes of work; keep `.plans/refactor/reports/<id>.md` as a running report, a dated entry at
+  each milestone (what landed with commits, what you ran and how it went, what's next, what blocks or
+  what others must know), committed with the work; and send the orchestrator a 1-3 line summary
+  after each (SendMessage to "main"). The orchestrator rolls them up into `progress.md`.
 - **Your report** goes in `.plans/refactor/reports/<id>.md`, committed: what landed (with commits),
   the numbers, the decisions you made and why, what's left, and anything another workstream must know.
   Don't edit `tracker.md`, `progress.md` or `design/status.json`.

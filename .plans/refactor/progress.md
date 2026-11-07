@@ -699,3 +699,32 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   suite at a time. Rebuild the server after a content change, since the content's hash is in its
   welcome. `ui.spec.ts:377` (pointer lock) fails on macOS anyway, and the battlefield's Healing
   Circle test can fail under load and pass alone.
+
+## 2026-11-06, Evening: Finishing, With the Multi-Server World (D21)
+
+- **The user's word, on Windows again:** finish the refactor including the multi-server support
+  (GitHub issue #4, which D20 had put after the merge), with as many sub-agents as it needs, and as
+  fast as it can go. Recorded as D21. How the work is split: [finish.md](finish.md).
+- **Picked up** at the Mac's last commits (5d25daa, 83d60a1, merged in f3dfc8a). On this machine
+  `npm run check` passes (263 TypeScript, 181 engine, 81 server tests), the conformance tier too,
+  and the integration tier ran 202 passed with one failure, the yard spec's count, which both
+  machines fixed the same way.
+- **Nine workstreams** run side by side, each on a branch and worktree of its own with its own ports
+  and database. Each commits as it goes and keeps a running report in
+  `.plans/refactor/reports/<id>.md` (on its branch until merged); this page rolls them up.
+
+### Workstreams
+
+| Workstream | Tracker | State | Latest |
+|---|---|---|---|
+| tiers | R10.20, R10.2, R10.17's ids | running | The server runs on its tiers in one process (21:19: the gate, the simulations, the store, the social tier and the directory, joined by world-api's messages), with tests that play it as players do (crates/server/src/tests.rs); the leases are multiserver's, an in-memory one here until then. Next: finishing, the online specs, its report |
+| bigworld | R10.23, R10.16's rest | running | The page plays a world of many regions (db6ca72): regions grow in a Web Worker and are taken up by the page's engine, drawn where the map puts them and dropped behind you; the scene's origin moves with you, so a fixture region 102 km out is drawn precisely; the map windows show the world. The fixture world (tests/fixtures/world, the engine's fixture feature) crossed in Rust on foot, swimming, gliding and by cart with a passenger (3332545); farming reads its region's climate (d0ed37b). Next: unit and integration tests, the look test after, the docs |
+| offline | R10.11, R10.4, R10.10's rest | running | Every test off the old options, ?test alone the world (820cbfe); the flat training yard gone (9861ec9): the offline game is the world or a copy of an instance. Next: world.rs's battlefield layout, the yard's rules as instance flags |
+| wire | R10.8 | running (first half) | Records serializable for world-api's tick (0476309), the TypeScript decoder held to golden bytes (2ecbef3); against today's JSON 33 players 22.9 KB an update to 424 B, 1,025 players 682 KB to 2.6 KB (the budget). Writing an update cut 2-3 times with the same bytes (3cf8a43: 1,025 in reach 270 to ~120 us), so one gate core at 20 Hz carries ~1,650-2,150 clients in a wilderness (6.8 KB/s each), ~300 in a busy town (45.7 KB/s), ~260-400 at a world boss (61.8 KB/s). Next: the feed's adapter, far peers as crowd bodies |
+| land | R10.21 | running (first half) | Land in the engine apart from a life (257e538); the browser reads land (5ab4285); migrations 0010-0013 (land by chunk, plots, the ledger, the market) and crates/server/src/land/ (saves fenced with their land, plot claims, transfers, market sales, the save migration) (6150196, 4f93b5d); its store tests against a real Postgres pass (two racing for a plot, a transfer sent twice, migrated saves back whole). Now: npm run check and the specs that build, farm and trade. Its server side moves onto the tiers once they're in |
+| borders | R10.19 | running (first half) | Built on tiers' world-api (merged 86d6055); the engine's combat and creatures hold ghosts and take a phase in parts (work out, send away, land, settle), so simulations can trade blows, heals and what's told mid-tick (80e02a0), every golden answer unchanged. Next: the border module, the lockstep harness, the split golden test |
+| channels | R10.22 | running (first half) | The policy and its crowd harness (11fef4e: 6,000 bots peak at 5,177 in 6 channels and merge back to 1); the browser's side (9207f28: a Channels window with each channel's load, your party and friends, Change and Join Your Party with the rules' reasons; a notice when a channel closes or a merge moves you). Next: docs, the bible's Channels page, merge and check |
+| multiserver | issue #4, requirement 6 | running (first half) | crates/link (9855f9f): TCP links between processes, once and in order across a cut link, at least once across a restart, back-pressure, requests and replies, fault injection and a fault proxy; it carries world-api's Transport. Named MessagePack chosen over JSON on numbers (17-42% smaller, reads 20-55% faster); 1.38 million messages a second, a request's median 70 us. Owns the leases (space_leases, nodes, sim_ids in 0030; a life's write checks the character's and the sim's epochs). Next: the leases in Postgres, their keeper, the roles, the harness |
+| scale | R10.24 | running (first half) | The load harness, two server hooks (a bot limit; rules and updates timed apart in the stats) and the browser's crowd spec (419697c..f6faa76). First looks at today's server: it holds about 120 real players (writing JSON updates costs ~0.4 ms a client a tick), and once a tick passes 50 ms it stops serving clients at all (the one global lock starves the connections). The full baseline is running (~50 min) |
+| words | R10.14 | last, once the rest are in | |
+
