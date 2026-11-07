@@ -31,8 +31,8 @@ export interface EngineOptions {
    * without the training dummy, hit pause or the yard's arrows and meteors.
    */
   online: boolean;
-  /** A war-band of that many goblins in the yard's far corner (`?goblins=`). */
-  goblins?: number;
+  /** A war-band of `count` of a kind in the yard's far corner (`?goblins=`). */
+  band?: { kind: string; count: number };
   /** Your skills and loadout to start with. */
   build: Build;
 }
@@ -98,7 +98,7 @@ export class Engine {
 
   constructor(o: EngineOptions) {
     this.online = o.online;
-    this.session = new EngineSession({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build });
+    this.session = new EngineSession({ openWorld: o.openWorld, online: o.online, band: o.band, build: o.build });
     // The yard as the session lays it out (its props, the dummy, where you start, who stands about).
     this.world = o.openWorld ? islandWorld() : this.session.call<World>('world');
     const first = this.session.view(false);

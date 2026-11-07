@@ -50,7 +50,7 @@ fields.
 | `developer` | Admins only, in from the Admin menu |
 | `shared` | One copy for everyone allowed in, instead of one a party (the battlefield) |
 | `door` | A developer zone's way out into the world (`outside`, in the world); a dungeon's is in its region's `doors.json` |
-| `spawns` | Creatures a copy brings: a `kind` (`shared/actors.json`, or a creature's kinds) at `x`, `z`; with `band: true`, a war-band of `count` in a ring round the spot, fighting as a pack |
+| `spawns` | Creatures a copy brings, as a region's recipe has them ([world.md](world.md)): a `kind` (`shared/actors.json`, or a creature's kinds) at `x`, `z`; `count` of them spread round the spot out to `r` metres (in a ring without `r`); with `band: true`, a war-band of `count` in a ring round the spot, fighting as a pack |
 | `bots` | Bots in it while anyone is: `count` of a `brain` on a `team`, round `x`, `z` |
 
 ## Adding One

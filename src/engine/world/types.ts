@@ -80,12 +80,26 @@ export interface ZoneRecipe {
   doors?: DungeonDoor[];
   forests: Array<{ x: number; z: number; r: number; density: number }>;
   scatter: { trees: number; rocks: number; clearOfRoad?: number; clearOfStructure?: number };
-  slimes: { x: number; z: number; count: number; r: number };
   /** Slipways where ships are built. */
   shipyards: Array<{ id: string; name: string; x: number; z: number; rot: number }>;
   /** Day and night: how long a whole day lasts in real seconds, and when the sun is up. */
   sky: { dayLengthSeconds: number; startHour: number; sunrise: number; sunset: number };
-  dummy: { x: number; z: number };
+  /** The creatures it brings to life where it's played (the server's channels, and offline the page's session). */
+  spawns: ZoneSpawn[];
+}
+
+/**
+ * What a region or an instance brings to life (crates/engine/src/open/spawns.rs): one of a kind on a
+ * spot, a group of `count` spread round it out to `r`, or a war-band of `count` in a ring round it.
+ */
+export interface ZoneSpawn {
+  /** A creature's kind (shared/actors.json, or a creature's kinds). */
+  kind: string;
+  x: number;
+  z: number;
+  band?: boolean;
+  count?: number;
+  r?: number;
 }
 
 export interface ZonePlace {

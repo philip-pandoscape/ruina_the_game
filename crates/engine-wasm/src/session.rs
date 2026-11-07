@@ -54,8 +54,8 @@ pub fn build_of(v: &Value) -> Option<Build> {
     Some(b)
 }
 
-/// A new session from its options (JSON: `openWorld`, `online`, `goblins`, `build`): its handle,
-/// or 0 if they can't be read.
+/// A new session from its options (JSON: `openWorld`, `online`, `build`, and `band`, a war-band of
+/// `count` of a `kind` in the yard): its handle, or 0 if they can't be read.
 ///
 /// # Safety
 /// `p..p + n` lies in room `alloc` gave.
@@ -64,8 +64,8 @@ pub unsafe extern "C" fn session_new(p: *const u8, n: usize) -> u32 {
     let Ok(o) = serde_json::from_str::<Value>(unsafe { text(p, n) }) else { return 0 };
     let Some(build) = o.get("build").and_then(build_of) else { return 0 };
     let flag = |k: &str| o.get(k).and_then(Value::as_bool).unwrap_or(false);
-    let goblins = o.get("goblins").and_then(Value::as_u64).unwrap_or(0) as usize;
-    let s = Session::new(flag("openWorld"), flag("online"), goblins, build);
+    let band = o.get("band").and_then(|b| Some((b.get("kind")?.as_str()?, b.get("count")?.as_u64()? as usize)));
+    let s = Session::new(flag("openWorld"), flag("online"), band, build);
     SESSIONS.with(|list| {
         let mut list = list.borrow_mut();
         list.push(Some(s));

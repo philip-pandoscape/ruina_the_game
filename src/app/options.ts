@@ -43,8 +43,8 @@ export interface Options {
   yard: boolean;
   /** Emberholm, the open world. */
   openWorld: boolean;
-  /** Goblins in the yard. */
-  goblins: number;
+  /** A war-band in the yard (`?goblins=`: that many goblins). */
+  band?: { kind: string; count: number };
   /** Milliseconds added each way to this page's connection. */
   lag: number;
   softLock: boolean;
@@ -62,6 +62,9 @@ export interface Options {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** The options in `search` (the page's own address by default). */
+/** `?goblins=`'s war-band: that many of the goblins' kind, or none. */
+const bandOf = (count: number): Options['band'] => (count > 0 ? { kind: 'goblin', count } : undefined);
+
 export function readOptions(search: string = typeof location === 'undefined' ? '' : location.search): Options {
   const q = new URLSearchParams(search);
   const test = q.has('test');
@@ -70,7 +73,7 @@ export function readOptions(search: string = typeof location === 'undefined' ? '
     test,
     yard,
     openWorld: !yard,
-    goblins: yard ? clamp(Math.floor(Number(q.get('goblins')) || 0), 0, 24) : 0,
+    band: bandOf(yard ? clamp(Math.floor(Number(q.get('goblins')) || 0), 0, 24) : 0),
     lag: clamp(Number(q.get('lag')) || 0, 0, 2000),
     softLock: q.get('softlock') !== '0',
     as: q.get('as'),

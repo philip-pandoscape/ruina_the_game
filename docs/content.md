@@ -187,7 +187,8 @@ A new type of objective is a new mechanic: code.
   pack's tactics if it fights in a band (`design/goblins.md`). Its id goes on the end of
   `content/creatures/_order.json`. Its kinds wear a species there is a body for, or bring a body of
   their own (`src/render/creatures/<name>/`: code).
-- **Where they are**: a dungeon's or a zone's `spawns` (`docs/zones.md`).
+- **Where they are**: the `spawns` of a region's recipe (Emberholm's slimes and training dummy) or of an
+  instance's file: a kind on a spot, a group spread round it, or a war-band (`docs/zones.md`).
 
 A new act or condition for brains is a new engine part: code, never a creature's own.
 

@@ -246,7 +246,6 @@ export interface World {
   spawns: ActorSpawnPoint[];
   radius: number;
   obstacles: Obstacle[];
-  dummy: { x: number; z: number };
   spawn: Spawn;
   teamSpawns: [Spawn, Spawn]; // where each team respawns after being knocked down
   // Open worlds only. The training yard and the battlefield are flat at y = 0 and leave these

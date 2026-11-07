@@ -302,9 +302,17 @@ export function makeDrawing(g: GameRefs) {
     );
     hero.update(stool ? seatedState(g.sim.player) : g.sim.player, alpha, g.sim.frame);
     if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
-    const d = dummyActor();
-    if (d) dummy.update(d);
-    if (net) {
+    // The dummy's body where the dummy is: offline the rules' own; online the server's, nearest you.
+    if (!net) {
+      // Townsfolk with their own models are drawn by the life view instead of the crowd.
+      actorView.update(lifeView?.drawsTownsfolk ? g.sim.actors.all().filter((a) => a.faction !== 2) : g.sim.actors.all());
+      const d = dummyActor();
+      dummy.root.visible = !!d;
+      if (d) {
+        dummy.root.position.set(d.x, d.y + groundY(d.x, d.z), d.z);
+        dummy.update(d);
+      }
+    } else {
       const now = performance.now();
       refreshActors(now);
       actorView.fromNetwork(g.shownActors, (id) => netMonsters?.flash(id, now) ?? 0);
@@ -322,8 +330,6 @@ export function makeDrawing(g: GameRefs) {
         dummy.fromNetwork(netMonsters?.flash(near.id, now) ?? 0, near.deadFrame);
       }
     }
-    // Townsfolk with their own models are drawn by the life view instead of the crowd.
-    else actorView.update(lifeView?.drawsTownsfolk ? g.sim.actors.all().filter((a) => a.faction !== 2) : g.sim.actors.all());
     if (!net) missileView.update(g.sim.actors.missiles);
     if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
     drawSpells(alpha, animDt);

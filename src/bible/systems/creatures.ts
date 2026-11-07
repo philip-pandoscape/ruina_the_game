@@ -239,8 +239,15 @@ export const creatures = system({
   summary: 'How creatures see you, choose what to do, fight as a pack, throw things, grow, burst and come back.',
   icon: '👺',
   keywords: ['monster', 'monsters', 'enemy', 'enemies', 'ai', 'brain', 'slime', 'goblin', 'pack', 'aggro', 'respawn', 'boss'],
-  rules: ['crates/engine/src/actor.rs', 'crates/engine/src/actors.rs', 'crates/engine/src/ai.rs', 'crates/engine/src/pack.rs', 'crates/engine/src/missiles.rs'],
-  content: ['shared/behaviours.json#behaviours', 'shared/creatures.json#creatures', 'shared/regions/*.json#slimes'],
+  rules: [
+    'crates/engine/src/actor.rs',
+    'crates/engine/src/actors.rs',
+    'crates/engine/src/ai.rs',
+    'crates/engine/src/pack.rs',
+    'crates/engine/src/missiles.rs',
+    'crates/engine/src/open/spawns.rs',
+  ],
+  content: ['shared/behaviours.json#behaviours', 'shared/creatures.json#creatures', 'shared/regions/*.json#spawns'],
   body: () => {
     const slime = brain('slime');
     const slimelet = brain('slimelet');
@@ -248,7 +255,8 @@ export const creatures = system({
     const pack = goblin.pack!;
     const ladder = LADDERS[0];
     const z = EMBERHOLM;
-    const meadow = nearestPlace(z.slimes.x, z.slimes.z);
+    const slimes = z.spawns.find((s) => s.kind === 'slime')!;
+    const meadow = nearestPlace(slimes.x, slimes.z);
     const used = new Set(actorKindIds().map((id) => actorKind(id).brain));
     const unused = BEHAVIOURS.filter((b) => !used.has(b.id));
     // The distance past which a goblin on its ring will throw rather than wait.
@@ -282,7 +290,7 @@ Townsfolk are never anyone's target and never hurt. Props (the dummy) take blows
 
 ## Where They Are
 
-On ${z.name}, ${count(z.slimes.count, 'slime')} live within ${metres(z.slimes.r)} of the middle of ${link(`places/${meadow.id}`, meadow.name)}, with the training dummy beside them. Online, creatures belong to the channel: everyone in it sees and fights the same ones. A war-band of goblins is set down together, every one of them a member of the same band.
+On ${z.name}, ${count(slimes.count ?? 1, 'slime')} live within ${metres(slimes.r ?? 0)} of the middle of ${link(`places/${meadow.id}`, meadow.name)}, with the training dummy beside them. Online, creatures belong to the channel: everyone in it sees and fights the same ones. A war-band of goblins is set down together, every one of them a member of the same band.
 
 ## How a Creature Sees You
 

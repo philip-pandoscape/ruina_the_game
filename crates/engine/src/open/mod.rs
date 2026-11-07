@@ -9,6 +9,7 @@ pub mod dungeon;
 pub mod generate;
 pub mod map;
 pub mod noise;
+pub mod spawns;
 pub mod traverse;
 pub mod zone;
 

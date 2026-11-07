@@ -5,13 +5,14 @@ import { DUMMY } from '../content/tuning';
 import { part, toon } from './toon';
 
 // A straw training dummy on a post. It wobbles, flashes white when hit, and pops back after breaking.
+// It stands wherever it's put: where the dummy is, each frame (src/app/drawing.ts).
 export class TrainingDummy {
   readonly root = new THREE.Group();
   private pivot = new THREE.Group();
   private parts = new THREE.Group();
   private flashMats: THREE.MeshToonMaterial[];
 
-  constructor(x: number, z: number) {
+  constructor() {
     const wood = toon(0x8d5a3b);
     const straw = toon(0xe2c158);
     const rope = toon(0xa1887f);
@@ -19,7 +20,6 @@ export class TrainingDummy {
     const white = toon(0xf5f0e6);
     this.flashMats = [straw, rope, red, white];
 
-    this.root.position.set(x, 0, z);
     part(this.root, new THREE.CylinderGeometry(0.45, 0.5, 0.12, 12), wood, 0, 0.06, 0);
     this.pivot.position.y = 0.12;
     this.root.add(this.pivot);

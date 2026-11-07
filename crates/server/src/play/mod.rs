@@ -25,6 +25,7 @@ use crate::life::{Command, Life, farming, housing, trade, vehicles};
 use crate::minigames::Minigames;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{DungeonDef, Spot};
+use crate::open::spawns::{instance_spawns, region_spawns};
 use crate::open::zone::{DungeonDoor, Zone, emberholm};
 use crate::open::{OpenWorld, Sim};
 use crate::play::channels::{Channel, estate_of};
@@ -202,16 +203,9 @@ impl ChannelGame {
         let world = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
         let mut players = Players::new(1000.0 / TICK_HZ as f64);
         players.ground = Some(&zone.terrain);
-        // The island's monsters, where src/engine/world/region.ts puts them, and the training dummy.
+        // What the island brings to life (its recipe's spawns), as the browser's island offline has it.
         let mut actors = Actors::new();
-        let s = r.slimes;
-        for i in 0..s.count {
-            let a = (i as f64 / s.count as f64) * std::f64::consts::PI * 2.0 + 0.4;
-            let rr = s.r * (0.45 + 0.55 * ((i * 7) % 5) as f64 / 4.0);
-            let seed = (r.seed ^ 0x51e0).wrapping_add((i as u32).wrapping_mul(0x9e37_79b1));
-            actors.spawn("slime", s.x + a.sin() * rr, s.z + a.cos() * rr, seed);
-        }
-        actors.spawn("dummy", r.dummy.x, r.dummy.z, 1);
+        spawn_all(&mut actors, region_spawns(r));
         ChannelGame {
             id,
             space: Space::Channel,
@@ -242,16 +236,7 @@ impl ChannelGame {
         ch.open = OpenWorld::instance(def, ch.open.zone);
         ch.actors = Actors::new();
         // What its file says lives in it (a developer zone's training dummy, slimes, a war-band).
-        for (i, s) in def.spawns.iter().enumerate() {
-            let band = if s.band { i as u32 + 1 } else { 0 };
-            for (x, z, facing, seed) in s.points(0x20ae ^ (i as u32).wrapping_mul(0x9e37_79b1)) {
-                if band > 0 {
-                    ch.actors.spawn_in_band(&s.kind, x, z, facing, seed, band);
-                } else {
-                    ch.actors.spawn(&s.kind, x, z, seed);
-                }
-            }
-        }
+        spawn_all(&mut ch.actors, instance_spawns(def));
         // Heights in a fight are measured from its floor; off it there's no ground but a fall.
         ch.players.floor = Some(def);
         ch.players.ground = None;
@@ -1094,6 +1079,19 @@ fn stand_on_ground(p: &mut Player, world: &OpenWorld) {
     let hf = world.terrain();
     p.pos.y = ground_at(hf, &world.index, p.pos.x, p.pos.z, hf.height(p.pos.x, p.pos.z) + 1.2, 1.2);
     p.grounded = true;
+}
+
+/// Brings to life what a region's or an instance's spawns list (open/spawns.rs), each war-band
+/// fighting together.
+fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::yard::SpawnPoint>) {
+    for p in points {
+        let seed = p.seed.unwrap_or(1);
+        if p.band > 0 {
+            actors.spawn_in_band(&p.kind, p.x, p.z, p.facing.unwrap_or(0.0), seed, p.band);
+        } else {
+            actors.spawn(&p.kind, p.x, p.z, seed);
+        }
+    }
 }
 
 /// Makes an island's houses and farm posts solid in the channel (each piece once).

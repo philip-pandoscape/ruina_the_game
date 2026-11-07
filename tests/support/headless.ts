@@ -74,7 +74,7 @@ function start(url: string) {
   const opt = readOptions(new URL(url, 'http://headless').search);
   migrateStorage(localStorage);
   let build: Build = loadBuild();
-  const engine = new Engine({ openWorld: opt.openWorld, online: false, goblins: opt.goblins, build });
+  const engine = new Engine({ openWorld: opt.openWorld, online: false, band: opt.band, build });
   const { world, terrain, sim, range, life } = engine;
   // As main.ts: the island kept in this browser when asked for, and a build held to its points.
   if (life && opt.test && opt.load) {

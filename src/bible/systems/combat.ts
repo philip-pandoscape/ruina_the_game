@@ -70,13 +70,13 @@ export const combat = system({
     'shared/tuning.json#stamina',
     'shared/tuning.json#mp',
     'shared/tuning.json#hotbar',
-    'shared/regions/*.json#dummy',
   ],
   body: () => {
     const ground = ABILITIES.find((a) => a.target === 'ground');
     const block = MOVEMENT_SKILLS.find((m) => m.action.damageTaken !== undefined);
     const dummy = actorKind('dummy');
-    const dummyPlace = nearestPlace(EMBERHOLM.dummy.x, EMBERHOLM.dummy.z);
+    const dummySpot = EMBERHOLM.spawns.find((s) => s.kind === 'dummy')!;
+    const dummyPlace = nearestPlace(dummySpot.x, dummySpot.z);
     return md`
 Fighting in Ruina plays like a platform fighter: quick combos you can cut short with a jump or a slide, dodges with frames nothing can touch, and spells you stand still to cast. What you can do is your build, learned in the skill tree ([[systems/skills]]); this page says how each part of a fight works, step by step. The rules run ${SIM_HZ} times a second, and many timings below are counted in those steps, called frames.
 

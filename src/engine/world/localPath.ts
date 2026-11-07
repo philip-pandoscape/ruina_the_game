@@ -1,4 +1,5 @@
 import type { World } from '../shapes';
+import { findKind } from '../../content/actors';
 import { GROUND } from '../../content/traversal';
 import { inRect } from './colliders';
 
@@ -99,8 +100,11 @@ export class WalkGrid {
     this.ground = new Float32Array(this.nx * this.nz).fill(NaN);
     this.deck = new Uint8Array(this.nx * this.nz);
     const c = opts.clearance;
-    const standers: Point[] = (world.zone?.recipe.npcs ?? []).map((n) => [n.x, n.z]);
-    if (world.zone) standers.push([world.dummy.x, world.dummy.z]);
+    // Who stands still in the way: the townsfolk at their posts, and whatever solid the region
+    // brings to life (the training dummy).
+    const recipe = world.zone?.recipe;
+    const standers: Point[] = (recipe?.npcs ?? []).map((n) => [n.x, n.z]);
+    for (const s of recipe?.spawns ?? []) if (findKind(s.kind)?.solid) standers.push([s.x, s.z]);
     for (let j = 0; j < this.nz; j++)
       for (let i = 0; i < this.nx; i++) {
         const [x, z] = this.centre(i, j);

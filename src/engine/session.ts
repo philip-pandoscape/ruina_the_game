@@ -17,7 +17,7 @@ import { answer, wasm, withText } from './wasm';
 export interface SessionOptions {
   openWorld: boolean;
   online: boolean;
-  goblins?: number;
+  band?: { kind: string; count: number };
   build: Build;
 }
 

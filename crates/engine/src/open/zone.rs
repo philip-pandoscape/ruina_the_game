@@ -9,6 +9,7 @@ use crate::jsmath::JsMath;
 use serde::{Deserialize, Serialize};
 
 use super::generate::{Forest, PropPlacement, Scatter, StructurePlacement, Terrain};
+use super::spawns::ZoneSpawn;
 
 /// What a patch of ground is made of (src/engine/world/terrain.ts SURFACE).
 pub mod surface {
@@ -327,20 +328,6 @@ pub struct Sky {
     pub sunset: f64,
 }
 
-#[derive(Deserialize, Clone, Copy, Debug)]
-pub struct Slimes {
-    pub x: f64,
-    pub z: f64,
-    pub count: usize,
-    pub r: f64,
-}
-
-#[derive(Deserialize, Clone, Copy, Debug)]
-pub struct Point {
-    pub x: f64,
-    pub z: f64,
-}
-
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Recipe {
@@ -371,8 +358,10 @@ pub struct Recipe {
     #[serde(default)]
     pub doors: Vec<DungeonDoor>,
     pub sky: Sky,
-    pub slimes: Slimes,
-    pub dummy: Point,
+    /// The creatures it brings to life where it's played: slimes in their meadow, the training
+    /// dummy (open/spawns.rs).
+    #[serde(default)]
+    pub spawns: Vec<ZoneSpawn>,
 }
 
 /// A zone as the rules see it: the recipe and what was grown from it.

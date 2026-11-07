@@ -541,16 +541,20 @@
     "clearOfRoad": 5,
     "clearOfStructure": 4
   },
-  "slimes": {
-    "x": -30,
-    "z": -40,
-    "count": 6,
-    "r": 16
-  },
-  "dummy": {
-    "x": -18,
-    "z": -52
-  },
+  "spawns": [
+    {
+      "kind": "slime",
+      "x": -30,
+      "z": -40,
+      "count": 6,
+      "r": 16
+    },
+    {
+      "kind": "dummy",
+      "x": -18,
+      "z": -52
+    }
+  ],
   "sky": {
     "dayLengthSeconds": 1800,
     "startHour": 8.5,

@@ -27,6 +27,7 @@ use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{Spot, dungeon};
 use crate::open::map::WorldMap;
+use crate::open::spawns::band_around;
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
 use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
@@ -34,7 +35,7 @@ use crate::skills::{Levels, resolve_skills};
 use crate::training::{Arrow, Blows, Meteor, Range, check_hit, targets};
 use crate::tuning::tuning;
 use crate::world::{Spawn, World};
-use crate::yard::{SpawnPoint, YARD_SEED, Yard, band_around, island_spawns, yard};
+use crate::yard::{SpawnPoint, YARD_SEED, Yard, island_spawns, yard};
 
 /// A slam only catches someone standing on the ground, not someone jumping over it.
 const SLAM_LIFT: f64 = 1.0;
@@ -92,8 +93,9 @@ pub struct Session {
 
 impl Session {
     /// The island (or the yard), you at its spawn with `build`, and offline whoever stands about it
-    /// (with a war-band of `goblins` in the yard's far corner): the Engine's constructor.
-    pub fn new(open_world: bool, online: bool, goblins: usize, build: Build) -> Session {
+    /// (with `band`, a war-band of that many of a kind, in the yard's far corner): the Engine's
+    /// constructor.
+    pub fn new(open_world: bool, online: bool, band: Option<(&str, usize)>, build: Build) -> Session {
         let (ground, mut spawns, spawn) = if open_world {
             let zone = emberholm();
             let s = zone.recipe.spawn;
@@ -104,8 +106,8 @@ impl Session {
             let world = y.world();
             (Ground::Flat { yard: y, world }, spawns, spawn)
         };
-        if goblins > 0 {
-            spawns.extend(band_around("goblin", goblins, 9.0, 10.0, 1, 0x9b1d));
+        if let Some((kind, count)) = band.filter(|(_, n)| *n > 0) {
+            spawns.extend(band_around(kind, count, 9.0, 10.0, 1, 0x9b1d));
         }
         let player = Player::new(spawn, 0, Build::default());
         let levels = player.levels.clone();
@@ -996,7 +998,6 @@ impl Session {
                 "seed": yard.seed,
                 "radius": world.radius,
                 "obstacles": yard.props,
-                "dummy": { "x": yard.dummy.0, "z": yard.dummy.1 },
                 "spawn": spawn(yard.spawn),
                 "teamSpawns": [spawn(world.team_spawns[0]), spawn(world.team_spawns[1])],
                 "spawns": self.spawns,

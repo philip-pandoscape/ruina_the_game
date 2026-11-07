@@ -1,7 +1,7 @@
 import data from '../../../shared/instances.json' with { type: 'json' };
 import { inRect } from './colliders';
 import { rect } from './frames';
-import type { DungeonDoor, ZoneRecipe } from './types';
+import type { DungeonDoor, ZoneRecipe, ZoneSpawn } from './types';
 
 // The world's instances: its dungeons and the developer zones (content/instances/<id>.json, built
 // into shared/instances.json; docs/zones.md). Each party plays its own copy of one, a space of its
@@ -46,11 +46,8 @@ export interface DungeonDef {
   bots?: Array<{ brain: string; count: number; team: number; x: number; z: number }>;
   /** How it's drawn: "cave" (the default) or "arena" (open sky). */
   style?: string;
-  /**
-   * What a copy of it brings (the server's): one of a kind at a spot, or a war-band of `count` in a
-   * ring round it (crates/engine/src/open/dungeon.rs ZoneSpawn).
-   */
-  spawns?: Array<{ kind: string; x: number; z: number; band?: boolean; count?: number }>;
+  /** What a copy of it brings to life (the server's). */
+  spawns?: ZoneSpawn[];
 }
 
 /** Every dungeon and developer zone, by id, in the order content/instances/_order.json lists them. */

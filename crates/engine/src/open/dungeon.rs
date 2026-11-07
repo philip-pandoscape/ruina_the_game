@@ -10,11 +10,12 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use crate::jsmath::{JsMath, js_hypot};
+use crate::jsmath::js_hypot;
 
 use super::OpenWorld;
 use super::colliders::{ColliderIndex, ground_at, in_rect};
 use super::map::WorldMap;
+use super::spawns::ZoneSpawn;
 use super::zone::{BoxCollider, Deck, DungeonDoor, Spawn, rect};
 
 /// A box or deck as a dungeon's file gives it: round its origin, its top above the origin.
@@ -70,39 +71,6 @@ pub struct DungeonDef {
     /// Creatures a copy of it brings: a training dummy, slimes, goblins.
     #[serde(default)]
     pub spawns: Vec<ZoneSpawn>,
-}
-
-/// One of a kind at a spot, or a war-band of them (`band`: `count` in a ring round it, fighting
-/// together as a pack, as crate::yard::band_around lays one out).
-#[derive(Deserialize, Clone, Debug)]
-pub struct ZoneSpawn {
-    pub kind: String,
-    pub x: f64,
-    pub z: f64,
-    #[serde(default)]
-    pub band: bool,
-    #[serde(default = "one")]
-    pub count: u32,
-}
-
-fn one() -> u32 {
-    1
-}
-
-impl ZoneSpawn {
-    /// Where each one stands, which way it faces, and its seed: a band in a ring round the spot
-    /// facing out, anything else on the spot.
-    pub fn points(&self, seed: u32) -> Vec<(f64, f64, f64, u32)> {
-        let n = self.count.max(1);
-        (0..n)
-            .map(|i| {
-                let angle = f64::from(i) / f64::from(n) * std::f64::consts::TAU;
-                let r = if n > 1 { 1.2 + 0.4 * f64::from(i % 2) } else { 0.0 };
-                let (sin, cos) = (angle.js_sin(), angle.js_cos());
-                (self.x + sin * r, self.z + cos * r, angle, seed.wrapping_add((i + 1).wrapping_mul(0x9e37_79b1)))
-            })
-            .collect()
-    }
 }
 
 #[derive(Deserialize, Clone, Debug)]

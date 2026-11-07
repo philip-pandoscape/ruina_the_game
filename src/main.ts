@@ -108,7 +108,7 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // on the game server, and its developer zones) the server decides hits, so the rules here run
 // without the training dummy and hit pause, and only predict your own moves.
 await engineLoading;
-const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
+const engine = new Engine({ openWorld, online: !!online, band: opt.band, build });
 const { world, sim, range } = engine;
 /** The world's ground at the start (null on the yard's flat ground): whether this is an open world. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
 const terrain = engine.terrain;
@@ -150,13 +150,11 @@ const stage: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; follow(x: numb
   openStage ?? new Stage(canvas, world, TRAINING_STAGE);
 const hero = new Hero();
 stage.scene.add(hero.root);
-const dummy = new TrainingDummy(world.dummy.x, world.dummy.z);
-dummy.root.position.y = groundY(world.dummy.x, world.dummy.z);
+// The training dummy's body, drawn where a dummy is: the rules' own offline, the server's online.
+const dummy = new TrainingDummy();
 const actorView = new ActorView(actorKindIds(), 64, terrain ? groundY : null);
 const dummyActor = () => sim.actorOfKind('dummy');
-// Online the server owns what lives in the world: its dummy is drawn where it has one (the
-// island's, a yard's), and the rules' own only offline.
-dummy.root.visible = !serverRules;
+dummy.root.visible = false;
 const DUMMY_KIND = actorKindIndex('dummy');
 stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);

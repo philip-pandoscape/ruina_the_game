@@ -121,6 +121,29 @@ test('a region the world puts where its grid is not, or on another region, fails
   ).toContain("blend is 200, where it's from 0 to half a chunk");
 });
 
+test('what a region or an instance brings to life names a creature and a spot, and only a group that is no band is spread', () => {
+  expect(
+    broken('regions/emberholm.json', (r) => {
+      r.spawns[0].kind = 'dragon';
+    }),
+  ).toContain('content/regions/emberholm.json: spawns[0]: "dragon" is no creature\'s kind');
+  expect(
+    broken('instances/goblinCamp.json', (d) => {
+      d.spawns[0].r = 8;
+    }),
+  ).toContain('content/instances/goblinCamp.json: spawns[0]: a band stands in a ring round its spot');
+  expect(
+    broken('regions/emberholm.json', (r) => {
+      r.spawns[0].r = 0;
+    }),
+  ).toContain('spawns[0]: r is how far a group is spread, more than 0 m');
+  expect(
+    broken('instances/yard.json', (d) => {
+      delete d.spawns[0].z;
+    }),
+  ).toContain('content/instances/yard.json: spawns[0]: it has no spot (x, z)');
+});
+
 test('every gathering spot has an id, and an id is one thing in the whole world', () => {
   expect(
     broken('regions/emberholm/nodes.json', (nodes) => {

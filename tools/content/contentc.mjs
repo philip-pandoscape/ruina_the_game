@@ -125,7 +125,7 @@ export function build(root = CONTENT) {
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
   errors.push(...references(bundles), ...madeModels(bundles));
-  errors.push(...world(bundles));
+  errors.push(...world(bundles), ...spawns(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   bundles.set(HASH, hashOf(bundles));
   return bundles;
@@ -190,6 +190,33 @@ function world(b) {
     if (t.cell !== cell || !Number.isInteger(w.chunk / t.cell))
       out.push(`${where}: its cell is ${t.cell} m, where every region's is ${cell} m, a whole number of them to a ${w.chunk} m chunk`);
   }
+  return out;
+}
+
+// ---------- Spawns ----------
+
+/**
+ * What's wrong with what a region or an instance brings to life where it's played (its `spawns`,
+ * crates/engine/src/open/spawns.rs): each names a creature's kind (shared/actors.json, or a
+ * creature's kinds) and a spot, and only a group that isn't a band is spread (`r`).
+ */
+function spawns(b) {
+  const kinds = new Set([
+    ...(b.get('actors.json')?.kinds ?? []).map((k) => k.id),
+    ...(b.get('creatures.json')?.creatures ?? []).flatMap((c) => (c.kinds ?? []).map((k) => k.id)),
+  ]);
+  const out = [];
+  const check = (list, where) => {
+    for (const [i, s] of (list ?? []).entries()) {
+      const at = `${where}: spawns[${i}]`;
+      if (!kinds.has(s.kind)) out.push(`${at}: ${JSON.stringify(s.kind)} is no creature's kind (shared/actors.json, or a creature's kinds)`);
+      if (typeof s.x !== 'number' || typeof s.z !== 'number') out.push(`${at}: it has no spot (x, z)`);
+      if (s.r !== undefined && (typeof s.r !== 'number' || s.r <= 0)) out.push(`${at}: r is how far a group is spread, more than 0 m`);
+      if (s.r !== undefined && s.band) out.push(`${at}: a band stands in a ring round its spot; r spreads a group that isn't one`);
+    }
+  };
+  for (const [path, region] of b) if (path.startsWith('regions/') && !path.slice('regions/'.length).includes('/')) check(region?.spawns, `content/${path}`);
+  for (const d of b.get('instances.json')?.instances ?? []) check(d.spawns, `content/instances/${d.id}.json`);
   return out;
 }
 

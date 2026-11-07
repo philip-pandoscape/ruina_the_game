@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::jsmath::{JsMath, js_hypot};
+use crate::open::spawns::region_spawns;
 use crate::open::zone::Recipe;
 use crate::rng::Rng;
 use crate::world::{Obstacle, Spawn, World};
@@ -61,25 +62,6 @@ impl Yard {
         let obstacles = self.props.iter().map(|p| Obstacle { tree: p.kind == "tree", x: p.x, z: p.z, r: p.r }).collect();
         World { radius: self.radius, obstacles, team_spawns: [self.spawn, self.spawn] }
     }
-}
-
-/// `count` of a kind in a ring round (x, z), facing out, as spawn points that share `band`
-///.
-pub fn band_around(kind: &str, count: usize, x: f64, z: f64, band: u32, seed: u32) -> Vec<SpawnPoint> {
-    (0..count)
-        .map(|i| {
-            let angle = (i as f64 / count as f64) * std::f64::consts::PI * 2.0;
-            let r = if count > 1 { 1.2 + 0.4 * (i % 2) as f64 } else { 0.0 };
-            SpawnPoint {
-                kind: kind.to_string(),
-                x: x + angle.js_sin() * r,
-                z: z + angle.js_cos() * r,
-                facing: Some(angle),
-                seed: Some(seed.wrapping_add((i as u32 + 1).wrapping_mul(0x9e37_79b1))),
-                band,
-            }
-        })
-        .collect()
 }
 
 /// The training yard: props by the dummy, a ring of trees, rocks
@@ -149,18 +131,11 @@ pub fn yard(seed: u32) -> Yard {
     Yard { seed, radius: YARD_RADIUS, props, dummy, spawn, spawns }
 }
 
-/// Who stands about an island played without the server (makeZoneWorld in src/engine/world/region.ts):
-/// its slimes in a ring round their meadow, the dummy, and the townsfolk at their posts.
+/// Who stands about an island played without the server: what its recipe brings to life
+/// (open/spawns.rs: the slimes in their meadow, the dummy, as the server spawns them in a channel),
+/// and the townsfolk at their posts.
 pub fn island_spawns(r: &Recipe) -> Vec<SpawnPoint> {
-    let s = &r.slimes;
-    let mut spawns = Vec::new();
-    for i in 0..s.count {
-        let a = (i as f64 / s.count as f64) * std::f64::consts::PI * 2.0 + 0.4;
-        let rr = s.r * (0.45 + (0.55 * ((i * 7) % 5) as f64) / 4.0);
-        let seed = ((r.seed ^ 0x51e0) as u64 + i as u64 * 0x9e37_79b1) as u32;
-        spawns.push(SpawnPoint { kind: "slime".into(), x: s.x + a.js_sin() * rr, z: s.z + a.js_cos() * rr, seed: Some(seed), ..Default::default() });
-    }
-    spawns.push(SpawnPoint { kind: "dummy".into(), x: r.dummy.x, z: r.dummy.z, ..Default::default() });
+    let mut spawns = region_spawns(r);
     for n in &r.npcs {
         spawns.push(SpawnPoint { kind: n.kind.clone(), x: n.x, z: n.z, facing: Some(n.facing), ..Default::default() });
     }

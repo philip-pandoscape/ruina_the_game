@@ -110,23 +110,15 @@ export function makeZoneWorld(recipe: ZoneRecipe = EMBERHOLM): World {
   if (hit) return hit.world;
   const gen = generateZone(recipe);
   const hf = gen.terrain;
-  const spawns: ActorSpawnPoint[] = [];
-  const s = recipe.slimes;
-  for (let i = 0; i < s.count; i++) {
-    const a = (i / s.count) * Math.PI * 2 + 0.4;
-    const r = s.r * (0.45 + (0.55 * ((i * 7) % 5)) / 4);
-    spawns.push({ kind: 'slime', x: s.x + Math.sin(a) * r, z: s.z + Math.cos(a) * r, seed: (recipe.seed ^ 0x51e0) + i * 0x9e3779b1 });
-  }
-  spawns.push({ kind: 'dummy', x: recipe.dummy.x, z: recipe.dummy.z });
-  // The townsfolk: they stand at their posts and are never anyone's target.
-  for (const n of recipe.npcs) spawns.push({ kind: n.kind, x: n.x, z: n.z, facing: n.facing });
+  // The townsfolk: they stand at their posts and are never anyone's target. What the region brings
+  // to life besides (its recipe's spawns) is the engine's to place (crates/engine/src/open/spawns.rs).
+  const spawns: ActorSpawnPoint[] = recipe.npcs.map((n) => ({ kind: n.kind, x: n.x, z: n.z, facing: n.facing }));
   const zone: ZoneData = { recipe, gen };
   const world: World = {
     seed: recipe.seed,
     spawns,
     radius: hf.size / 2 - 8,
     obstacles: gen.obstacles,
-    dummy: { ...recipe.dummy },
     spawn: { ...recipe.spawn },
     teamSpawns: [{ ...recipe.spawn }, { ...recipe.spawn }],
     terrain: hf,

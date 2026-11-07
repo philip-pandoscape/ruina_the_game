@@ -121,7 +121,10 @@ Where this is going:
    - structures, props and outposts;
    - the doors into its dungeons.
 
-   The templates are in `content/_templates/region/`. Its people are `content/npcs/`.
+   The templates are in `content/_templates/region/`. Its people are `content/npcs/`. The creatures
+   it brings to life are its recipe's `spawns`, as an instance's are ([zones.md](zones.md)): the
+   server spawns them in each channel, and the browser's island does offline
+   (`crates/engine/src/open/spawns.rs`).
 2. **Its chunks** go in `content/world.json`, a square of them that no other region has. Its recipe's
    grid covers exactly them (`cells` × `cell`), with the same cell as every other region, and its
    terrain's origin at their middle.

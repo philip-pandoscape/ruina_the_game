@@ -58,17 +58,14 @@ const ALLOWED: Allowance[] = [
     ids: ['slide'],
   },
   {
-    why: "the island's own slimes and training dummy are spawned by code until spawns are data (R9.3), and ?goblins= puts a band in the yard",
-    files: [
-      'src/engine/world/region.ts',
-      'src/main.ts',
-      'src/app/drawing.ts',
-      'src/engine/engine.ts',
-      'crates/server/src/play/mod.rs',
-      'crates/engine/src/yard.rs',
-      'crates/engine/src/session.rs',
-    ],
-    ids: ['slime', 'dummy', 'goblin'],
+    why: 'the training dummy is drawn by a body of its own (src/render/dummy.ts), with its health bar and the shake when it breaks, found by its kind: the crowd draws what has a species, and the dummy has none',
+    files: ['src/main.ts', 'src/app/drawing.ts'],
+    ids: ['dummy'],
+  },
+  {
+    why: "the offline training yard's own layout, its dummy and slimes, until the yard is an instance played offline (R10.11)",
+    files: ['crates/engine/src/yard.rs'],
+    ids: ['slime', 'dummy'],
   },
   {
     why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal), the offline yard (R10.4)",
