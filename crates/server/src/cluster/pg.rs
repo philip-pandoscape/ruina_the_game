@@ -34,11 +34,16 @@ impl Placement {
         Arc::new(Placement { db, placed: Mutex::default() })
     }
 
-    /// The sim process heard from lately that plays fewest spaces now: its node and address.
+    /// The sim process heard from lately that plays fewest spaces now: its node and address. A
+    /// process holding a lease it hasn't renewed since it was last heard from is passed over: it has
+    /// stopped or been cut off, though it still counts as heard from for GONE_AFTER (a space it lost
+    /// would otherwise go straight back to it, the least busy, and never be played).
     pub async fn pick(&self) -> Result<(String, String), String> {
         let row: Option<(String, String)> = sqlx::query_as(
             "SELECT n.id, n.address FROM nodes n \
              WHERE n.role = 'sim' AND n.seen_at > now() - $1 * interval '1 millisecond' \
+             AND NOT EXISTS (SELECT 1 FROM space_leases f WHERE f.node = n.id AND f.sim IS NOT NULL \
+                             AND f.expires_at <= now() AND f.expires_at >= n.seen_at) \
              ORDER BY (SELECT count(*) FROM space_leases l WHERE l.node = n.id AND l.sim IS NOT NULL AND l.expires_at > now()), n.id \
              LIMIT 1",
         )

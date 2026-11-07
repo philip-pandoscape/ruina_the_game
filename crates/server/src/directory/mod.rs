@@ -486,15 +486,16 @@ impl<L: Leases> Directory<L> {
     /// A space's simulation lost its lease (among several processes: its process stopped, or was cut
     /// off from the directory's table). The space is let go here, so the next to need it starts it
     /// anew, under the next epoch, on a process that's there; whoever played in it comes back in
-    /// (`Rejoin`), to their life as it was last written.
-    fn let_go(&mut self, space: &SpaceId, sim: SimId) {
+    /// (`Rejoin`), to their life as it was last written. Says how many were in it.
+    fn let_go(&mut self, space: &SpaceId, sim: SimId) -> usize {
         if !self.spaces.get(space).is_some_and(|r| r.lease.sim == sim) {
-            return;
+            return 0;
         }
         let r = self.spaces.remove(space).expect("there");
         self.parts.remove(space);
         self.copies.retain(|_, s| s != space);
         let inside: Vec<CharacterId> = self.last.iter().filter(|(_, s)| *s == space).map(|(c, _)| *c).collect();
+        let count = inside.len();
         for c in inside {
             self.last.remove(&c);
             self.pending.remove(&c);
@@ -507,6 +508,7 @@ impl<L: Leases> Directory<L> {
         {
             self.post.social(ToSocial::CopyClosed { owner: c.owner, space: space.clone() });
         }
+        count
     }
 
     /// Whether someone belongs in a copy: it's their party's, theirs on their own, or everyone's.
@@ -633,9 +635,18 @@ impl<L: Leases> Directory<L> {
                     l.lease.until = r.until;
                 }
                 for lost in r.lost {
-                    eprintln!("lost the lease on {} (epoch {}) to another holder", lost.space, lost.epoch.0);
+                    eprintln!("lost the lease on {} (epoch {}): run out, or taken by another holder", lost.space, lost.epoch.0);
                     self.post.sim(lost.sim, ToSim::Lease(ruina_world_api::sim::LeaseNote::Lost { epoch: lost.epoch }));
-                    self.let_go(&lost.space, lost.sim);
+                    let inside = self.let_go(&lost.space, lost.sim);
+                    // A region's channel that had players in it is played again at once, on a process
+                    // that's there, so they come back into it as soon as they're back (a copy of an
+                    // instance is made again by the first to need it, for their party).
+                    if inside > 0
+                        && matches!(lost.space, SpaceId::Channel { .. })
+                        && let Err(e) = self.ensure(&lost.space, None).await
+                    {
+                        eprintln!("could not play {} again: {e}", lost.space);
+                    }
                 }
             }
             Err(e) => eprintln!("could not renew the leases: {e}"),
