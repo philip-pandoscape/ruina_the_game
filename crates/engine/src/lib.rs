@@ -3,7 +3,7 @@
 //! browser's game is session): movement and traversal (player, open), combat and
 //! skills (player, combat, skills, actors, missiles, tuning), creatures and their brains (actor, actors,
 //! ai, pack, content, creatures), the island's life systems (life), the mini-games (minigames) and
-//! the battlefield's layout (world), and a world split between simulations (border). Nothing here reads a clock, starts a thread or does I/O: whoever
+//! the spot a player stands on (world), and a world split between simulations (border). Nothing here reads a clock, starts a thread or does I/O: whoever
 //! runs the rules hands in the time and the inputs, so the same inputs give the same results.
 
 #![recursion_limit = "256"]
@@ -34,4 +34,3 @@ pub mod skills;
 pub mod training;
 pub mod tuning;
 pub mod world;
-pub mod yard;

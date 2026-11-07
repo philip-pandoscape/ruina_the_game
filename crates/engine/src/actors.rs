@@ -13,9 +13,9 @@ use crate::ids::EntityId;
 use crate::jsmath::JsMath;
 use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
+use crate::open::spawns::SpawnPoint;
 use crate::pack::step_packs;
 use crate::tuning::tuning;
-use crate::yard::SpawnPoint;
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
 /// A creature's number (its [`EntityId`](crate::ids::EntityId)): its spawn in the low 16 bits, the

@@ -81,7 +81,7 @@ mod tests {
     use crate::open::colliders::ground_at;
     use crate::open::{OpenWorld, Sim, step_player};
     use crate::player::{Actions, Build, Mode, Player};
-    use crate::world::{Spawn, World};
+    use crate::world::Spawn;
 
     /// How far round the player the browser holds regions (src/app/regions.ts GROW).
     const REACH: f64 = 600.0;
@@ -236,7 +236,6 @@ mod tests {
         let w = world();
         let (x0, z0) = (LAND_BORDER - 90.0, 0.0);
         let mut open = near(x0, z0);
-        let flat = World { radius: 1e6, obstacles: Vec::new(), team_spawns: [Spawn { x: x0, z: z0, facing: 0.0 }; 2] };
         let mut players = Players::new(50.0);
         // The driver and a friend standing beside them.
         let driver = standing(&open, x0, z0);
@@ -274,7 +273,7 @@ mod tests {
             seq += steps;
             players.queue_actions(EntityId::character(1), (0..steps).map(|n| (first + n, 0.0, if n == 0 { go } else { held })));
             players.queue_actions(EntityId::character(2), (0..steps).map(|n| (first + n, 0.0, Actions::default())));
-            players.step_in(&mut actors, &flat, tick, Some(&mut open));
+            players.step_in(&mut actors, tick, &mut open);
             players.seat_passengers(&open);
             if at.x > LAND_BORDER + 60.0 {
                 break;

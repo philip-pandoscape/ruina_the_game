@@ -12,14 +12,18 @@ import {
   WEAPONS,
   weaponIndex,
 } from '../../src/content/tuning';
-import { LEVEL_XP, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
+import { LEVEL_XP, NODES, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
 import { resolveSkills } from '../../src/engine/rules';
 import type { Command } from '../../src/engine/island';
 import { gameReady } from '../support/game';
 // The engine, for the numbers a build's skills make (src/engine/skills.ts), as the unit tier loads it.
 import '../support/engineSetup';
 
-// The classless skill system: the skill panel, and every weapon and ability in the training yard.
+// The classless skill system: the skill panel, and every weapon and ability in the yard (a developer
+// zone, which gives you the whole tree to try builds with, and a life whose skills learn from use).
+
+/** What a developer zone lets you spend: the whole tree. */
+const WHOLE_TREE = NODES.length;
 
 const SHOTS = 'screenshots';
 const skills = (...ids: string[]) => skillsFrom(...ids);
@@ -64,7 +68,7 @@ const panelState = (page: Page) => page.evaluate(() => window.__game.panel());
 
 test('skill tree: plan the way to a skill, learn it, give it back, and the build is remembered', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   const left = page.locator('#skills .st-chip b').first();
   const note = page.locator('#skills .st-note');
@@ -73,7 +77,7 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
 
   await page.keyboard.press('KeyN');
   await expect(page.locator('#skills .st')).toBeVisible();
-  await expect(left).toHaveText(String(SKILL_POINTS - 1)); // everyone starts with Sword Training
+  await expect(left).toHaveText(String(WHOLE_TREE - 1)); // everyone starts with Sword Training
   // Whirlwind is two steps out: one click plans the way there, Learn spends the points.
   await node('whirlwind').click();
   expect((await panelState(page)).plan).toEqual(['cleave', 'whirlwind']);
@@ -104,11 +108,11 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
     dispatchEvent(new Event('resize'));
   });
   await learn.click();
-  await expect(left).toHaveText(String(SKILL_POINTS - 3));
+  await expect(left).toHaveText(String(WHOLE_TREE - 3));
   // Healing Circle hangs off Club Training: planning it plans both, and it goes straight onto the bar.
   await node('heal').click();
   await learn.click();
-  await expect(left).toHaveText(String(SKILL_POINTS - 5));
+  await expect(left).toHaveText(String(WHOLE_TREE - 5));
   await page.screenshot({ path: `${SHOTS}/40-skill-tree.png` });
   expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'club', 'heal'], 'sword', HEAL));
   // Clicking a planned node takes it back out of the plan.
@@ -119,7 +123,7 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
 
   // Giving Club Training back takes Healing Circle with it, and you always keep a weapon.
   await node('club').click({ button: 'right' });
-  await expect(left).toHaveText(String(SKILL_POINTS - 3));
+  await expect(left).toHaveText(String(WHOLE_TREE - 3));
   expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 'sword'));
   await node('sword').click({ button: 'right' });
   await expect(note).toContainText('Keep at least one weapon skill');
@@ -135,7 +139,7 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
 
 test('skill book: every skill with its level, equip a weapon, put an ability on the bar', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club', 'heal', 'dodgeRoll'], 'sword'));
   await page.keyboard.press('KeyT');
@@ -192,7 +196,7 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
   });
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club'], 'sword'));
   // A press lasts at least 60 ms and two frames, so a slow frame (the first time a panel is drawn,
@@ -248,7 +252,7 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
 test('island: the tree spends points earned from quests, and the sword levels up on slimes', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 90_000);
   await page.evaluate(() => window.__game.reset());
   const skillsNow = () => page.evaluate(() => window.__game.skills());
@@ -316,30 +320,30 @@ test('island: the tree spends points earned from quests, and the sword levels up
 test('island: a kept build the island has not earned the points for falls back to Sword Training', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = watchErrors(page);
-  // A build tried out in the training yard, kept in this browser.
+  // A build tried out in the yard (a developer zone: the whole tree), kept in this browser.
   const tried = build(['sword', 'cleave', 'whirlwind', 'club'], 'club');
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   expect(await page.evaluate((b) => window.__game.setBuild(b), tried)).toBe(true);
   // A new island starts with START_POINTS, not enough for it, as the server would say on joining.
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 90_000);
   const island = await page.evaluate(() => window.__game.build());
   expect(island.chosen.skills).toEqual(skills('sword'));
   expect(island.using.weapon).toBe(weaponIndex('sword'));
   expect((await page.evaluate(() => window.__game.skills())).left).toBe(START_POINTS - 1);
   // The yard still has it.
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   expect((await game(page)).chosen.skills).toEqual(tried.skills);
   expect(errors).toEqual([]);
 });
 
-// ---------- Training yard: every weapon and ability against the dummy ----------
+// ---------- The yard: every weapon and ability against the dummy ----------
 
 test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the dummy', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?test');
+  await page.goto('/?test=yard');
   await gameReady(page);
 
   const result = await page.evaluate(

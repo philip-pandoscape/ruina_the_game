@@ -48,6 +48,9 @@
     "bots": {
       "type": "array"
     },
+    "practice": {
+      "type": "object"
+    },
     "spawns": {
       "type": "array"
     },

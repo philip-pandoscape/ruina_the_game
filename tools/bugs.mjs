@@ -368,7 +368,7 @@ function show(q) {
     out.push(
       `  save.json is the island exactly as it was at the press. In a Playwright spec:`,
       `    await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('${rel(join(dir, 'save.json'))}', 'utf8'));`,
-      `    await page.goto('/?world&test&load');   // then __game.teleport(x, z), __game.advance(frames, actions), __game.lifeCommand(...)`,
+      `    await page.goto('/?test&load');   // then __game.teleport(x, z), __game.advance(frames, actions), __game.lifeCommand(...)`,
     );
   } else out.push('  (no save: this was not the open world)');
   const inp = timeline.inputs;

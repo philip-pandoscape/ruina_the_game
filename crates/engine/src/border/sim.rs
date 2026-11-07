@@ -13,7 +13,6 @@ use crate::ids::EntityId;
 use crate::open::OpenWorld;
 use crate::open::map::WorldMap;
 use crate::player::{Actions, Mode};
-use crate::world::World;
 
 /// A handoff sent and not yet taken: to whom, and what was sent (sent again until it's taken).
 pub struct Leaving {
@@ -28,8 +27,6 @@ pub struct Sim {
     /// world's map itself: its own `world.map` is a view of it holding only what it plays.
     pub map: &'static WorldMap,
     pub world: OpenWorld,
-    /// The flat arena [`Players::work_out`] is handed (unused in an open world).
-    pub flat: World,
     pub players: Players,
     pub actors: Actors,
     /// The brains that fill its bots' inputs, by their players' slots (they go with their players).
@@ -57,12 +54,11 @@ pub struct Sim {
 }
 
 impl Sim {
-    pub fn new(id: SimId, map: &'static WorldMap, world: OpenWorld, flat: World, players: Players, actors: Actors) -> Sim {
+    pub fn new(id: SimId, map: &'static WorldMap, world: OpenWorld, players: Players, actors: Actors) -> Sim {
         Sim {
             id,
             map,
             world,
-            flat,
             players,
             actors,
             bots: BTreeMap::new(),

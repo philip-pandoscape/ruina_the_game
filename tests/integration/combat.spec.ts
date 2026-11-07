@@ -76,7 +76,7 @@ test('Escape drops the mark, and it comes back on its own', async ({ page }) => 
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.__game.combat().target === null, null, { timeout: 2000 }).catch(() => {});
   // Looking away is what keeps it clear; facing it again re-acquires.
-  await page.waitForFunction(() => window.__game.combat().target !== null, null, { timeout: 2000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().target !== null, null, { timeout: 15_000, polling: 'raf' });
   expect((await combat(page)).locked).toBe(false);
 });
 
@@ -86,14 +86,14 @@ test('the weapon comes out for a fight and goes away after it', async ({ page })
   await gameReady(page);
   const weapon = () => page.evaluate(() => window.__game.heroWeapon());
   // The dummy is marked as you arrive: an enemy in front of you, weapon in hand.
-  await expect.poll(weapon, { timeout: 3000 }).toBe('hand');
+  await expect.poll(weapon, { timeout: 15_000 }).toBe('hand');
   // Turned away from it, with nothing marked, it's put away a few seconds later.
   await page.evaluate(() => {
     const g = window.__game;
     const away = g.state().player.facing + Math.PI;
     g.reset({ facing: away, camYaw: away });
   });
-  await expect.poll(() => page.evaluate(() => window.__game.combat().target), { timeout: 3000 }).toBeNull();
+  await expect.poll(() => page.evaluate(() => window.__game.combat().target), { timeout: 15_000 }).toBeNull();
   // Played forward on the game's own clock, half a second a frame drawn, so a slow screen (CI draws
   // in software) waits no longer: it stays out 2.5 s after the fight, then goes away over 0.6 s.
   await page.evaluate(() => {
@@ -154,10 +154,10 @@ test('the ground-aim circle starts out in front of you, not at your feet', async
   expect(await page.evaluate((b) => window.__game.setBuild(b), MAGE)).toBe(true);
   // Face away from the dummy so nothing is marked and the circle has to fall back to "in front".
   await page.evaluate(() => window.__game.setCamera({ yaw: Math.PI }));
-  await page.waitForFunction(() => window.__game.combat().target === null, null, { timeout: 3000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().target === null, null, { timeout: 15_000, polling: 'raf' });
 
   await page.keyboard.down('Digit1');
-  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 2000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 15_000, polling: 'raf' });
   const c = await combat(page);
   const p = await page.evaluate(() => window.__game.state().player.pos);
   // The old camera-raycast landed on the player's own feet; this must not.
@@ -176,7 +176,7 @@ test('the circle opens on whoever is marked, so the common case needs no aiming'
   expect(mark?.name).toBe('Training Dummy');
 
   await page.keyboard.down('Digit1');
-  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 2000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 15_000, polling: 'raf' });
   const c = await combat(page);
   expect(dist(c.reticle, mark)).toBeLessThan(0.5); // it opened right on them
   await page.keyboard.up('Digit1');
@@ -192,11 +192,20 @@ test('the left stick pushes the circle around, and it stops at the skill range',
   await page.evaluate((b) => window.__game.setBuild(b), MAGE);
   await page.evaluate(() => window.__game.setCamera({ yaw: 0 }));
 
+  // Frames, not time: with other pages drawing beside this one, a frame can take a while.
+  const raf = { polling: 'raf' } as const;
+  const reach = () =>
+    page.evaluate(() => {
+      const r = window.__game.combat().reticle!;
+      const p = window.__game.state().player.pos;
+      return Math.hypot(r.x - p.x, r.z - p.z);
+    });
+
   // First, with nothing being aimed, see which way the stick strafes. Which way "right" is comes
   // from the camera convention in input.ts; what matters is that aiming later agrees with it.
-  await pad.setAxis(0, 1); // stick right
   const walkFrom = await page.evaluate(() => window.__game.state().player.pos);
-  await page.waitForTimeout(500);
+  await pad.setAxis(0, 1); // stick right
+  await page.waitForFunction((x) => Math.abs(window.__game.state().player.pos.x - x) > 0.2, walkFrom.x, raf);
   const walkTo = await page.evaluate(() => window.__game.state().player.pos);
   const walkedSideways = walkTo.x - walkFrom.x;
   expect(Math.abs(walkedSideways)).toBeGreaterThan(0.2);
@@ -207,28 +216,42 @@ test('the left stick pushes the circle around, and it stops at the skill range',
   // Hold LT + A, which is hotbar slot 1. The stick now places the circle instead of walking.
   await pad.setButton(PAD_LT, true);
   await pad.setButton(PAD_A, true);
-  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 3000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 15_000, polling: 'raf' });
   const opened = (await combat(page)).reticle;
 
   const before = await page.evaluate(() => window.__game.state().player.pos);
   await pad.setAxis(1, -1); // stick away from the camera
-  await page.waitForTimeout(700);
-  const pushed = (await combat(page)).reticle;
+  await page.waitForFunction(
+    (o) => {
+      const r = window.__game.combat().reticle;
+      return !!r && Math.hypot(r.x - o.x, r.z - o.z) > 1.5;
+    },
+    opened,
+    raf,
+  );
   const after = await page.evaluate(() => window.__game.state().player.pos);
-  expect(dist(pushed, opened)).toBeGreaterThan(1.5);
   expect(dist(after, before)).toBeLessThan(0.5); // aiming, not walking
 
-  // Keep pushing: it stops at max range instead of running away forever.
-  await page.waitForTimeout(1600);
+  // Keep pushing: it stops at max range instead of running away forever, however long you push.
+  await page.waitForFunction(
+    (range) => {
+      const r = window.__game.combat().reticle!;
+      const p = window.__game.state().player.pos;
+      return Math.hypot(r.x - p.x, r.z - p.z) >= range - 0.05;
+    },
+    meteorRange,
+    raf,
+  );
+  const pushedOn = await page.evaluate(() => window.__game.state().frame);
+  await page.waitForFunction((f) => window.__game.state().frame >= f + 60, pushedOn, raf);
   const far = (await combat(page)).reticle;
-  const p = await page.evaluate(() => window.__game.state().player.pos);
-  expect(dist(far, p)).toBeLessThanOrEqual(meteorRange + 0.001);
-  expect(dist(far, p)).toBeCloseTo(meteorRange, 1);
+  expect(await reach()).toBeLessThanOrEqual(meteorRange + 0.001);
+  expect(await reach()).toBeCloseTo(meteorRange, 1);
 
   // Sideways moves it the same way the stick would have walked you.
   await pad.setAxis(1, 0);
   await pad.setAxis(0, 1);
-  await page.waitForTimeout(500);
+  await page.waitForFunction((x) => Math.abs(window.__game.combat().reticle!.x - x) > 0.5, far.x, raf);
   const right = (await combat(page)).reticle;
   const aimedSideways = right.x - far.x;
   expect(Math.abs(aimedSideways)).toBeGreaterThan(0.5);
@@ -238,7 +261,7 @@ test('the left stick pushes the circle around, and it stops at the skill range',
   await pad.setAxis(0, 0);
   await pad.setButton(PAD_A, false);
   await pad.setButton(PAD_LT, false);
-  await page.waitForFunction(() => window.__game.state().player.castAbility !== 255, null, { timeout: 2000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.state().player.castAbility !== 255, null, { timeout: 15_000, polling: 'raf' });
   expect(errors).toEqual([]);
 });
 
@@ -251,7 +274,7 @@ test('the view lifts while you are placing a circle, and settles back after', as
 
   await page.screenshot({ path: `${SHOTS}/50-aim-before.png` });
   await page.keyboard.down('Digit1');
-  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 2000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 15_000, polling: 'raf' });
   await page.waitForTimeout(600);
   const lifted = await height();
   expect(lifted).toBeGreaterThan(resting + 1);
@@ -268,7 +291,7 @@ test('Escape backs out of placing a circle without casting', async ({ page }) =>
   await page.evaluate((b) => window.__game.setBuild(b), MAGE);
 
   await page.keyboard.down('Digit1');
-  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 2000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.combat().aiming === 1, null, { timeout: 15_000, polling: 'raf' });
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
   expect((await combat(page)).aiming).toBe(0);

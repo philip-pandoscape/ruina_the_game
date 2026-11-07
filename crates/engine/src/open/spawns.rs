@@ -4,12 +4,30 @@
 //! browser's session an island's played offline: the same creatures in the same places, with the
 //! same seeds.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::dungeon::DungeonDef;
 use super::zone::Recipe;
 use crate::jsmath::JsMath;
-use crate::yard::SpawnPoint;
+
+/// Something standing in a world when it is built (src/engine/shapes.ts ActorSpawnPoint).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct SpawnPoint {
+    pub kind: String,
+    pub x: f64,
+    pub z: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facing: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u32>,
+    /// Spawn points with the same band number fight together as one war-band (0 for none).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub band: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
 
 /// One entry of a region's or an instance's `spawns`.
 #[derive(Deserialize, Clone, Debug)]
@@ -84,13 +102,23 @@ pub fn region_spawns(r: &Recipe) -> Vec<SpawnPoint> {
     spawn_points(&r.spawns, r.seed ^ 0x51e0)
 }
 
+/// Who stands about a region played without the server: what its recipe brings to life (as the
+/// server spawns it in a channel), and the townsfolk at their posts.
+pub fn island_spawns(r: &Recipe) -> Vec<SpawnPoint> {
+    let mut spawns = region_spawns(r);
+    for n in &r.npcs {
+        spawns.push(SpawnPoint { kind: n.kind.clone(), x: n.x, z: n.z, facing: Some(n.facing), ..Default::default() });
+    }
+    spawns
+}
+
 /// What a copy of an instance brings to life (its file's `spawns`).
 pub fn instance_spawns(def: &DungeonDef) -> Vec<SpawnPoint> {
     spawn_points(&def.spawns, 0x20ae)
 }
 
 /// `count` of a kind in a ring round (x, z), facing out, as spawn points that share `band`: a
-/// war-band put down on its own (a test's, or the yard's `?goblins=`).
+/// war-band put down on its own (a test's).
 pub fn band_around(kind: &str, count: usize, x: f64, z: f64, band: u32, seed: u32) -> Vec<SpawnPoint> {
     let s = ZoneSpawn { kind: kind.to_string(), x, z, band: true, count: count as u32, r: 0.0 };
     s.points(seed).into_iter().map(|(x, z, facing, seed)| SpawnPoint { kind: kind.to_string(), x, z, facing, seed: Some(seed), band }).collect()

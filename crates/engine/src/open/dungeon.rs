@@ -70,6 +70,23 @@ pub struct DungeonDef {
     /// Creatures a copy of it brings: a training dummy, slimes, goblins.
     #[serde(default)]
     pub spawns: Vec<ZoneSpawn>,
+    /// The practice rules a copy of it plays (none unless its file switches them on).
+    #[serde(default)]
+    pub practice: Practice,
+}
+
+/// Rules for practising, which an instance's file switches on (`practice`; the yard and the goblin
+/// camp do) and the world never does. They are rules of one player's game: the browser's session
+/// plays them offline (crate::session). The server never stops a shared world for one player's blow
+/// or turns anyone's swing for them, so online they are what the page does everywhere: a landed
+/// swing's pause drawn on your hero, and the page's own aim at what you see (src/app/aiming.ts).
+#[derive(Deserialize, Clone, Copy, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Practice {
+    /// A blow that lands stops everything for its swing's `hitstop` frames.
+    pub hit_pause: bool,
+    /// A swing turns toward whatever stands nearest within reach and roughly in front.
+    pub aim_assist: bool,
 }
 
 #[derive(Deserialize, Clone, Debug)]

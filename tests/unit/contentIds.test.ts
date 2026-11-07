@@ -72,13 +72,8 @@ const ALLOWED: Allowance[] = [
     ids: ['dummy'],
   },
   {
-    why: "the offline training yard's own layout, its dummy and slimes, until the yard is an instance played offline (R10.11)",
-    files: ['crates/engine/src/yard.rs'],
-    ids: ['slime', 'dummy'],
-  },
-  {
-    why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal), the offline yard (R10.4)",
-    files: ['src/dev/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts', 'src/render/scene.ts'],
+    why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal)",
+    files: ['src/dev/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts'],
   },
   { why: 'the bible explains the game with particular things as its examples, and its completeness test holds it to the content', files: ['src/bible/'] },
   {
