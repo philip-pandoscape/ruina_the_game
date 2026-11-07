@@ -1,0 +1,15 @@
+[package]
+name = "ruina-wire"
+description = "What a browser hears of the world: records packed once per cell and tick, per-connection handles, deltas against what it acknowledged, priorities and a byte budget"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# No I/O, no clocks, no threads: the sims fill a Frame, the gate hands it to each connection's Viewer
+# and sends the bytes it returns. The engine is here only for packing its players, creatures, arrows
+# and meteors into records (pack.rs), and the content's lists a place on the wire is read from.
+[dependencies]
+ruina-engine.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
