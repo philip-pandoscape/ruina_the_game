@@ -208,16 +208,24 @@ const input = new Input(canvas);
 // C slides you on the run; standing still it only crouches, and in the air it only flares the glider.
 input.crouchSlides = () => crouchKeySlides(sim.player);
 // The browser's shortcuts are kept from it while you play (Ctrl+D, Ctrl+R, F5, Alt+Left, Ctrl+wheel),
-// and F11 is Full Keyboard: full screen, where Ctrl+W, Ctrl+T and Escape are the game's too. A reload
-// in it (an update) goes back in at the next click.
+// and Full Keyboard comes on by itself: full screen, where Ctrl+W, Ctrl+T and Escape are the game's
+// too. Going into the world went in (online.ts); a click into the game goes back in after a reload or
+// stepping out; F11 goes in and out there and then.
 const fullKeyboard = new FullKeyboard();
 fullKeyboard.resumeOn(canvas);
+let toldStepOut = false;
+fullKeyboard.onStepOut = () => {
+  if (toldStepOut) return;
+  toldStepOut = true;
+  lifeUI?.toast('Out of full screen: a click on the game goes back in. Settings can turn Full Keyboard off.');
+};
 guardBrowser(window, {
   fullKeyboard: () => fullKeyboard.toggle(),
   keepsAll: () => fullKeyboard.keepsAll,
   ctrlInTab: () => {
-    if (fullKeyboard.supported)
-      lifeUI?.toast("In a browser tab, Ctrl+W closes the game before it hears the key. F11 plays in Full Keyboard, where every key is the game's.");
+    if (!fullKeyboard.supported) return;
+    const back = fullKeyboard.auto ? 'A click on the game goes back to Full Keyboard' : 'Settings turns Full Keyboard on';
+    lifeUI?.toast(`In a browser tab, Ctrl+W closes the game before it hears the key. ${back}, where every key is the game's.`);
   },
   selection: () => !(getSelection()?.isCollapsed ?? true),
 });

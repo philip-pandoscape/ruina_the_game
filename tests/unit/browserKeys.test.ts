@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import { guardBrowser, verdict, type KeyPlace } from '../../src/input/browserKeys';
-import { FullKeyboard } from '../../src/input/fullKeyboard';
+import { enterWorldFullScreen, FullKeyboard } from '../../src/input/fullKeyboard';
 
 // The browser's shortcuts kept from it while you play (src/input/browserKeys.ts), and Full Keyboard
 // (src/input/fullKeyboard.ts), run in Node against stand-ins for the page's window and document: no
@@ -269,8 +269,12 @@ describe('the guard on the page', () => {
   });
 });
 
-/** A document that can go full screen, as far as Full Keyboard looks at one. */
-function screen(enabled = true) {
+/**
+ * A document that can go full screen, as far as Full Keyboard looks at one, in a browser a player
+ * uses (or, `automated`, one tests drive), its Full Keyboard, and (unless `game` is false) the game's
+ * canvas wired to it.
+ */
+function screen({ enabled = true, automated = false, game = true } = {}) {
   const doc = Object.assign(new EventTarget(), {
     fullscreenEnabled: enabled,
     fullscreenElement: null as object | null,
@@ -297,14 +301,93 @@ function screen(enabled = true) {
   } as unknown as Storage;
   const win = new EventTarget();
   const lock = { lock: vi.fn(async (_codes?: string[]) => {}), unlock: vi.fn() };
-  Object.defineProperty(globalThis, 'navigator', { value: { keyboard: lock }, configurable: true });
-  const fk = new FullKeyboard(doc as unknown as Document, store, win);
-  return { doc, kept, win, lock, fk };
+  Object.defineProperty(globalThis, 'navigator', { value: { keyboard: lock, webdriver: automated }, configurable: true });
+  const page = doc as unknown as Document;
+  const fk = new FullKeyboard(page, store, win);
+  // The game's canvas: a click on it goes back in.
+  const canvas = new EventTarget();
+  if (game) fk.resumeOn(canvas);
+  const click = async () => {
+    canvas.dispatchEvent(new Event('mousedown'));
+    await settle();
+  };
+  return { doc, page, store, kept, win, lock, fk, click };
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('Full Keyboard', () => {
+  test('on by itself: a click into the game goes in, and again after stepping out', async () => {
+    const { doc, lock, fk, click } = screen();
+    expect(fk.auto).toBe(true);
+    const out = vi.fn();
+    fk.onStepOut = out;
+    await click();
+    expect(fk.on).toBe(true);
+    expect(lock.lock).toHaveBeenCalledWith(['Escape', 'MetaLeft', 'MetaRight']);
+    // Held Escape (or F11): out, said once by the game, and the next click goes back in.
+    await doc.exitFullscreen();
+    expect(fk.on).toBe(false);
+    expect(lock.unlock).toHaveBeenCalled();
+    expect(out).toHaveBeenCalledTimes(1);
+    await click();
+    expect(fk.on).toBe(true);
+  });
+
+  test('going into the world goes full screen at once (Enter World), and the game locks the keys as it starts', async () => {
+    const { doc, page, store } = screen({ game: false });
+    enterWorldFullScreen(page, store);
+    await settle();
+    expect(doc.documentElement.requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' });
+    expect(doc.fullscreenElement).not.toBeNull();
+    // The game starts (main.ts) in full screen already: it locks the keys without a click.
+    const lock = { lock: vi.fn(async (_codes?: string[]) => {}), unlock: vi.fn() };
+    Object.defineProperty(globalThis, 'navigator', { value: { keyboard: lock, webdriver: false }, configurable: true });
+    new FullKeyboard(page, store, new EventTarget());
+    expect(lock.lock).toHaveBeenCalledWith(['Escape', 'MetaLeft', 'MetaRight']);
+  });
+
+  test('Settings turns it off (out, and clicks stay out) and on again (in), kept in this browser', async () => {
+    const { kept, fk, click } = screen();
+    await click();
+    const out = vi.fn();
+    fk.onStepOut = out;
+    fk.setAuto(false);
+    await settle();
+    expect([fk.auto, fk.on, kept.get('ruina.fullKeyboard')]).toEqual([false, false, 'off']);
+    expect(out).not.toHaveBeenCalled(); // turned off, not stepped out of
+    await click();
+    expect(fk.on).toBe(false);
+    // F11 still goes in and out there and then.
+    fk.toggle();
+    await settle();
+    expect(fk.on).toBe(true);
+    fk.toggle();
+    await settle();
+    // On again: in at once (the click on the button), and by itself from then on.
+    fk.setAuto(true);
+    await settle();
+    expect([fk.auto, fk.on, kept.get('ruina.fullKeyboard')]).toEqual([true, true, 'on']);
+    // Off in one page is off in the next.
+    const next = screen();
+    next.kept.set('ruina.fullKeyboard', 'off');
+    await next.click();
+    expect(next.fk.on).toBe(false);
+  });
+
+  test("a test's browser starts with it off, so a test's clicks don't change the window, unless it turns it on", async () => {
+    const tested = screen({ automated: true });
+    expect(tested.fk.auto).toBe(false);
+    await tested.click();
+    expect(tested.fk.on).toBe(false);
+    enterWorldFullScreen(tested.page, tested.store);
+    expect(tested.doc.documentElement.requestFullscreen).not.toHaveBeenCalled();
+    const opted = screen({ automated: true });
+    opted.kept.set('ruina.fullKeyboard', 'on');
+    await opted.click();
+    expect(opted.fk.on).toBe(true);
+  });
+
   test('F11 goes full screen with Escape and the Windows key locked to the game, and comes out again', async () => {
     const { doc, lock, fk } = screen();
     expect(fk.toggle()).toBe(true);
@@ -320,36 +403,26 @@ describe('Full Keyboard', () => {
     expect(fk.on).toBe(false);
   });
 
-  test('a reload in it goes back in at the next click; leaving it yourself is remembered too', async () => {
-    const { doc, kept, win, fk } = screen();
-    fk.toggle();
-    await settle();
-    expect(kept.get('ruina.fullKeyboard')).toBe('1');
-    // The page goes (an update): full screen ends with it, still wanted.
+  test('a reload (an update) is no stepping out: nothing said as the page goes, and its first click goes back in', async () => {
+    const { doc, win, fk, click } = screen();
+    await click();
+    const out = vi.fn();
+    fk.onStepOut = out;
     win.dispatchEvent(new Event('pagehide'));
     doc.fullscreenElement = null;
     doc.dispatchEvent(new Event('fullscreenchange'));
-    expect(kept.get('ruina.fullKeyboard')).toBe('1');
-    // The new page: its first click into the world goes back in.
+    expect(out).not.toHaveBeenCalled();
     const next = screen();
-    next.kept.set('ruina.fullKeyboard', '1');
-    const canvas = new EventTarget();
-    next.fk.resumeOn(canvas);
-    canvas.dispatchEvent(new Event('mousedown'));
-    await settle();
+    await next.click();
     expect(next.fk.on).toBe(true);
-    // Held Escape (or F11): out, and the next click stays out.
-    await next.doc.exitFullscreen();
-    expect(next.kept.has('ruina.fullKeyboard')).toBe(false);
-    canvas.dispatchEvent(new Event('mousedown'));
-    await settle();
-    expect(next.fk.on).toBe(false);
   });
 
-  test("where the page can't go full screen, F11 stays the browser's", () => {
-    const { fk, doc } = screen(false);
+  test("where the page can't go full screen, F11 stays the browser's", async () => {
+    const { fk, doc, page, store, click } = screen({ enabled: false });
     expect(fk.supported).toBe(false);
     expect(fk.toggle()).toBe(false);
+    await click();
+    enterWorldFullScreen(page, store);
     expect(doc.documentElement.requestFullscreen).not.toHaveBeenCalled();
   });
 });

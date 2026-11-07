@@ -497,6 +497,7 @@ export class LifeUI {
       s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(),
       Math.round(this.vit?.hp ?? 0),
       this.fullKeyboard?.on,
+      this.fullKeyboard?.auto,
     ].join('|');
   }
 
@@ -593,7 +594,7 @@ export class LifeUI {
   onReset: (() => void) | null = null;
   /** Set by the app online: leave the world for the character select screen (Settings offers it). */
   onExitToSelect: (() => void) | null = null;
-  /** Set by the app: Full Keyboard, full screen with every key the game's (Settings turns it on and off, as F11 does). */
+  /** Set by the app: Full Keyboard, full screen with every key the game's, on by itself unless Settings turns it off. */
   fullKeyboard: FullKeyboardHook | null = null;
   /** Whether the developer panel and the Admin window open: online, for admins only (the server says, in its welcome); offline, always. */
   devTools = true;

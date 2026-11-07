@@ -1,12 +1,15 @@
-// Full Keyboard: the game in full screen with the keyboard locked to it (F11, or Settings). There,
-// Chrome and Edge hand the page the keys a browser tab keeps for itself (Ctrl+W, Ctrl+T, Ctrl+N,
-// Ctrl+Tab), so the game keeps them like any other (browserKeys.ts); the lock
-// (navigator.keyboard.lock) adds Escape and the Windows key, so a tap of Escape is the game's and
-// leaves the mouse where it is, and holding it leaves full screen (the browser says so as it starts).
-// Alt+Tab still switches windows. Firefox and Safari have no lock: their full screen is just that.
+// Full Keyboard: the game in full screen with the keyboard locked to it, on by itself. Going into the
+// world (Enter World) puts the page in full screen, and so does a click into the game whenever it
+// isn't (after a reload, or after stepping out). There, Chrome and Edge hand the page the keys a
+// browser tab keeps for itself (Ctrl+W, Ctrl+T, Ctrl+N, Ctrl+Tab), so the game keeps them like any
+// other (browserKeys.ts); the lock (navigator.keyboard.lock) adds Escape and the Windows key, so a tap
+// of Escape is the game's and leaves the mouse where it is, and holding it steps out of full screen
+// (the browser says so as it starts). Alt+Tab still switches windows. Firefox and Safari have no
+// lock: their full screen is just that.
 //
-// Remembered in this browser: a reload (an update to the game) ends full screen, so the next click
-// into the world goes back in, unless the player left it themselves.
+// Settings turns it off (and on again), kept in this browser; F11 goes in or out there and then. A
+// browser driven by tests (navigator.webdriver) starts with it off, unless it turns it on, so a test's
+// clicks don't change the window under it.
 
 const KEY = 'ruina.fullKeyboard';
 
@@ -31,8 +34,34 @@ function localStore(): Storage | null {
   }
 }
 
+/** Whether Full Keyboard comes on by itself here: unless the player turned it off (or, in a test's browser, unless it turned it on). */
+function autoOn(store: Storage | null): boolean {
+  let kept: string | null = null;
+  try {
+    kept = store?.getItem(KEY) ?? null;
+  } catch {
+    /* storage refused: the default */
+  }
+  if (kept === 'off') return false;
+  if (kept === 'on') return true;
+  return !(typeof navigator !== 'undefined' && navigator.webdriver);
+}
+
+/**
+ * Going into the world (Enter World, clicked or pressed): full screen at once if Full Keyboard is on,
+ * so the world loads in it. The game's FullKeyboard locks the keys when it starts.
+ */
+export function enterWorldFullScreen(doc: Document = document, store: Storage | null = localStore()): void {
+  if (!doc.fullscreenEnabled || doc.fullscreenElement || !autoOn(store)) return;
+  doc.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {
+    /* refused (no click just now): the first click into the game goes in */
+  });
+}
+
 export class FullKeyboard {
-  /** The page is going (a reload): full screen ends with it, and stays wanted. */
+  /** Full screen ended while Full Keyboard is on (Escape held, F11): a click on the game goes back. */
+  onStepOut: (() => void) | null = null;
+  /** The page is going (a reload): full screen ends with it, and that's no stepping out. */
   private leaving = false;
 
   constructor(
@@ -41,13 +70,17 @@ export class FullKeyboard {
     win: EventTarget = window,
   ) {
     doc.addEventListener('fullscreenchange', () => {
-      const on = this.on;
-      if (!on) keyboardLock()?.unlock();
-      if (!this.leaving) this.remember(on);
+      if (this.on) void this.lock();
+      else {
+        keyboardLock()?.unlock();
+        if (this.auto && !this.leaving) this.onStepOut?.();
+      }
     });
     win.addEventListener('pagehide', () => {
       this.leaving = true;
     });
+    // In full screen already (Enter World went in as the world loaded): the keys too.
+    if (this.on) void this.lock();
   }
 
   /** Whether this browser lets the page go full screen. */
@@ -59,6 +92,11 @@ export class FullKeyboard {
     return !!this.doc.fullscreenElement;
   }
 
+  /** Whether it comes on by itself: going into the world, or a click into the game. */
+  get auto(): boolean {
+    return autoOn(this.store);
+  }
+
   /**
    * Whether every key reaches the page before the browser: in full screen (ours, or the browser's
    * own F11), or with the game installed as an app, in a window of its own.
@@ -67,7 +105,18 @@ export class FullKeyboard {
     return this.on || (typeof matchMedia === 'function' && !matchMedia('(display-mode: browser)').matches);
   }
 
-  /** In or out (F11, Settings): false where the page can't go full screen. */
+  /** Settings: on (and in, now) or off (and out, now), kept in this browser. */
+  setAuto(on: boolean): void {
+    try {
+      this.store?.setItem(KEY, on ? 'on' : 'off');
+    } catch {
+      /* storage refused: for this page only */
+    }
+    if (on && !this.on) void this.enter();
+    if (!on && this.on) void this.leave();
+  }
+
+  /** F11: in or out there and then; false where the page can't go full screen (F11 is the browser's). */
   toggle(): boolean {
     if (!this.supported) return false;
     void (this.on ? this.leave() : this.enter());
@@ -75,38 +124,27 @@ export class FullKeyboard {
   }
 
   async enter(): Promise<void> {
-    try {
-      await this.doc.documentElement.requestFullscreen({ navigationUI: 'hide' });
-    } catch {
-      return; // refused: no click or key just now, or a frame that may not
-    }
-    // Remembered now: the browser tells the page (fullscreenchange) a frame or so later.
-    this.remember(true);
-    // Locked once in full screen; a refusal (an older browser) leaves it full screen alone.
-    await keyboardLock()
-      ?.lock(LOCKED)
-      .catch(() => {});
+    await this.doc.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {
+      /* refused: no click or key just now, or a frame that may not */
+    });
   }
 
   async leave(): Promise<void> {
     keyboardLock()?.unlock();
-    this.remember(false);
     if (this.doc.fullscreenElement) await this.doc.exitFullscreen().catch(() => {});
   }
 
-  /** Clicking `target` (the game) goes back into Full Keyboard if the player was in it when the page last went. */
+  /** A click on `target` (the game) goes into Full Keyboard while it's on and the page isn't full screen. */
   resumeOn(target: EventTarget): void {
     target.addEventListener('mousedown', () => {
-      if (this.supported && !this.on && this.store?.getItem(KEY) === '1') void this.enter();
+      if (this.supported && !this.on && this.auto) void this.enter();
     });
   }
 
-  private remember(on: boolean): void {
-    try {
-      if (on) this.store?.setItem(KEY, '1');
-      else this.store?.removeItem(KEY);
-    } catch {
-      /* storage full or refused: not remembered */
-    }
+  /** Locked once in full screen; a refusal (an older browser) leaves full screen alone. */
+  private async lock(): Promise<void> {
+    await keyboardLock()
+      ?.lock(LOCKED)
+      .catch(() => {});
   }
 }

@@ -11,6 +11,7 @@ import {
   type Account,
   type CharacterInfo,
 } from '../net/account';
+import { enterWorldFullScreen } from '../input/fullKeyboard';
 import { Reloading, WorldLink, type Welcome } from '../net/worldLink';
 import { CharacterSelect } from '../ui/characterSelect';
 import { SignInScreen } from '../ui/signIn';
@@ -97,6 +98,9 @@ async function frontDoor(opt: Pick<Options, 'as'>): Promise<Online> {
         if ('signedOut' in choice) continue;
         pick = choice.enter;
         zone = choice.zone;
+        // Full Keyboard, on unless Settings turned it off: the click (or Enter) that chose goes full
+        // screen, so the world loads in it with every key the game's (src/input/fullKeyboard.ts).
+        enterWorldFullScreen();
       }
       entering = pick;
       choose();
